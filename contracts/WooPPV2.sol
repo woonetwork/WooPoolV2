@@ -66,7 +66,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     struct TokenInfo {
         uint192 reserve; // balance reserve
         uint16 feeRate; // 1 in 100000; 10 = 1bp = 0.01%; max = 65535
-        // bool paused;        // paused
     }
 
     /* ----- State variables ----- */
@@ -215,11 +214,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         emit WooSwap(quoteToken, baseToken, quoteAmount + lpFee, baseAmount, from, to, rebateTo);
     }
 
-    // function balance(address token) private view returns (uint256) {
-    //     // TODO: gas optimization
-    //     return IERC20(token).balanceOf(address(this));
-    // }
-
     /// @dev Get the pool's balance of the specified token
     /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
     /// @dev forked and curtesy by Uniswap v3-core
@@ -317,15 +311,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         view
         returns (uint256 quoteAmount, uint256 newPrice)
     {
-        /*
-            baseBalance = base.balanceOf(this)
-            baseAmount = baseBalance - baseReserve
-            quoteAmount = baseAmount * oracle.price * (1 - oracle.k * baseAmount * oracle.price - oracle.spread)
-            quote.transfer(to, quoteAmount)
-            oracle.postPrice(base, oracle.price - 2 * k * oracle.price^2 * baseAmount)
-            baseReserve = baseBalance
-            quoteReserve = quote.balanceOf(this)
-        */
         IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
         require(state.woFeasible, "WooPPV2: ORACLE_PRICE_NOT_FEASIBLE");
 
@@ -364,15 +349,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         view
         returns (uint256 baseAmount, uint256 newPrice)
     {
-        /*
-            quoteBalance = quote.balanceOf(this)
-            quoteAmount = quoteBalance - quoteReserve
-            baseAmount = quoteAmount / oracle.price * (1 - oracle.k * quoteAmount - oracle.spread)
-            base.transfer(to, baseAmount)
-            oracle.postPrice(base, oracle.price + 2 * k * oracle.price * quoteAmount)
-            baseReserve = base.balanceOf(this)
-            quoteReserve = quoteBalance
-        */
         IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
         require(state.woFeasible, "WooPPV2: ORACLE_PRICE_NOT_FEASIBLE");
 
