@@ -4,7 +4,7 @@
   ],
   "rules": {
     "subject-case": [
-      2,
+      1,
       "always",
       "sentence-case"
     ],
