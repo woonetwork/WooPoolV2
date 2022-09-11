@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Greeter} from "../../contracts/Greeter.sol";
+// import {Greeter} from "../../contracts/Greeter.sol";
 import {TestHelpers} from "./TestHelpers.sol";
 
 abstract contract TestParameters {
@@ -9,19 +9,19 @@ abstract contract TestParameters {
 }
 
 contract GreeterTest is TestParameters, TestHelpers {
-    Greeter public greeter;
+    // Greeter public greeter;
 
     function setUp() public {
-        greeter = new Greeter(_INITIAL_MESSAGE);
+        // greeter = new Greeter(_INITIAL_MESSAGE);
     }
 
     function testConstructor() public {
-        assertEq(greeter.greet(), _INITIAL_MESSAGE);
+        // assertEq(greeter.greet(), _INITIAL_MESSAGE);
     }
 
     function testNewGreeting() public {
-        string memory newMessage = "Hola, mundo!";
-        greeter.setGreeting(newMessage);
-        assertEq(greeter.greet(), newMessage);
+        // string memory newMessage = "Hola, mundo!";
+        // greeter.setGreeting(newMessage);
+        // assertEq(greeter.greet(), newMessage);
     }
 }
