@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   format:
@@ -30,6 +30,8 @@ jobs:
             ${{ runner.os }}-yarn-
       - name: Install dependencies
         run: yarn install --frozen-lockfile
+      - name: Compile code (Hardhat)
+        run: yarn compile
       - name: Run format checks
         run: yarn format:check
       - name: Run lint

@@ -48,7 +48,6 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-
 /// @title Woo private pool for swaping.
 /// @notice the implementation class for interface IWooPPV2, mainly for query and swap tokens.
 contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
@@ -329,11 +328,12 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     }
 
     function _decimals(address baseToken) private view returns (Decimals memory) {
-        return Decimals({
-            priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
-            quoteDec: uint64(10)**(ERC20(quoteToken).decimals()), // 18 or 6
-            baseDec: uint64(10)**(ERC20(baseToken).decimals()) // 18 or 8
-        });
+        return
+            Decimals({
+                priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
+                quoteDec: uint64(10)**(ERC20(quoteToken).decimals()), // 18 or 6
+                baseDec: uint64(10)**(ERC20(baseToken).decimals()) // 18 or 8
+            });
     }
 
     function getBaseAmountSellQuote(address baseToken, uint256 quoteAmount)
