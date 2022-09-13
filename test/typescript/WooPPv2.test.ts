@@ -32,22 +32,17 @@
 */
 
 import { expect, use } from 'chai'
-import { Contract, utils, Wallet } from 'ethers'
+import { Contract, utils } from 'ethers'
 import { ethers } from 'hardhat'
-import { deployContract, deployMockContract, MockProvider, solidity } from 'ethereum-waffle'
-import IWooracleV2 from '../build/IWooracleV2.json'
-import IWooPPV2 from '../build/IWooPPV2.json'
-import IWooFeeManager from '../build/IWooFeeManager.json'
-// import WooRouter from '../build/WooRouter.json'
-import IERC20 from '../build/IERC20.json'
-import TestToken from '../build/TestToken.json'
-import { WSAECONNABORTED } from 'constants'
-import { BigNumberish } from '@ethersproject/bignumber'
+import { deployContract, deployMockContract, solidity } from 'ethereum-waffle'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
-import { WooRouterV3, WooracleV2, WooPPV2 } from '../typechain'
-import WooRouterV3Artifact from '../artifacts/contracts/WooRouterV3.sol/WooRouterV3.json'
-import WooracleV2Artifact from '../artifacts/contracts/WooracleV2.sol/WooracleV2.json'
-import WooPPV2Artifact from '../artifacts/contracts/WooPPV2.sol/WooPPV2.json'
+
+import { WooracleV2, WooPPV2 } from '../../typechain'
+import IWooFeeManagerArtifact from '../../artifacts/contracts/interfaces/IWooFeeManager.sol/IWooFeeManager.json'
+import TestERC20TokenArtifact from '../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json'
+import WooracleV2Artifact from '../../artifacts/contracts/WooracleV2.sol/WooracleV2.json'
+import WooPPV2Artifact from '../../artifacts/contracts/WooPPV2.sol/WooPPV2.json'
+
 
 use(solidity)
 
@@ -81,13 +76,13 @@ describe('WooPPV2 trading accuracy', () => {
 
   before('Deploy ERC20', async () => {
     ;[owner, user1, user2] = await ethers.getSigners()
-    btcToken = await deployContract(owner, TestToken, [])
-    wooToken = await deployContract(owner, TestToken, [])
-    usdtToken = await deployContract(owner, TestToken, [])
+    btcToken = await deployContract(owner, TestERC20TokenArtifact, [])
+    wooToken = await deployContract(owner, TestERC20TokenArtifact, [])
+    usdtToken = await deployContract(owner, TestERC20TokenArtifact, [])
 
     wooracle = (await deployContract(owner, WooracleV2Artifact, [])) as WooracleV2
 
-    feeManager = await deployMockContract(owner, IWooFeeManager.abi)
+    feeManager = await deployMockContract(owner, IWooFeeManagerArtifact.abi)
     await feeManager.mock.quoteToken.returns(usdtToken.address)
 
     await btcToken.mint(owner.address, ONE.mul(10000))
