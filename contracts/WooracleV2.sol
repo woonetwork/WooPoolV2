@@ -128,6 +128,9 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         uint256 length = bases.length;
         require(length == newPrices.length, "Wooracle: length_INVALID");
 
+        // TODO: gas optimization:
+        // https://ethereum.stackexchange.com/questions/113221/what-is-the-purpose-of-unchecked-in-solidity
+        // https://forum.openzeppelin.com/t/a-collection-of-gas-optimisation-tricks/19966
         for (uint256 i = 0; i < length; i++) {
             infos[bases[i]].price = newPrices[i];
         }
@@ -248,25 +251,26 @@ contract WooracleV2 is Ownable, IWooracleV2 {
 
     function woState(address base) external view override returns (State memory) {
         TokenInfo memory info = infos[base];
-        State memory stateOut;
-        stateOut.price = info.price;
-        stateOut.spread = info.spread;
-        stateOut.coeff = info.coeff;
-        stateOut.woFeasible = (stateOut.price != 0 && block.timestamp <= (timestamp + staleDuration));
-        return stateOut;
+        return State({
+            price: info.price,
+            spread: info.spread,
+            coeff: info.coeff,
+            woFeasible: (info.price != 0 && block.timestamp <= (timestamp + staleDuration))
+        });
     }
 
     function state(address base) external view override returns (State memory) {
         TokenInfo memory info = infos[base];
-        State memory state_;
-        uint256 basePrice;
-        uint256 priceTimestamp;
-        (basePrice, priceTimestamp) = price(base);
-        state_.price = uint128(basePrice);
-        state_.spread = info.spread;
-        state_.coeff = info.coeff;
-        state_.woFeasible = (state_.price != 0 && block.timestamp <= (priceTimestamp + staleDuration));
-        return state_;
+        (
+            uint256 basePrice,
+            uint256 priceTimestamp
+        ) = price(base);
+        return State({
+            price: uint128(basePrice),
+            spread: info.spread,
+            coeff: info.coeff,
+            woFeasible: (basePrice != 0 && block.timestamp <= (priceTimestamp + staleDuration))
+        });
     }
 
     function cloAddress(address base) external view override returns (address clo) {

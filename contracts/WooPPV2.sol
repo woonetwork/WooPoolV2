@@ -48,7 +48,6 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-import "hardhat/console.sol";
 
 /// @title Woo private pool for swaping.
 /// @notice the implementation class for interface IWooPPV2, mainly for query and swap tokens.
@@ -164,8 +163,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         quoteAmount = quoteAmount - lpFee;
         require(quoteAmount >= minQuoteAmount, "WooPPV2: quoteAmount_LT_minQuoteAmount");
 
-        // TransferHelper.safeApprove(quoteToken, address(feeManager), lpFee);
-        // feeManager.collectFee(lpFee, rebateTo);
         unclaimedFee = unclaimedFee + lpFee;
 
         if (to != address(this)) {
@@ -321,29 +318,24 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             uint256 coef = uint256(1e18) -
                 ((uint256(state.coeff) * baseAmount * state.price) / decs.baseDec / decs.priceDec) -
                 state.spread;
-            console.log("coeff:", coef / 1e16);
             quoteAmount = (((baseAmount * decs.quoteDec * state.price) / decs.priceDec) * coef) / 1e18 / decs.baseDec;
         }
-        console.log(quoteAmount / 1e18);
 
         // newPrice = (1 - 2 * k * oracle.price * baseAmount) * oracle.price
         newPrice =
             ((uint256(1e18) - (uint256(2) * state.coeff * state.price * baseAmount) / decs.priceDec / decs.baseDec) *
                 state.price) /
             1e18;
-        console.log("new price: ", newPrice / 1e8);
     }
 
     function _decimals(address baseToken) private view returns (Decimals memory) {
-        // TODO: literal const return
-        Decimals memory decs;
-        decs.priceDec = uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)); // 8
-        decs.quoteDec = uint64(10)**(ERC20(quoteToken).decimals()); // 18 or 6
-        decs.baseDec = uint64(10)**(ERC20(baseToken).decimals()); // 18 or 8
-        return decs;
+        return Decimals({
+            priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
+            quoteDec: uint64(10)**(ERC20(quoteToken).decimals()), // 18 or 6
+            baseDec: uint64(10)**(ERC20(baseToken).decimals()) // 18 or 8
+        });
     }
 
-    // quote token -> base token
     function getBaseAmountSellQuote(address baseToken, uint256 quoteAmount)
         private
         view
