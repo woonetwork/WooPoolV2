@@ -210,16 +210,9 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         emit WooSwap(quoteToken, baseToken, quoteAmount + lpFee, baseAmount, from, to, rebateTo);
     }
 
-    /// @dev Get the pool's balance of the specified token
-    /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
-    /// @dev forked and curtesy by Uniswap v3-core
-    /// check
+    /// @dev User pool balance (substracted unclaimed fee)
     function balance(address token) public view returns (uint256) {
-        (bool success, bytes memory data) = token.staticcall(
-            abi.encodeWithSelector(IERC20.balanceOf.selector, address(this))
-        );
-        require(success && data.length >= 32, "WooPPV2: !BALANCE");
-        return abi.decode(data, (uint256));
+        return token == quoteToken ? _rawBalance(token) - unclaimedFee : _rawBalance(token);
     }
 
     /// @dev Get the pool's balance of token
@@ -291,6 +284,18 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
     /* ----- Private Functions ----- */
 
+    /// @dev Get the pool's balance of the specified token
+    /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
+    /// @dev forked and curtesy by Uniswap v3-core
+    /// check
+    function _rawBalance(address token) private view returns (uint256) {
+        (bool success, bytes memory data) = token.staticcall(
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(this))
+        );
+        require(success && data.length >= 32, "WooPPV2: !BALANCE");
+        return abi.decode(data, (uint256));
+    }
+
     function _updateReserve(address baseToken) private {
         require(
             balance(baseToken) > tokenInfos[baseToken].reserve || balance(quoteToken) > tokenInfos[quoteToken].reserve,
@@ -299,7 +304,9 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
         // TODO: how to handle the accidental transferred funds?
         tokenInfos[baseToken].reserve = uint192(balance(baseToken));
-        tokenInfos[quoteToken].reserve = uint192(balance(quoteToken) - unclaimedFee);
+
+        // NOTE: unclaimed fee substrated already
+        tokenInfos[quoteToken].reserve = uint192(balance(quoteToken));
     }
 
     function getQuoteAmountSellBase(address baseToken, uint256 baseAmount)
