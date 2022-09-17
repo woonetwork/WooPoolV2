@@ -1,10 +1,7 @@
 <p align="center"><img src="https://files.gitbook.com/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-McghiWP3H5y-b9oQ6H6-887967055%2Fuploads%2FMaPxIQMWO8RcUv6vMK1n%2Flogo2.png?alt=media&token=e51ef4bd-664e-4356-9e38-fdfa12baf27d" width="320" /></p>
 <div align="center">
   <a href="https://github.com/woonetwork/WooPoolV2/actions/workflows/checks.yaml" style="text-decoration:none;">
-    <img src="https://github.com/woonetwork/WooPoolV2/actions/workflows/checks.yaml/badge.svg" alt='Build' />
-  </a>
-  <a href='https://github.com/woonetwork/WooPoolV2/actions/workflows/checks.yaml' style="text-decoration:none;">
-    <img src='https://github.com/woonetwork/WooPoolV2/actions/workflows/checks.yaml/badge.svg' alt='Lint' />
+    <img src="https://github.com/woonetwork/WooPoolV2/actions/workflows/checks.yaml/badge.svg" alt='Build & Build' />
   </a>
   <a href='https://github.com/woonetwork/WooPoolV2/actions/workflows/tests.yaml' style="text-decoration:none;">
     <img src='https://github.com/woonetwork/WooPoolV2/actions/workflows/tests.yaml/badge.svg' alt='Unit Tests' />
