@@ -52,17 +52,18 @@ contract WooracleV2 is Ownable, IWooracleV2 {
     struct TokenInfo {
         uint128 price; // as chainlink oracle (e.g. decimal = 8)
         uint64 coeff; // 18.    18.4 * 1e18
-        uint64 spread; // 18. spread <= 2e18   (2^64 = 1.84e19)
+        uint64 spread; // 18.   spread <= 2e18   18.4 * 1e18
     }
 
     struct CLOracle {
         address oracle;
         uint8 decimal;
+        bool cloPreferred;
     }
 
     mapping(address => TokenInfo) public infos;
 
-    mapping(address => CLOracle) public clOracles; // token to chainlink oracle.
+    mapping(address => CLOracle) public clOracles;
 
     address public override quoteToken;
     uint256 public override timestamp;
@@ -70,8 +71,6 @@ contract WooracleV2 is Ownable, IWooracleV2 {
     uint256 public staleDuration;
     uint64 public bound;
 
-    mapping(address => bool) public wooFeasible;
-    mapping(address => bool) public clFeasible;
     mapping(address => bool) public isAdmin;
 
     constructor() {
@@ -94,17 +93,24 @@ contract WooracleV2 is Ownable, IWooracleV2 {
     /// @param _oracle the token address
     function setQuoteToken(address _quote, address _oracle) external onlyAdmin {
         quoteToken = _quote;
-        clOracles[_quote].oracle = _oracle;
-        clOracles[_quote].decimal = AggregatorV3Interface(_oracle).decimals();
+        CLOracle storage cloRef = clOracles[_quote];
+        cloRef.oracle = _oracle;
+        cloRef.decimal = AggregatorV3Interface(_oracle).decimals();
     }
 
     function setBound(uint64 _bound) external onlyOwner {
         bound = _bound;
     }
 
-    function setCLOracle(address token, address _oracle) external onlyAdmin {
-        clOracles[token].oracle = _oracle;
-        clOracles[token].decimal = AggregatorV3Interface(_oracle).decimals();
+    function setCLOracle(
+        address token,
+        address _oracle,
+        bool _cloPreferred
+    ) external onlyAdmin {
+        CLOracle storage cloRef = clOracles[token];
+        cloRef.oracle = _oracle;
+        cloRef.decimal = AggregatorV3Interface(_oracle).decimals();
+        cloRef.cloPreferred = _cloPreferred;
     }
 
     /// @dev Set the staleDuration.
@@ -193,24 +199,36 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         timestamp = block.timestamp;
     }
 
-    function price(address base) public view override returns (uint256 priceOut, uint256 priceTimestamp) {
+    /*
+        Price logic:
+        - woPrice: wooracle price
+        - cloPrice: chainlink price
+
+        if woFeasible (!=0 && !stale) && withinBound -> woPrice
+        else if clo_preferred -> cloPrice
+        else -> !feasible
+    */
+    function price(address base) public view override returns (uint256 priceOut, bool feasible) {
         uint256 woPrice_ = uint256(infos[base].price);
         uint256 woPriceTimestamp = timestamp;
 
-        (uint256 cloPrice_, uint256 cloPriceTimestamp) = _refPrice(base, quoteToken);
+        (uint256 cloPrice_, ) = _cloPriceInQuote(base, quoteToken);
 
-        bool checkWoFeasible = woPrice_ != 0 && block.timestamp <= (woPriceTimestamp + staleDuration);
-        bool checkWoBound = cloPrice_ == 0 ||
+        bool woFeasible = woPrice_ != 0 && block.timestamp <= (woPriceTimestamp + staleDuration);
+        bool woPriceInBound = cloPrice_ == 0 ||
             (((cloPrice_ * (1e18 - bound)) / 1e18) <= woPrice_ && woPrice_ <= (cloPrice_ * (1e18 + bound)) / 1e18);
 
-        // console.log('checkWoFeasible: %s checkWoBound: %s', checkWoFeasible, checkWoBound);
-
-        if (checkWoFeasible && checkWoBound) {
+        if (woFeasible && woPriceInBound) {
             priceOut = woPrice_;
-            priceTimestamp = woPriceTimestamp;
+            feasible = true;
         } else {
-            priceOut = cloPrice_;
-            priceTimestamp = cloPriceTimestamp;
+            if (clOracles[base].cloPreferred) {
+                priceOut = cloPrice_;
+                feasible = cloPrice_ != 0;
+            } else {
+                priceOut = 0;
+                feasible = false;
+            }
         }
     }
 
@@ -219,16 +237,8 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         return d != 0 ? d : 8;
     }
 
-    function setWooFeasible(address base, bool feasible) external onlyAdmin {
-        wooFeasible[base] = feasible;
-    }
-
-    function setCLFeasible(address base, bool feasible) external onlyAdmin {
-        clFeasible[base] = feasible;
-    }
-
     function cloPrice(address base) external view override returns (uint256, uint256) {
-        return _refPrice(base, quoteToken);
+        return _cloPriceInQuote(base, quoteToken);
     }
 
     function isWoFeasible(address base) external view override returns (bool) {
@@ -262,14 +272,8 @@ contract WooracleV2 is Ownable, IWooracleV2 {
 
     function state(address base) external view override returns (State memory) {
         TokenInfo memory info = infos[base];
-        (uint256 basePrice, uint256 priceTimestamp) = price(base);
-        return
-            State({
-                price: uint128(basePrice),
-                spread: info.spread,
-                coeff: info.coeff,
-                woFeasible: (basePrice != 0 && block.timestamp <= (priceTimestamp + staleDuration))
-            });
+        (uint256 basePrice, bool feasible) = price(base);
+        return State({price: uint128(basePrice), spread: info.spread, coeff: info.coeff, woFeasible: feasible});
     }
 
     function cloAddress(address base) external view override returns (address clo) {
@@ -289,7 +293,7 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         info.coeff = newCoeff;
     }
 
-    function _refPrice(address fromToken, address toToken)
+    function _cloPriceInQuote(address fromToken, address toToken)
         private
         view
         returns (uint256 refPrice, uint256 refTimestamp)
