@@ -38,7 +38,6 @@ import { deployContract, deployMockContract, solidity } from 'ethereum-waffle'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
 import { WooracleV2, WooPPV2 } from '../../typechain'
-import IWooFeeManagerArtifact from '../../artifacts/contracts/interfaces/IWooFeeManager.sol/IWooFeeManager.json'
 import TestERC20TokenArtifact from '../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json'
 import WooracleV2Artifact from '../../artifacts/contracts/WooracleV2.sol/WooracleV2.json'
 import WooPPV2Artifact from '../../artifacts/contracts/WooPPV2.sol/WooPPV2.json'
@@ -66,24 +65,20 @@ describe('WooPPV2 Integration tests', () => {
   let owner: SignerWithAddress
   let user1: SignerWithAddress
   let user2: SignerWithAddress
+  let feeAddr: SignerWithAddress
 
   let wooracle: WooracleV2
-  let feeManager: Contract
-  let wooGuardian: Contract
   let btcToken: Contract
   let wooToken: Contract
   let usdtToken: Contract
 
   before('Deploy ERC20', async () => {
-    ;[owner, user1, user2] = await ethers.getSigners()
+    ;[owner, user1, user2, feeAddr] = await ethers.getSigners()
     btcToken = await deployContract(owner, TestERC20TokenArtifact, [])
     wooToken = await deployContract(owner, TestERC20TokenArtifact, [])
     usdtToken = await deployContract(owner, TestERC20TokenArtifact, [])
 
     wooracle = (await deployContract(owner, WooracleV2Artifact, [])) as WooracleV2
-
-    feeManager = await deployMockContract(owner, IWooFeeManagerArtifact.abi)
-    await feeManager.mock.quoteToken.returns(usdtToken.address)
 
     await btcToken.mint(owner.address, ONE.mul(10000))
     await usdtToken.mint(owner.address, ONE.mul(500000000))
@@ -96,7 +91,7 @@ describe('WooPPV2 Integration tests', () => {
     beforeEach('Deploy wooPPV2', async () => {
       wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2
 
-      await wooPP.init(wooracle.address, feeManager.address)
+      await wooPP.init(wooracle.address, feeAddr.address)
       await wooPP.setFeeRate(btcToken.address, 100);
 
       await btcToken.approve(wooPP.address, ONE.mul(10))
@@ -191,7 +186,7 @@ describe('WooPPV2 Integration tests', () => {
     beforeEach('Deploy WooPPV2', async () => {
       wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2
 
-      await wooPP.init(wooracle.address, feeManager.address)
+      await wooPP.init(wooracle.address, feeAddr.address)
       await wooPP.setFeeRate(btcToken.address, 100);
 
       await btcToken.mint(owner.address, ONE.mul(10))
