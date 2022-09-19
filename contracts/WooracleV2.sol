@@ -37,8 +37,6 @@ pragma solidity =0.8.14;
 import "./interfaces/IWooracleV2.sol";
 import "./interfaces/AggregatorV3Interface.sol";
 
-import "hardhat/console.sol";
-
 // OpenZeppelin contracts
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -137,8 +135,10 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         // TODO: gas optimization:
         // https://ethereum.stackexchange.com/questions/113221/what-is-the-purpose-of-unchecked-in-solidity
         // https://forum.openzeppelin.com/t/a-collection-of-gas-optimisation-tricks/19966
-        for (uint256 i = 0; i < length; i++) {
-            infos[bases[i]].price = newPrices[i];
+        unchecked {
+            for (uint256 i = 0; i < length; i++) {
+                infos[bases[i]].price = newPrices[i];
+            }
         }
 
         timestamp = block.timestamp;
@@ -159,8 +159,10 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         uint256 length = bases.length;
         require(length == newSpreads.length, "Wooracle: length_INVALID");
 
-        for (uint256 i = 0; i < length; i++) {
-            infos[bases[i]].spread = newSpreads[i];
+        unchecked {
+            for (uint256 i = 0; i < length; i++) {
+                infos[bases[i]].spread = newSpreads[i];
+            }
         }
 
         timestamp = block.timestamp;
@@ -193,8 +195,10 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         uint64[] calldata newCoeffs
     ) external onlyAdmin {
         uint256 length = bases.length;
-        for (uint256 i = 0; i < length; i++) {
-            _setState(bases[i], newPrices[i], newSpreads[i], newCoeffs[i]);
+        unchecked {
+            for (uint256 i = 0; i < length; i++) {
+                _setState(bases[i], newPrices[i], newSpreads[i], newCoeffs[i]);
+            }
         }
         timestamp = block.timestamp;
     }
