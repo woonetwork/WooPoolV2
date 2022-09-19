@@ -6,3 +6,6 @@ gasReporterOutput.json
 typechain
 lib*
 test
+
+*.js
+*.ts

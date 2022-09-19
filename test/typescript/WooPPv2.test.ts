@@ -62,7 +62,7 @@ const FEE = 0.001
 const ONE = BigNumber.from(10).pow(18)
 const PRICE_DEC = BigNumber.from(10).pow(8)
 
-describe('WooPPV2 trading accuracy', () => {
+describe('WooPPV2 Integration tests', () => {
   let owner: SignerWithAddress
   let user1: SignerWithAddress
   let user2: SignerWithAddress

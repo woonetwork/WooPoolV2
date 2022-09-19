@@ -61,7 +61,7 @@ const WOO_PRICE = 0.15
 const ONE = BigNumber.from(10).pow(18)
 const PRICE_DEC = BigNumber.from(10).pow(8)
 
-describe('WooPPV2 trading accuracy', () => {
+describe('WooRouterV3 Integration Tests', () => {
   let owner: SignerWithAddress
   let user: SignerWithAddress
 
@@ -95,7 +95,7 @@ describe('WooPPV2 trading accuracy', () => {
       wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2
 
       await wooPP.init(wooracle.address, feeManager.address)
-      
+
       wooRouter = (await deployContract(owner, WooRouterV3Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV3
 
       // const threshold = 0

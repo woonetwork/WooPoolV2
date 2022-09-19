@@ -5,8 +5,7 @@
   "rules": {
     "subject-case": [
       1,
-      "always",
-      "sentence-case"
+      "always"
     ],
     "type-enum": [
       2,
