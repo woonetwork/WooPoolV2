@@ -48,18 +48,22 @@ interface IWooracleV2 {
 
     function woCoeff(address base) external view returns (uint64);
 
-    // Wooracle price of the base token
-    function woPrice(address base) external view returns (uint128 price, uint256 timestamp);
-
     function woState(address base) external view returns (State memory);
+
+    function cloAddress(address base) external view returns (address clo);
 
     // ChainLink price of the base token / quote token
     function cloPrice(address base) external view returns (uint256 price, uint256 timestamp);
 
-    function cloAddress(address base) external view returns (address clo);
+    // Wooracle price of the base token
+    function woPrice(address base) external view returns (uint128 price, uint256 timestamp);
 
     // Returns Woooracle price if available, otherwise fallback to ChainLink
-    function price(address base) external view returns (uint256 priceNow, uint256 timestamp);
+    function price(address base) external view returns (uint256 priceNow, bool feasible);
+
+    function postPrice(address base, uint128 newPrice) external;
+
+    // post state
 
     function state(address base) external view returns (State memory);
 
@@ -70,6 +74,4 @@ interface IWooracleV2 {
     function timestamp() external view returns (uint256);
 
     function isWoFeasible(address base) external view returns (bool);
-
-    function postPrice(address base, uint128 newPrice) external;
 }
