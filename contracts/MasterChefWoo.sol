@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IMasterChefWoo.sol";
+import "./interfaces/IXWoo.sol";
 
 contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -97,7 +98,7 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         external 
         override 
         view 
-        returns (uint256) 
+        returns (uint256 pendingXWooAmount, uint256 pendingWooAmount) 
     {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
@@ -107,7 +108,9 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
             uint256 xWooReward = xWooPerBlock * pool.allocPoint / totalAllocPoint;
             accTokenPerShare += xWooReward * 1e12 / weTokenSupply;
         }
-        return user.amount * accTokenPerShare / 1e12 - user.rewardDebt;
+        pendingXWooAmount = user.amount * accTokenPerShare / 1e12 - user.rewardDebt;
+        uint256 rate = IXWoo(xWoo).getPricePerFullShare();
+        pendingWooAmount =  pendingXWooAmount * rate / 1e18;
     }
 
     // Update reward variables for all pools. Be careful of gas spending!
@@ -131,6 +134,13 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
             pool.lastRewardBlock = block.number;
             emit PoolUpdated(_pid, pool.lastRewardBlock, weSupply, pool.accTokenPerShare);
         }
+    }
+
+    function setXWooPerBlock(uint256 _xWooPerBlock) external override onlyOwner {
+        require(_xWooPerBlock > 0, "Invalid value");
+        xWooPerBlock = _xWooPerBlock;
+
+        emit XWooPerBlockUpdated(xWooPerBlock);
     }
 
     function deposit(uint256 _pid, uint256 _amount) external override nonReentrant {

@@ -9,6 +9,7 @@ interface IMasterChefWoo {
 
     event PoolAdded(uint256 poolId, uint256 allocPoint, IERC20 weToken, IRewarder rewarder);
     event PoolSet(uint256 poolId, uint256 allocPoint, IRewarder rewarder);
+    event XWooPerBlockUpdated(uint256 xWooPerBlock);
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
@@ -26,6 +27,9 @@ interface IMasterChefWoo {
         IRewarder rewarder;
     }
 
+    // System-level function
+    function setXWooPerBlock(uint256 _xWooPerBlock) external;
+
     // Pool-related functions
     function poolLength() external view returns (uint256);
     function add(uint256 allocPoint, IERC20 weToken, IRewarder rewarder) external;
@@ -34,7 +38,7 @@ interface IMasterChefWoo {
     function updatePool(uint256 pid) external;
 
     // User-related functions
-    function pendingXWoo(uint256 pid, address user) external view returns (uint256);
+    function pendingXWoo(uint256 pid, address user) external view returns (uint256, uint256);
     function deposit(uint256 pid, uint256 amount) external;
     function withdraw(uint256 pid, uint256 amount) external;
     function emergencyWithdraw(uint256 pid) external;
