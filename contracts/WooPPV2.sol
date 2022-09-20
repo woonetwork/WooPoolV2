@@ -36,7 +36,6 @@ pragma solidity =0.8.14;
 
 import "./interfaces/IWooracleV2.sol";
 import "./interfaces/IWooPPV2.sol";
-import "./interfaces/IWooFeeManager.sol";
 import "./interfaces/AggregatorV3Interface.sol";
 
 import "./libraries/TransferHelper.sol";
@@ -67,7 +66,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     }
 
     /* ----- State variables ----- */
-    uint256 public unclaimedFee;
+    uint256 public unclaimedFee; // NOTE: in quote token
 
     // wallet address --> is admin
     mapping(address => bool) public isAdmin;
@@ -80,7 +79,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
     IWooracleV2 public wooracle;
 
-    IWooFeeManager public feeManager;
+    address public feeAddr;
 
     /* ----- Modifiers ----- */
 
@@ -93,11 +92,10 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         quoteToken = _quoteToken;
     }
 
-    function init(address _wooracle, address _feeManager) external onlyOwner {
-        require(address(wooracle) == address(0) && address(feeManager) == address(0), "WooPPV2: INIT_INVALID");
+    function init(address _wooracle, address _feeAddr) external onlyOwner {
+        require(address(wooracle) == address(0), "WooPPV2: INIT_INVALID");
         wooracle = IWooracleV2(_wooracle);
-        feeManager = IWooFeeManager(_feeManager);
-        require(feeManager.quoteToken() == quoteToken, "WooPPV2: !feeManager");
+        feeAddr = _feeAddr;
     }
 
     /* ----- External Functions ----- */
@@ -226,18 +224,16 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         emit WooracleUpdated(_wooracle);
     }
 
-    function setFeeManager(address _feeManager) external onlyAdmin {
-        feeManager = IWooFeeManager(_feeManager);
-        require(feeManager.quoteToken() == quoteToken, "WooPPV2: !feeManager_quoteToken");
-        emit FeeManagerUpdated(_feeManager);
+    function setFeeAddr(address _feeAddr) external onlyAdmin {
+        feeAddr = _feeAddr;
+        emit FeeAddrUpdated(_feeAddr);
     }
 
     /* ----- Admin Functions ----- */
 
     function claimFee() external onlyAdmin {
-        uint256 fee = unclaimedFee;
-        TransferHelper.safeApprove(quoteToken, address(feeManager), fee);
-        TransferHelper.safeTransfer(quoteToken, address(feeManager), fee);
+        require(feeAddr != address(0), "WooPPV2: !feeAddr");
+        TransferHelper.safeTransfer(quoteToken, feeAddr, unclaimedFee);
         unclaimedFee = 0;
     }
 
