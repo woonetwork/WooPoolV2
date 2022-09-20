@@ -111,7 +111,7 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
             accTokenPerShare += (xWooReward * 1e12) / weTokenSupply;
         }
         pendingXWooAmount = user.amount * accTokenPerShare / 1e12 - user.rewardDebt;
-        uint256 rate = IXWoo(xWoo).getPricePerFullShare();
+        uint256 rate = IXWoo(address(xWoo)).getPricePerFullShare();
         pendingWooAmount =  pendingXWooAmount * rate / 1e18;
     }
 
