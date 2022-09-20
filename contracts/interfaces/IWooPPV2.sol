@@ -100,6 +100,18 @@ interface IWooPPV2 {
     /// @return baseAmount the swapped base token amount
     function querySellQuote(address baseToken, uint256 quoteAmount) external view returns (uint256 baseAmount);
 
+    /// @dev Query the amount for selling the base token amount w/o checking the balance reserve.
+    /// @param baseToken the base token to sell
+    /// @param baseAmount the amount to sell
+    /// @return quoteAmount the swapped quote amount
+    function tryQuerySellBase(address baseToken, uint256 baseAmount) external view returns (uint256 quoteAmount);
+
+    /// @dev Query the amount for selling the quote token w/o checking the balance reserve.
+    /// @param baseToken the base token to receive (buy)
+    /// @param quoteAmount the amount to sell
+    /// @return baseAmount the swapped base token amount
+    function tryQuerySellQuote(address baseToken, uint256 quoteAmount) external view returns (uint256 baseAmount);
+
     /// @dev get the quote token address (immutable)
     /// @return address of quote token
     function quoteToken() external view returns (address);
