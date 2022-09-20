@@ -9,6 +9,7 @@ interface IMasterChefWoo {
 
     event PoolAdded(uint256 poolId, uint256 allocPoint, IERC20 weToken, IRewarder rewarder);
     event PoolSet(uint256 poolId, uint256 allocPoint, IRewarder rewarder);
+    event PoolUpdated(uint256 poolId, uint256 block, uint256 supply, uint256 accTokenPerShare);
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
