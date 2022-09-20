@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IRewarder.sol";
 
 interface IMasterChefWoo {
-
     event PoolAdded(uint256 poolId, uint256 allocPoint, IERC20 weToken, IRewarder rewarder);
     event PoolSet(uint256 poolId, uint256 allocPoint, IRewarder rewarder);
     event XWooPerBlockUpdated(uint256 xWooPerBlock);
@@ -32,14 +31,28 @@ interface IMasterChefWoo {
 
     // Pool-related functions
     function poolLength() external view returns (uint256);
-    function add(uint256 allocPoint, IERC20 weToken, IRewarder rewarder) external;
-    function set(uint256 pid, uint256 allocPoint, IRewarder rewarder) external;
+
+    function add(
+        uint256 allocPoint,
+        IERC20 weToken,
+        IRewarder rewarder
+    ) external;
+
+    function set(
+        uint256 pid,
+        uint256 allocPoint,
+        IRewarder rewarder
+    ) external;
+
     function massUpdatePools() external;
+
     function updatePool(uint256 pid) external;
 
     // User-related functions
     function pendingXWoo(uint256 pid, address user) external view returns (uint256, uint256);
     function deposit(uint256 pid, uint256 amount) external;
+
     function withdraw(uint256 pid, uint256 amount) external;
+
     function emergencyWithdraw(uint256 pid) external;
 }
