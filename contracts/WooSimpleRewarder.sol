@@ -100,7 +100,7 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
     function setRewardRate(uint256 _tokenPerBlock) external onlyOwner {
         updatePool();
 
-        uint256 oldRate = _tokenPerBlock;
+        uint256 oldRate = tokenPerBlock;
         tokenPerBlock = _tokenPerBlock;
 
         emit RewardRateUpdated(oldRate, _tokenPerBlock);

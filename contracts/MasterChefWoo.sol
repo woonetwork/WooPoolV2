@@ -199,16 +199,17 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
     }
 
     function emergencyWithdraw(uint256 _pid) external override nonReentrant {
+        address caller = _msgSender();
         PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][_msgSender()];
-        emit EmergencyWithdraw(_msgSender(), _pid, user.amount);
+        UserInfo storage user = userInfo[_pid][caller];
+        emit EmergencyWithdraw(caller, _pid, user.amount);
         uint256 amount = user.amount;
         user.amount = 0;
         user.rewardDebt = 0;
         IRewarder _rewarder = pool.rewarder;
         if (address(_rewarder) != address(0)) {
-            _rewarder.onRewarded(_msgSender(), 0);
+            _rewarder.onRewarded(caller, 0);
         }
-        pool.weToken.safeTransfer(_msgSender(), amount);
+        pool.weToken.safeTransfer(caller, amount);
     }
 }
