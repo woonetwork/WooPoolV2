@@ -6,31 +6,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IRewarder.sol";
 
 interface IMasterChefWoo {
-    event PoolAdded(
-        uint256 poolId, 
-        uint256 allocPoint, 
-        IERC20 weToken, 
-        IRewarder rewarder
-    );
-    event PoolSet(
-        uint256 poolId, 
-        uint256 allocPoint, 
-        IRewarder rewarder
-    );
-    event PoolUpdated(
-        uint256 poolId, 
-        uint256 lastRewardBlock, 
-        uint256 supply, 
-        uint256 accTokenPerShare
-    );
+    event PoolAdded(uint256 poolId, uint256 allocPoint, IERC20 weToken, IRewarder rewarder);
+    event PoolSet(uint256 poolId, uint256 allocPoint, IRewarder rewarder);
+    event PoolUpdated(uint256 poolId, uint256 lastRewardBlock, uint256 supply, uint256 accTokenPerShare);
     event XWooPerBlockUpdated(uint256 xWooPerBlock);
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
-    event EmergencyWithdraw(
-        address indexed user, 
-        uint256 indexed pid, 
-        uint256 amount
-    );
+    event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
 
     struct UserInfo {
         uint256 amount;
