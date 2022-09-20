@@ -136,6 +136,30 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         require(baseAmount <= tokenInfos[baseToken].reserve, "WooPPV2: INSUFF_BASE");
     }
 
+    function tryQuerySellBase(address baseToken, uint256 baseAmount)
+        external
+        view
+        override
+        whenNotPaused
+        returns (uint256 quoteAmount)
+    {
+        (quoteAmount, ) = getQuoteAmountSellBase(baseToken, baseAmount);
+        uint256 fee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
+        quoteAmount = quoteAmount - fee;
+    }
+
+    function tryQuerySellQuote(address baseToken, uint256 quoteAmount)
+        external
+        view
+        override
+        whenNotPaused
+        returns (uint256 baseAmount)
+    {
+        uint256 lpFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
+        quoteAmount = quoteAmount - lpFee;
+        (baseAmount, ) = getBaseAmountSellQuote(baseToken, quoteAmount);
+    }
+
     /// @inheritdoc IWooPPV2
     function sellBase(
         address baseToken,
