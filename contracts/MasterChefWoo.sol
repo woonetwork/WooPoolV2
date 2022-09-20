@@ -17,13 +17,10 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
     uint256 public xWooPerBlock;
     uint256 public totalAllocPoint;
     PoolInfo[] public poolInfo;
-    mapping (uint256 => mapping (address => UserInfo)) public userInfo;
+    mapping(uint256 => mapping(address => UserInfo)) public userInfo;
     EnumerableSet.AddressSet private weTokenSet;
 
-    constructor(
-        IERC20 _xWoo,
-        uint256 _xWooPerBlock
-    ) {
+    constructor(IERC20 _xWoo, uint256 _xWooPerBlock) {
         require(address(_xWoo) != address(0), "MCW: invalid address");
         require(_xWooPerBlock > 0, "MCW: invalid value");
 
@@ -31,24 +28,26 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         xWooPerBlock = _xWooPerBlock;
 
         // staking pool
-        poolInfo.push(PoolInfo({
-            weToken: IERC20(address(0)),
-            allocPoint: 0,
-            lastRewardBlock: block.number,
-            accTokenPerShare: 0,
-            rewarder: IRewarder(address(0))
-        }));
+        poolInfo.push(
+            PoolInfo({
+                weToken: IERC20(address(0)),
+                allocPoint: 0,
+                lastRewardBlock: block.number,
+                accTokenPerShare: 0,
+                rewarder: IRewarder(address(0))
+            })
+        );
 
         totalAllocPoint = 0;
     }
 
-    function poolLength() public override view returns (uint256) {
+    function poolLength() public view override returns (uint256) {
         return poolInfo.length;
     }
 
     function add(
-        uint256 _allocPoint, 
-        IERC20 _weToken, 
+        uint256 _allocPoint,
+        IERC20 _weToken,
         IRewarder _rewarder
     ) external override onlyOwner {
         require(!weTokenSet.contains(address(_weToken)), "MCW: already added");
@@ -60,21 +59,23 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         }
 
         totalAllocPoint += _allocPoint;
-        poolInfo.push(PoolInfo({
-            weToken: _weToken,
-            allocPoint: _allocPoint,
-            lastRewardBlock: block.number,
-            accTokenPerShare: 0,
-            rewarder: _rewarder
-        }));
+        poolInfo.push(
+            PoolInfo({
+                weToken: _weToken,
+                allocPoint: _allocPoint,
+                lastRewardBlock: block.number,
+                accTokenPerShare: 0,
+                rewarder: _rewarder
+            })
+        );
         weTokenSet.add(address(_weToken));
 
         emit PoolAdded(poolLength() - 1, _allocPoint, _weToken, _rewarder);
     }
 
     function set(
-        uint256 _pid, 
-        uint256 _allocPoint, 
+        uint256 _pid,
+        uint256 _allocPoint,
         IRewarder _rewarder
     ) external override onlyOwner {
         PoolInfo storage pool = poolInfo[_pid];
@@ -93,21 +94,17 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         emit PoolSet(_pid, _allocPoint, pool.rewarder);
     }
 
-    function pendingXWoo(uint256 _pid, address _user) 
-        external 
-        override 
-        view 
-        returns (uint256) 
-    {
+    function pendingXWoo(uint256 _pid, address _user) external view override returns (uint256) {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
         uint256 accTokenPerShare = pool.accTokenPerShare;
         uint256 weTokenSupply = pool.weToken.balanceOf(address(this));
         if (block.number > pool.lastRewardBlock && weTokenSupply != 0) {
-            uint256 xWooReward = xWooPerBlock * pool.allocPoint / totalAllocPoint;
-            accTokenPerShare += xWooReward * 1e12 / weTokenSupply;
+            uint256 blocks = block.number - pool.lastRewardBlock;
+            uint256 xWooReward = (blocks * xWooPerBlock * pool.allocPoint) / totalAllocPoint;
+            accTokenPerShare += (xWooReward * 1e12) / weTokenSupply;
         }
-        return user.amount * accTokenPerShare / 1e12 - user.rewardDebt;
+        return (user.amount * accTokenPerShare) / 1e12 - user.rewardDebt;
     }
 
     // Update reward variables for all pools. Be careful of gas spending!
@@ -125,8 +122,8 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
             uint256 weSupply = pool.weToken.balanceOf(address(this));
             if (weSupply > 0) {
                 uint256 blocks = block.number - pool.lastRewardBlock;
-                uint256 xWooReward = blocks * xWooPerBlock * pool.allocPoint / totalAllocPoint;
-                pool.accTokenPerShare += xWooReward * 1e12 / weSupply;
+                uint256 xWooReward = (blocks * xWooPerBlock * pool.allocPoint) / totalAllocPoint;
+                pool.accTokenPerShare += (xWooReward * 1e12) / weSupply;
             }
             pool.lastRewardBlock = block.number;
             emit PoolUpdated(_pid, pool.lastRewardBlock, weSupply, pool.accTokenPerShare);
@@ -135,23 +132,24 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
 
     function deposit(uint256 _pid, uint256 _amount) external override nonReentrant {
         require(_pid != 0, "deposit woo by staking");
+        require(_amount > 0, "Invalid deposit amount");
+
         updatePool(_pid);
-        PoolInfo storage pool = poolInfo[_pid];
+        PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_msgSender()];
+
         if (user.amount > 0) {
-            uint256 pending = user.amount * pool.accTokenPerShare / 1e12 - user.rewardDebt;
+            uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
             if (pending > 0) {
                 xWoo.safeTransfer(_msgSender(), pending);
             }
         }
         uint256 balanceBefore = pool.weToken.balanceOf(address(this));
-        if (_amount > 0) {
-            pool.weToken.safeTransferFrom(_msgSender(), address(this), _amount);
-        }
+        pool.weToken.safeTransferFrom(_msgSender(), address(this), _amount);
         uint256 receivedAmount = pool.weToken.balanceOf(address(this)) - balanceBefore;
 
         user.amount += receivedAmount;
-        user.rewardDebt = user.amount * pool.accTokenPerShare / 1e12;
+        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
 
         IRewarder _rewarder = pool.rewarder;
         if (address(_rewarder) != address(0)) {
@@ -162,18 +160,18 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
     }
 
     function withdraw(uint256 _pid, uint256 _amount) external override nonReentrant {
-        require (_pid != 0, "withdraw WETOKEN by unstaking");
+        require(_pid != 0, "withdraw WETOKEN by unstaking");
         updatePool(_pid);
-        PoolInfo storage pool = poolInfo[_pid];
+        PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_msgSender()];
         require(user.amount >= _amount, "withdraw: not good");
 
         if (user.amount > 0) {
-            uint256 pending = user.amount * pool.accTokenPerShare / 1e12 - user.rewardDebt;
+            uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
             xWoo.safeTransfer(_msgSender(), pending);
         }
         user.amount -= _amount;
-        user.rewardDebt = user.amount * pool.accTokenPerShare / 1e12;
+        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
 
         IRewarder _rewarder = pool.rewarder;
         if (address(_rewarder) != address(0)) {
