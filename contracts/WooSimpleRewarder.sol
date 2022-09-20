@@ -33,18 +33,9 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
         IMasterChefWoo _MCW,
         uint256 _tokenPerBlock
     ) {
-        require(
-            address(_rewardToken).isContract(), 
-            "Rewarder: invalid reward token"
-        );
-        require(
-            address(_weToken).isContract(), 
-            "Rewarder: invalid weToken"
-        );
-        require(
-            address(_MCW).isContract(), 
-            "Rewarder: invalid MasterChefWoo"
-        );
+        require(address(_rewardToken).isContract(), "Rewarder: invalid reward token");
+        require(address(_weToken).isContract(), "Rewarder: invalid weToken");
+        require(address(_MCW).isContract(), "Rewarder: invalid MasterChefWoo");
 
         rewardToken = _rewardToken;
         weToken = _weToken;
@@ -52,21 +43,16 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
         tokenPerBlock = _tokenPerBlock;
     }
 
-    /// @notice Function called by MasterChefWoo whenever staker claims weToken harvest. 
+    /// @notice Function called by MasterChefWoo whenever staker claims weToken harvest.
     /// @notice Allows staker to also receive a 2nd reward token
     /// @param _user Address of user
     /// @param _weAmount Number of we tokens the user has
-    function onRewarded(address _user, uint256 _weAmount) 
-        external 
-        override 
-        onlyMCW 
-        nonReentrant 
-    {
+    function onRewarded(address _user, uint256 _weAmount) external override onlyMCW nonReentrant {
         PoolInfo memory pool = updatePool();
         UserInfo storage user = userInfo[_user];
         uint256 pending;
         if (user.amount > 0) {
-            pending = user.amount * pool.accTokenPerShare / 1e12 - user.rewardDebt + user.unpaidRewards;
+            pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt + user.unpaidRewards;
             uint256 curBalance = rewardToken.balanceOf(address(this));
             if (pending > curBalance) {
                 if (curBalance > 0) {
@@ -80,7 +66,7 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
         }
 
         user.amount = _weAmount;
-        user.rewardDebt = user.amount * pool.accTokenPerShare / 1e12;
+        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
 
         emit OnRewarded(_user, pending - user.unpaidRewards);
     }
@@ -88,12 +74,7 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
     /// @notice View function to see pending tokens
     /// @param _user Address of user.
     /// @return pending reward for a given user.
-    function pendingTokens(address _user) 
-        external 
-        view 
-        override 
-        returns (uint256 pending) 
-    {
+    function pendingTokens(address _user) external view override returns (uint256 pending) {
         PoolInfo memory pool = poolInfo;
         UserInfo storage user = userInfo[_user];
 
@@ -101,12 +82,12 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
         uint256 weSupply = weToken.balanceOf(address(MCW));
 
         if (block.number > pool.lastRewardBlock && weSupply != 0) {
-            uint256 blocks  = block.number - pool.lastRewardBlock;
+            uint256 blocks = block.number - pool.lastRewardBlock;
             uint256 tokenReward = blocks * tokenPerBlock;
-            accTokenPerShare += tokenReward * 1e12 / weSupply;
+            accTokenPerShare += (tokenReward * 1e12) / weSupply;
         }
 
-        pending = user.amount * accTokenPerShare / 1e12 - user.rewardDebt + user.unpaidRewards;
+        pending = (user.amount * accTokenPerShare) / 1e12 - user.rewardDebt + user.unpaidRewards;
     }
 
     /// @notice View function to see balance of reward token.
@@ -136,7 +117,7 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
             if (weSupply > 0) {
                 uint256 blocks = block.number - pool.lastRewardBlock;
                 uint256 tokenReward = blocks * tokenPerBlock;
-                pool.accTokenPerShare += tokenReward * 1e12 / weSupply;
+                pool.accTokenPerShare += (tokenReward * 1e12) / weSupply;
             }
 
             pool.lastRewardBlock = block.number;
@@ -144,7 +125,7 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
         }
     }
 
-    /// @notice In case rewarder is stopped before emissions finished, 
+    /// @notice In case rewarder is stopped before emissions finished,
     /// @notice this function allows withdrawal of remaining tokens.
     function emergencyWithdraw() public onlyOwner {
         uint256 amount = rewardToken.balanceOf(address(this));
