@@ -95,11 +95,11 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         emit PoolSet(_pid, _allocPoint, pool.rewarder);
     }
 
-    function pendingXWoo(uint256 _pid, address _user) 
-        external 
-        override 
-        view 
-        returns (uint256 pendingXWooAmount, uint256 pendingWooAmount) 
+    function pendingXWoo(uint256 _pid, address _user)
+        external
+        view
+        override
+        returns (uint256 pendingXWooAmount, uint256 pendingWooAmount)
     {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
@@ -110,9 +110,9 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
             uint256 xWooReward = (blocks * xWooPerBlock * pool.allocPoint) / totalAllocPoint;
             accTokenPerShare += (xWooReward * 1e12) / weTokenSupply;
         }
-        pendingXWooAmount = user.amount * accTokenPerShare / 1e12 - user.rewardDebt;
+        pendingXWooAmount = (user.amount * accTokenPerShare) / 1e12 - user.rewardDebt;
         uint256 rate = IXWoo(address(xWoo)).getPricePerFullShare();
-        pendingWooAmount =  pendingXWooAmount * rate / 1e18;
+        pendingWooAmount = (pendingXWooAmount * rate) / 1e18;
     }
 
     // Update reward variables for all pools. Be careful of gas spending!
