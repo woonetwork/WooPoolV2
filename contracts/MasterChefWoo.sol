@@ -9,37 +9,25 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IMasterChefWoo.sol";
 import "./interfaces/IXWoo.sol";
+import "./libraries/TransferHelper.sol";
 
 contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    IERC20 public xWoo;
+    address public constant ETH_PLACEHOLDER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    IERC20 public immutable xWoo;
     uint256 public xWooPerBlock;
     uint256 public totalAllocPoint;
+
     PoolInfo[] public poolInfo;
     mapping(uint256 => mapping(address => UserInfo)) public userInfo;
     EnumerableSet.AddressSet private weTokenSet;
 
     constructor(IERC20 _xWoo, uint256 _xWooPerBlock) {
-        require(address(_xWoo) != address(0), "MCW: invalid address");
-        require(_xWooPerBlock > 0, "MCW: invalid value");
-
         xWoo = _xWoo;
         xWooPerBlock = _xWooPerBlock;
-
-        // staking pool
-        poolInfo.push(
-            PoolInfo({
-                weToken: IERC20(address(0)),
-                allocPoint: 0,
-                lastRewardBlock: block.number,
-                accTokenPerShare: 0,
-                rewarder: IRewarder(address(0))
-            })
-        );
-
-        totalAllocPoint = 0;
     }
 
     function poolLength() public view override returns (uint256) {
@@ -71,7 +59,7 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         );
         weTokenSet.add(address(_weToken));
 
-        emit PoolAdded(poolLength() - 1, _allocPoint, _weToken, _rewarder);
+        emit PoolAdded(poolLength(), _allocPoint, _weToken, _rewarder);
     }
 
     function set(
@@ -140,24 +128,21 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
 
     function setXWooPerBlock(uint256 _xWooPerBlock) external override onlyOwner {
         require(_xWooPerBlock > 0, "Invalid value");
+        massUpdatePools();
         xWooPerBlock = _xWooPerBlock;
 
         emit XWooPerBlockUpdated(xWooPerBlock);
     }
 
     function deposit(uint256 _pid, uint256 _amount) external override nonReentrant {
-        require(_pid != 0, "deposit woo by staking");
-        require(_amount > 0, "Invalid deposit amount");
-
+        require(_amount > 0, "MCW: invalid deposit amount");
         updatePool(_pid);
         PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_msgSender()];
 
         if (user.amount > 0) {
             uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
-            if (pending > 0) {
-                xWoo.safeTransfer(_msgSender(), pending);
-            }
+            xWoo.safeTransfer(_msgSender(), pending);
         }
         uint256 balanceBefore = pool.weToken.balanceOf(address(this));
         pool.weToken.safeTransferFrom(_msgSender(), address(this), _amount);
@@ -175,11 +160,11 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
     }
 
     function withdraw(uint256 _pid, uint256 _amount) external override nonReentrant {
-        require(_pid != 0, "withdraw WETOKEN by unstaking");
+        require(_amount > 0, "MCW: invalid value");
         updatePool(_pid);
         PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_msgSender()];
-        require(user.amount >= _amount, "withdraw: not good");
+        require(user.amount >= _amount, "MCW: !amount");
 
         if (user.amount > 0) {
             uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
@@ -211,5 +196,17 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
             _rewarder.onRewarded(caller, 0);
         }
         pool.weToken.safeTransfer(caller, amount);
+    }
+
+    /// @dev Rescue the specified funds when stuck happens
+    /// @param stuckToken the stuck token address
+    function inCaseTokenGotStuck(address stuckToken) external onlyOwner {
+        require(stuckToken != address(0), "WSR: invalid address");
+        if (stuckToken == ETH_PLACEHOLDER_ADDR) {
+            TransferHelper.safeTransferETH(_msgSender(), address(this).balance);
+        } else {
+            uint256 amount = IERC20(stuckToken).balanceOf(address(this));
+            TransferHelper.safeTransfer(stuckToken, _msgSender(), amount);
+        }
     }
 }

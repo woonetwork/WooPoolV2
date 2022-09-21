@@ -9,11 +9,13 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IRewarder.sol";
 import "./interfaces/IMasterChefWoo.sol";
+import "./libraries/TransferHelper.sol";
 
 contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Address for address;
 
+    address public constant ETH_PLACEHOLDER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     IERC20 public immutable weToken;
     IERC20 public immutable rewardToken;
     IMasterChefWoo public immutable MCW; // MasterChefWoo
@@ -33,10 +35,6 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
         IMasterChefWoo _MCW,
         uint256 _tokenPerBlock
     ) {
-        require(address(_rewardToken).isContract(), "Rewarder: invalid reward token");
-        require(address(_weToken).isContract(), "Rewarder: invalid weToken");
-        require(address(_MCW).isContract(), "Rewarder: invalid MasterChefWoo");
-
         rewardToken = _rewardToken;
         weToken = _weToken;
         MCW = _MCW;
@@ -98,8 +96,8 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
     /// @notice Sets the distribution reward rate. This will also update the poolInfo.
     /// @param _tokenPerBlock The number of tokens to distribute per second
     function setRewardRate(uint256 _tokenPerBlock) external onlyOwner {
+        require(_tokenPerBlock > 0, "WSR: invalid value");
         updatePool();
-
         uint256 oldRate = tokenPerBlock;
         tokenPerBlock = _tokenPerBlock;
 
@@ -130,5 +128,17 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
     function emergencyWithdraw() public onlyOwner {
         uint256 amount = rewardToken.balanceOf(address(this));
         rewardToken.safeTransfer(owner(), amount);
+    }
+
+    /// @dev Rescue the specified funds when stuck happens
+    /// @param stuckToken the stuck token address
+    function inCaseTokenGotStuck(address stuckToken) external onlyOwner {
+        require(stuckToken != address(0), "WSR: invalid address");
+        if (stuckToken == ETH_PLACEHOLDER_ADDR) {
+            TransferHelper.safeTransferETH(_msgSender(), address(this).balance);
+        } else {
+            uint256 amount = IERC20(stuckToken).balanceOf(address(this));
+            TransferHelper.safeTransfer(stuckToken, _msgSender(), amount);
+        }
     }
 }
