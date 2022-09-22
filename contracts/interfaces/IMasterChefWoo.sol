@@ -12,6 +12,7 @@ interface IMasterChefWoo {
     event XWooPerBlockUpdated(uint256 xWooPerBlock);
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
+    event Harvest(address indexed user, uint256 indexed pid, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
 
     struct UserInfo {
@@ -55,6 +56,8 @@ interface IMasterChefWoo {
     function deposit(uint256 pid, uint256 amount) external;
 
     function withdraw(uint256 pid, uint256 amount) external;
+
+    function harvest(uint256 pid) external;
 
     function emergencyWithdraw(uint256 pid) external;
 }
