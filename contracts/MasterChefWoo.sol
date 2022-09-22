@@ -135,6 +135,7 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
     }
 
     function deposit(uint256 _pid, uint256 _amount) external override nonReentrant {
+        updatePool(_pid);
         PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_msgSender()];
 
