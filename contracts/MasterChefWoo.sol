@@ -135,26 +135,18 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
     }
 
     function deposit(uint256 _pid, uint256 _amount) external override nonReentrant {
-        require(_amount > 0, "MCW: invalid deposit amount");
-        updatePool(_pid);
         PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_msgSender()];
 
-        if (user.amount > 0) {
-            uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
-            xWoo.safeTransfer(_msgSender(), pending);
-        }
-        uint256 balanceBefore = pool.weToken.balanceOf(address(this));
-        pool.weToken.safeTransferFrom(_msgSender(), address(this), _amount);
-        uint256 receivedAmount = pool.weToken.balanceOf(address(this)) - balanceBefore;
-
-        user.amount += receivedAmount;
-        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
+        user.amount += _amount;
+        user.rewardDebt += (_amount * pool.accTokenPerShare) / 1e12;
 
         IRewarder _rewarder = pool.rewarder;
         if (address(_rewarder) != address(0)) {
             _rewarder.onRewarded(_msgSender(), user.amount);
         }
+
+        pool.weToken.safeTransferFrom(_msgSender(), address(this), _amount);
 
         emit Deposit(_msgSender(), _pid, _amount);
     }
@@ -181,6 +173,29 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         pool.weToken.safeTransfer(_msgSender(), _amount);
 
         emit Withdraw(_msgSender(), _pid, _amount);
+    }
+
+    function harvest(uint256 _pid) external override nonReentrant {
+        updatePool(_pid);
+        address caller = _msgSender();
+        UserInfo storage user = userInfo[_pid][caller];
+        PoolInfo memory pool = poolInfo[_pid];
+
+        uint256 newRewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
+        uint256 pending = newRewardDebt - user.rewardDebt;
+
+        // Effects
+        user.rewardDebt = newRewardDebt;
+
+        // Interactions
+        xWoo.safeTransfer(caller, pending);
+
+        IRewarder _rewarder = pool.rewarder;
+        if (address(_rewarder) != address(0)) {
+            _rewarder.onRewarded(caller, user.amount);
+        }
+
+        emit Harvest(caller, _pid, pending);
     }
 
     function emergencyWithdraw(uint256 _pid) external override nonReentrant {
