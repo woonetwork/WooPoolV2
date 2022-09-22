@@ -71,8 +71,8 @@ describe('WooPPV2 Integration tests', () => {
     weToken = await deployContract(owner, TestERC20TokenArtifact, []);
     rewardToken = await deployContract(owner, TestERC20TokenArtifact, []);
 
-    masterCW = (await deployContract(owner, MasterChefWooArtifact, [])) as MasterChefWoo;
-    wooSR = (await deployContract(owner, WooSimpleRewarderArtifact, [])) as WooSimpleRewarder;
+    masterCW = (await deployContract(owner, MasterChefWooArtifact, [xWooToken.address, 10])) as MasterChefWoo;
+    wooSR = (await deployContract(owner, WooSimpleRewarderArtifact, [rewardToken.address, weToken.address, masterCW.address, 20])) as WooSimpleRewarder;
 
     await xWooToken.mint(ownerAddr, TOKEN_100);
     await weToken.mint(ownerAddr, TOKEN_100);
@@ -80,95 +80,16 @@ describe('WooPPV2 Integration tests', () => {
   })
 
   describe('MasterChefWoo', () => {
-    beforeEach('Deploy wooPPV2', async () => {
-      wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2
-
-      await wooPP.init(wooracle.address, feeManager.address)
-      await wooPP.setFeeRate(btcToken.address, 100);
-
-      await btcToken.approve(wooPP.address, ONE.mul(10))
-      await wooPP.deposit(btcToken.address, ONE.mul(10))
-
-      await usdtToken.approve(wooPP.address, ONE.mul(300000))
-      await wooPP.deposit(usdtToken.address, ONE.mul(300000))
-
-      await wooracle.postState(
-        btcToken.address,
-        PRICE_DEC.mul(BTC_PRICE),       // price
-        utils.parseEther('0.001'),      // spread
-        utils.parseEther('0.000000001') // coeff
-      )
-
-      await wooracle.setAdmin(wooPP.address, true)
+    beforeEach('Deploy MasterChefWoo', async () => {
+      console.log('Deploy')
     })
 
-    it('querySwap accuracy1', async () => {
-      const btcNum = 1
-      const amount = await wooPP.querySellBase(btcToken.address, ONE.mul(btcNum))
-      const amountNum = Number(utils.formatEther(amount))
-      const benchmark = BTC_PRICE * btcNum * (1 - FEE)
-      expect(amountNum).to.lessThan(benchmark)
-      const slippage = (benchmark - amountNum) / benchmark
-      expect(slippage).to.lessThan(0.0012)
-      console.log('Query selling 1 btc for usdt: ', amountNum, slippage)
+    it('test MasterChefWoo', async () => {
+      console.log('MasterChefWoo tests')
     })
 
-    it('querySwap accuracy1_2', async () => {
-      const btcNum = 3
-      const amount = await wooPP.querySellBase(btcToken.address, ONE.mul(btcNum))
-      const amountNum = Number(utils.formatEther(amount))
-      const benchmark = BTC_PRICE * btcNum * (1 - FEE)
-      expect(amountNum).to.lessThan(benchmark)
-      const slippage = (benchmark - amountNum) / benchmark
-      expect(slippage).to.lessThan(0.0012)
-      console.log('Query selling 3 btc for usdt: ', amountNum, slippage)
-    })
-
-    it('querySwap accuracy1_3', async () => {
-      const btcNum = 10
-      const amount = await wooPP.querySellBase(btcToken.address, ONE.mul(btcNum))
-      const amountNum = Number(utils.formatEther(amount))
-      const benchmark = BTC_PRICE * btcNum * (1 - FEE)
-      expect(amountNum).to.lessThan(benchmark)
-      const slippage = (benchmark - amountNum) / benchmark
-      expect(slippage).to.lessThan(0.0013)
-      console.log('Query selling 10 btc for usdt: ', amountNum, slippage)
-    })
-
-    it('querySwap accuracy2_1', async () => {
-      const uAmount = 10000
-      const amount = await wooPP.querySellQuote(btcToken.address, ONE.mul(uAmount))
-      const amountNum = Number(utils.formatEther(amount))
-      const benchmark = uAmount / BTC_PRICE * (1 - FEE)
-      expect(amountNum).to.lessThan(benchmark)
-      const slippage = (benchmark - amountNum) / benchmark
-      expect(slippage).to.lessThan(0.0012)
-      console.log('Query selling 10000 usdt for btc: ', amountNum, slippage)
-    })
-
-    it('querySwap accuracy2_2', async () => {
-      const uAmount = 100000
-      const amount = await wooPP.querySellQuote(btcToken.address, ONE.mul(uAmount))
-      const amountNum = Number(utils.formatEther(amount))
-      const benchmark = uAmount / BTC_PRICE * (1 - FEE)
-      expect(amountNum).to.lessThan(benchmark)
-      const slippage = (benchmark - amountNum) / benchmark
-      expect(slippage).to.lessThan(0.0012)
-      console.log('Query selling 100000 usdt for btc: ', amountNum, slippage)
-    })
-
-    it('querySwap revert1', async () => {
-      const btcAmount = 100
-      await expect(
-        wooPP.querySellBase(btcToken.address, ONE.mul(btcAmount))
-      ).to.be.revertedWith('WooPPV2: INSUFF_QUOTE')
-    })
-
-    it('querySwap revert2', async () => {
-      const uAmount = 300000
-      await expect(
-        wooPP.querySellQuote(btcToken.address, ONE.mul(uAmount))
-      ).to.be.revertedWith('WooPPV2: INSUFF_BASE')
+    it('test WooSimpleRewarder', async () => {
+      console.log('WooSimpleRewarder tests')
     })
   })
 })
