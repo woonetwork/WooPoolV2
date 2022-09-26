@@ -136,8 +136,16 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
 
     function deposit(uint256 _pid, uint256 _amount) external override nonReentrant {
         updatePool(_pid);
+        address caller = _msgSender();
         PoolInfo memory pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][_msgSender()];
+        UserInfo storage user = userInfo[_pid][caller];
+
+        if (user.amount > 0) {
+            // Harvest xWoo
+            uint256 pending = user.amount * pool.accTokenPerShare / 1e12 - user.rewardDebt;
+            xWoo.safeTransfer(caller, pending);
+            emit Harvest(caller, _pid, pending);
+        }
 
         user.amount += _amount;
         user.rewardDebt += (_amount * pool.accTokenPerShare) / 1e12;
