@@ -142,7 +142,7 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
 
         if (user.amount > 0) {
             // Harvest xWoo
-            uint256 pending = user.amount * pool.accTokenPerShare / 1e12 - user.rewardDebt;
+            uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
             xWoo.safeTransfer(caller, pending);
             emit Harvest(caller, _pid, pending);
         }
