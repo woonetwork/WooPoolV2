@@ -89,7 +89,7 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         override
         returns (uint256 pendingXWooAmount, uint256 pendingWooAmount)
     {
-        PoolInfo storage pool = poolInfo[_pid];
+        PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
         uint256 accTokenPerShare = pool.accTokenPerShare;
         uint256 weTokenSupply = pool.weToken.balanceOf(address(this));
@@ -142,46 +142,47 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
 
         if (user.amount > 0) {
             // Harvest xWoo
-            uint256 pending = user.amount * pool.accTokenPerShare / 1e12 - user.rewardDebt;
+            uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
             xWoo.safeTransfer(caller, pending);
             emit Harvest(caller, _pid, pending);
         }
 
         user.amount += _amount;
-        user.rewardDebt += (_amount * pool.accTokenPerShare) / 1e12;
+        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
 
         IRewarder _rewarder = pool.rewarder;
         if (address(_rewarder) != address(0)) {
-            _rewarder.onRewarded(_msgSender(), user.amount);
+            _rewarder.onRewarded(caller, user.amount);
         }
 
-        pool.weToken.safeTransferFrom(_msgSender(), address(this), _amount);
+        pool.weToken.safeTransferFrom(caller, address(this), _amount);
 
-        emit Deposit(_msgSender(), _pid, _amount);
+        emit Deposit(caller, _pid, _amount);
     }
 
     function withdraw(uint256 _pid, uint256 _amount) external override nonReentrant {
         require(_amount > 0, "MCW: invalid value");
         updatePool(_pid);
+        address caller = _msgSender();
         PoolInfo memory pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][_msgSender()];
+        UserInfo storage user = userInfo[_pid][caller];
         require(user.amount >= _amount, "MCW: !amount");
 
         if (user.amount > 0) {
             uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
-            xWoo.safeTransfer(_msgSender(), pending);
+            xWoo.safeTransfer(caller, pending);
         }
         user.amount -= _amount;
         user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
 
         IRewarder _rewarder = pool.rewarder;
         if (address(_rewarder) != address(0)) {
-            _rewarder.onRewarded(_msgSender(), user.amount);
+            _rewarder.onRewarded(caller, user.amount);
         }
 
-        pool.weToken.safeTransfer(_msgSender(), _amount);
+        pool.weToken.safeTransfer(caller, _amount);
 
-        emit Withdraw(_msgSender(), _pid, _amount);
+        emit Withdraw(caller, _pid, _amount);
     }
 
     function harvest(uint256 _pid) external override nonReentrant {
