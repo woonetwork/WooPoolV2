@@ -1,6 +1,39 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.14;
+pragma solidity =0.8.14;
+
+/*
+
+░██╗░░░░░░░██╗░█████╗░░█████╗░░░░░░░███████╗██╗
+░██║░░██╗░░██║██╔══██╗██╔══██╗░░░░░░██╔════╝██║
+░╚██╗████╗██╔╝██║░░██║██║░░██║█████╗█████╗░░██║
+░░████╔═████║░██║░░██║██║░░██║╚════╝██╔══╝░░██║
+░░╚██╔╝░╚██╔╝░╚█████╔╝╚█████╔╝░░░░░░██║░░░░░██║
+░░░╚═╝░░░╚═╝░░░╚════╝░░╚════╝░░░░░░░╚═╝░░░░░╚═╝
+
+*
+* MIT License
+* ===========
+*
+* Copyright (c) 2020 WooTrade
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -59,7 +92,7 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         );
         weTokenSet.add(address(_weToken));
 
-        emit PoolAdded(poolLength(), _allocPoint, _weToken, _rewarder);
+        emit PoolAdded(poolLength() - 1, _allocPoint, _weToken, _rewarder);
     }
 
     function set(
@@ -191,11 +224,11 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         UserInfo storage user = userInfo[_pid][caller];
         PoolInfo memory pool = poolInfo[_pid];
 
-        uint256 newRewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
-        uint256 pending = newRewardDebt - user.rewardDebt;
+        uint256 totalReward = (user.amount * pool.accTokenPerShare) / 1e12;
+        uint256 pending = totalReward - user.rewardDebt;
 
         // Effects
-        user.rewardDebt = newRewardDebt;
+        user.rewardDebt = totalReward;
 
         // Interactions
         xWoo.safeTransfer(caller, pending);
