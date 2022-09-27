@@ -226,7 +226,8 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
     /// @dev Rescue the specified funds when stuck happens
     /// @param stuckToken the stuck token address
     function inCaseTokenGotStuck(address stuckToken) external onlyOwner {
-        require(stuckToken != address(0), "WSR: invalid address");
+        require(stuckToken != address(0), "MCW: !address");
+        require(!weTokenSet.contains(stuckToken), "MCW: !staked_token");
         if (stuckToken == ETH_PLACEHOLDER_ADDR) {
             TransferHelper.safeTransferETH(_msgSender(), address(this).balance);
         } else {
