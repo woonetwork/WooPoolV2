@@ -39,12 +39,12 @@ const config: HardhatUserConfig = {
       accounts: accounts,
     },
     avalanche_mainnet: {
-      url: "https://api.avax.network/ext/bc/C/rpc/",
+      url: "https://api.avax.network/ext/bc/C/rpc",
       chainId: 43114,
       accounts: accounts,
     },
     avalanche_testnet: {
-      url: "https://api.avax-test.network/ext/bc/C/rpc/",
+      url: "https://api.avax-test.network/ext/bc/C/rpc",
       chainId: 43113,
       accounts: accounts,
     },
