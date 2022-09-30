@@ -208,9 +208,12 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         - woPrice: wooracle price
         - cloPrice: chainlink price
 
-        if woFeasible (!=0 && !stale) && withinBound -> woPrice
-        else if clo_preferred -> cloPrice
-        else -> !feasible
+        woFeasible is, price > 0 and price timestamp NOT stale
+
+        when woFeasible && priceWithinBound     -> woPrice, feasible
+        when woFeasible && !priceWithinBound    -> woPrice, infeasible
+        when !woFeasible && clo_preferred       -> cloPrice, feasible
+        when !woFeasible && !clo_preferred      -> cloPrice, infeasible
     */
     function price(address base) public view override returns (uint256 priceOut, bool feasible) {
         uint256 woPrice_ = uint256(infos[base].price);
@@ -220,19 +223,14 @@ contract WooracleV2 is Ownable, IWooracleV2 {
 
         bool woFeasible = woPrice_ != 0 && block.timestamp <= (woPriceTimestamp + staleDuration);
         bool woPriceInBound = cloPrice_ == 0 ||
-            (((cloPrice_ * (1e18 - bound)) / 1e18) <= woPrice_ && woPrice_ <= (cloPrice_ * (1e18 + bound)) / 1e18);
+            ((cloPrice_ * (1e18 - bound)) / 1e18 <= woPrice_ && woPrice_ <= (cloPrice_ * (1e18 + bound)) / 1e18);
 
-        if (woFeasible && woPriceInBound) {
+        if (woFeasible) {
             priceOut = woPrice_;
-            feasible = true;
+            feasible = woPriceInBound;
         } else {
-            if (clOracles[base].cloPreferred) {
-                priceOut = cloPrice_;
-                feasible = cloPrice_ != 0;
-            } else {
-                priceOut = 0;
-                feasible = false;
-            }
+            priceOut = clOracles[base].cloPreferred ? cloPrice_ : 0;
+            feasible = priceOut != 0;
         }
     }
 
