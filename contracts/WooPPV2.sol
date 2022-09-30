@@ -280,7 +280,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         emit AdminUpdated(addr, flag);
     }
 
-    function deposit(address token, uint256 amount) external onlyAdmin {
+    function deposit(address token, uint256 amount) public onlyAdmin {
         uint256 balanceBefore = balance(token);
         TransferHelper.safeTransferFrom(token, msg.sender, address(this), amount);
         uint256 amountReceived = balance(token) - balanceBefore;
@@ -289,6 +289,10 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         tokenInfos[token].reserve = uint192(tokenInfos[token].reserve + amount);
 
         emit Deposit(token, msg.sender, amount);
+    }
+
+    function depositAll(address token) external onlyAdmin {
+        deposit(token, IERC20(token).balanceOf(address(this)));
     }
 
     function withdraw(address token, uint256 amount) public onlyAdmin {
