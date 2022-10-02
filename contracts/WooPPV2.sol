@@ -292,7 +292,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     }
 
     function depositAll(address token) external onlyAdmin {
-        deposit(token, IERC20(token).balanceOf(address(this)));
+        deposit(token, IERC20(token).balanceOf(msg.sender));
     }
 
     function withdraw(address token, uint256 amount) public onlyAdmin {
