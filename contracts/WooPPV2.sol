@@ -182,6 +182,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
         uint256 lpFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
         quoteAmount = quoteAmount - lpFee;
+
         require(quoteAmount >= minQuoteAmount, "WooPPV2: quoteAmount_LT_minQuoteAmount");
 
         unclaimedFee = unclaimedFee + lpFee;
@@ -190,7 +191,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             TransferHelper.safeTransfer(quoteToken, to, quoteAmount);
         }
 
-        _updateReserve(baseToken);
+        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve + baseAmount);
+        tokenInfos[quoteToken].reserve = uint192(tokenInfos[quoteToken].reserve - quoteAmount - lpFee);
 
         emit WooSwap(baseToken, quoteToken, baseAmount, quoteAmount, from, to, rebateTo);
     }
@@ -227,7 +229,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             TransferHelper.safeTransfer(baseToken, to, baseAmount);
         }
 
-        _updateReserve(baseToken);
+        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve - baseAmount);
+        tokenInfos[quoteToken].reserve = uint192(tokenInfos[quoteToken].reserve + quoteAmount);
 
         emit WooSwap(quoteToken, baseToken, quoteAmount + lpFee, baseAmount, from, to, rebateTo);
     }
@@ -306,6 +309,23 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         withdraw(token, poolSize(token));
     }
 
+    function skim(address token) public onlyAdmin {
+        TransferHelper.safeTransfer(token, owner(), balance(token) - tokenInfos[token].reserve);
+    }
+
+    function skimMulTokens(address[] memory tokens) external onlyAdmin {
+        unchecked {
+            uint256 len = tokens.length;
+            for (uint256 i = 0; i < len; i++) {
+                skim(tokens[i]);
+            }
+        }
+    }
+
+    function sync(address token) external onlyAdmin {
+        tokenInfos[token].reserve = uint192(balance(token));
+    }
+
     /* ----- Private Functions ----- */
 
     /// @dev Get the pool's balance of the specified token
@@ -318,19 +338,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         );
         require(success && data.length >= 32, "WooPPV2: !BALANCE");
         return abi.decode(data, (uint256));
-    }
-
-    function _updateReserve(address baseToken) private {
-        require(
-            balance(baseToken) > tokenInfos[baseToken].reserve || balance(quoteToken) > tokenInfos[quoteToken].reserve,
-            "WooPPV2: !BALANCE"
-        );
-
-        // TODO: how to handle the accidental transferred funds?
-        tokenInfos[baseToken].reserve = uint192(balance(baseToken));
-
-        // NOTE: unclaimed fee substrated already
-        tokenInfos[quoteToken].reserve = uint192(balance(quoteToken));
     }
 
     function getQuoteAmountSellBase(address baseToken, uint256 baseAmount)
