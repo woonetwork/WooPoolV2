@@ -34,7 +34,7 @@
 import { expect, use } from 'chai'
 import { Contract, utils } from 'ethers'
 import { ethers } from 'hardhat'
-import { deployContract, deployMockContract, solidity } from 'ethereum-waffle'
+import { deployContract, solidity } from 'ethereum-waffle'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
 import { WooracleV2, WooPPV2 } from '../../typechain'
@@ -47,15 +47,11 @@ use(solidity)
 
 const {
   BigNumber,
-  constants: { MaxUint256 },
 } = ethers
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
-const WBNB_ADDR = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'
-const ZERO = 0
 
 const BTC_PRICE = 20000
-const WOO_PRICE = 0.15
 const FEE = 0.001
 
 const ONE = BigNumber.from(10).pow(18)
@@ -333,7 +329,7 @@ describe('WooPPV2 Integration tests', () => {
         ZERO_ADDR,
         ZERO_ADDR)
       ).to.be.revertedWith('WooPPV2: !to');
-      })
+    })
 
     it('sellBase fail2', async () => {
       await btcToken.approve(wooPP.address, ONE)

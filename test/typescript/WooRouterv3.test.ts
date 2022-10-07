@@ -34,7 +34,7 @@
 import { expect, use } from 'chai'
 import { Contract, utils } from 'ethers'
 import { ethers } from 'hardhat'
-import { deployContract, deployMockContract, solidity } from 'ethereum-waffle'
+import { deployContract, solidity } from 'ethereum-waffle'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
 import { WooracleV2, WooPPV2, WooRouterV3 } from '../../typechain'
@@ -47,22 +47,17 @@ use(solidity)
 
 const {
   BigNumber,
-  constants: { MaxUint256 },
 } = ethers
 
-const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
 const WBNB_ADDR = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'
-const ZERO = 0
 
 const BTC_PRICE = 20000
-const WOO_PRICE = 0.15
 
 const ONE = BigNumber.from(10).pow(18)
 const PRICE_DEC = BigNumber.from(10).pow(8)
 
 describe('WooRouterV3 Integration Tests', () => {
   let owner: SignerWithAddress
-  let user: SignerWithAddress
   let feeAddr: SignerWithAddress
 
   let wooracle: WooracleV2
@@ -71,7 +66,9 @@ describe('WooRouterV3 Integration Tests', () => {
   let usdtToken: Contract
 
   before('Deploy ERC20', async () => {
-    ;[owner, user, feeAddr] = await ethers.getSigners()
+    const signers = await ethers.getSigners()
+    owner = signers[0]
+    feeAddr = signers[2]
     btcToken = await deployContract(owner, TestERC20TokenArtifact, [])
     wooToken = await deployContract(owner, TestERC20TokenArtifact, [])
     usdtToken = await deployContract(owner, TestERC20TokenArtifact, [])

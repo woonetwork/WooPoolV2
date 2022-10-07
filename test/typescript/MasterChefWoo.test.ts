@@ -31,10 +31,10 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { expect, use } from 'chai';
-import { Contract, utils } from 'ethers';
+import { use } from 'chai';
+import { Contract } from 'ethers';
 import { ethers } from 'hardhat';
-import { deployContract, deployMockContract, solidity } from 'ethereum-waffle';
+import { deployContract, solidity } from 'ethereum-waffle';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 import { MasterChefWoo, WooSimpleRewarder } from '../../typechain';
@@ -48,12 +48,9 @@ const { BigNumber } = ethers;
 
 const ONE = BigNumber.from(10).pow(18);
 const TOKEN_100 = ONE.mul(100);
-const PRICE_DEC = BigNumber.from(10).pow(8);
 
 describe('WooPPV2 Integration tests', () => {
   let owner: SignerWithAddress;
-  let user1: SignerWithAddress;
-  let user2: SignerWithAddress;
 
   let masterCW: MasterChefWoo;
   let wooSR: WooSimpleRewarder;
@@ -64,7 +61,8 @@ describe('WooPPV2 Integration tests', () => {
   let ownerAddr: string;
 
   before('Deploy contracts', async () => {
-    [owner, user1, user2] = await ethers.getSigners();
+    const signers = await ethers.getSigners();
+    owner = signers[0];
     ownerAddr = owner.address;
 
     xWooToken = await deployContract(owner, TestERC20TokenArtifact, []);
@@ -72,7 +70,9 @@ describe('WooPPV2 Integration tests', () => {
     rewardToken = await deployContract(owner, TestERC20TokenArtifact, []);
 
     masterCW = (await deployContract(owner, MasterChefWooArtifact, [xWooToken.address, 10])) as MasterChefWoo;
+    console.log("MasterChefWoo address: ", masterCW.address);
     wooSR = (await deployContract(owner, WooSimpleRewarderArtifact, [rewardToken.address, weToken.address, masterCW.address, 20])) as WooSimpleRewarder;
+    console.log("WooSimpleRewarder address: ", wooSR.address);
 
     await xWooToken.mint(ownerAddr, TOKEN_100);
     await weToken.mint(ownerAddr, TOKEN_100);

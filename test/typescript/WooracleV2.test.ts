@@ -63,20 +63,17 @@ async function checkWooracleTimestamp(wooracle: WooracleV2) {
 describe('Wooracle', () => {
   let owner: SignerWithAddress
   let baseToken: SignerWithAddress
-  let anotherBaseToken: SignerWithAddress
-  let quoteToken: SignerWithAddress
 
   let wooracle: WooracleV2
   let chainlinkOne: TestChainLink
   let chainlinkTwo: TestQuoteChainLink
 
   beforeEach(async () => {
-    ;[owner, baseToken, anotherBaseToken, quoteToken] = await ethers.getSigners()
+    const signers = await ethers.getSigners()
+    owner = signers[0]
+    baseToken = signers[1]
     wooracle = (await deployContract(owner, WooracleV2Artifact, [])) as WooracleV2
-  })
 
-  beforeEach(async () => {
-    ;[owner, baseToken, anotherBaseToken, quoteToken] = await ethers.getSigners()
     chainlinkOne = (await deployContract(owner, TestChainLinkArtifact, [])) as TestChainLink
     chainlinkTwo = (await deployContract(owner, TestQuoteChainLinkArtifact, [])) as TestQuoteChainLink
   })
@@ -93,20 +90,22 @@ describe('Wooracle', () => {
 
   it('woPrice function', async () => {
     await wooracle.postPrice(baseToken.address, BN_2E18)
-    const [priceNow, timestamp] = await wooracle.woPrice(baseToken.address)
-    expect(priceNow).to.eq(BN_2E18)
+    await checkWooracleTimestamp(wooracle)
+    const priceResult = await wooracle.woPrice(baseToken.address)
+    expect(priceResult[0]).to.eq(BN_2E18)
   })
 
   it('cloPrice function', async () => {
-    const [r1, priceNow, _, updatedAt, r2] = await chainlinkOne.latestRoundData()
-    const price = priceNow.toNumber()
+    const roundData = await chainlinkOne.latestRoundData()
+    const price = roundData[1].toNumber()
     expect(price).to.greaterThan(0)
 
     const btc = '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c'
     const usdt = '0x55d398326f99059fF775485246999027B3197955'
     await wooracle.setQuoteToken(usdt, chainlinkTwo.address)
     await wooracle.setCLOracle(btc, chainlinkOne.address, true)
-    const [cloPriceNow, timestamp] = await wooracle.cloPrice(btc)
+    const cloPriceResult = await wooracle.cloPrice(btc)
+    const cloPriceNow = cloPriceResult[0]
     console.log(cloPriceNow.toNumber())
     expect(cloPriceNow.toNumber()).to.eq(2119683140878)
   })
@@ -117,7 +116,8 @@ describe('Wooracle', () => {
     const eth = '0x2170Ed0880ac9A755fd29B2688956BD959F933F8'
     await wooracle.setQuoteToken(usdt, chainlinkTwo.address)
     await wooracle.setCLOracle(btc, chainlinkOne.address, true)
-    const [priceOne, feasibleOne] = await wooracle.price(btc)
+    const priceOneResult = await wooracle.price(btc)
+    const priceOne = priceOneResult[0]
     console.log(priceOne.toNumber())
     expect(priceOne.toNumber()).to.eq(2119683140878)
 
@@ -125,9 +125,10 @@ describe('Wooracle', () => {
     expect(quoteToken).to.eq(usdt)
 
     await wooracle.postPrice(btc, 2119683140000)
-    const [priceTwo, _] = await wooracle.price(btc)
+    const [priceTwo, feasibleTwo] = await wooracle.price(btc)
     console.log(priceTwo.toNumber())
     expect(priceTwo.toNumber()).to.eq(2119683140000)
+    expect(feasibleTwo).to.eq(true)
 
     const woTimestamp = await wooracle.timestamp()
     console.log(woTimestamp.toNumber())
