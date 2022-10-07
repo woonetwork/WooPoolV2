@@ -187,12 +187,12 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
         unclaimedFee = unclaimedFee + lpFee;
 
+        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve + baseAmount);
+        tokenInfos[quoteToken].reserve = uint192(tokenInfos[quoteToken].reserve - quoteAmount - lpFee);
+
         if (to != address(this)) {
             TransferHelper.safeTransfer(quoteToken, to, quoteAmount);
         }
-
-        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve + baseAmount);
-        tokenInfos[quoteToken].reserve = uint192(tokenInfos[quoteToken].reserve - quoteAmount - lpFee);
 
         emit WooSwap(baseToken, quoteToken, baseAmount, quoteAmount, from, to, rebateTo);
     }
@@ -225,12 +225,12 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
         unclaimedFee = unclaimedFee + lpFee;
 
+        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve - baseAmount);
+        tokenInfos[quoteToken].reserve = uint192(tokenInfos[quoteToken].reserve + quoteAmount);
+
         if (to != address(this)) {
             TransferHelper.safeTransfer(baseToken, to, baseAmount);
         }
-
-        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve - baseAmount);
-        tokenInfos[quoteToken].reserve = uint192(tokenInfos[quoteToken].reserve + quoteAmount);
 
         emit WooSwap(quoteToken, baseToken, quoteAmount + lpFee, baseAmount, from, to, rebateTo);
     }
@@ -258,13 +258,14 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
     /* ----- Admin Functions ----- */
 
-    function claimFee() external onlyAdmin {
+    function claimFee() external nonReentrant onlyAdmin {
         require(feeAddr != address(0), "WooPPV2: !feeAddr");
-        TransferHelper.safeTransfer(quoteToken, feeAddr, unclaimedFee);
+        uint256 amountToTransfer = unclaimedFee;
         unclaimedFee = 0;
+        TransferHelper.safeTransfer(quoteToken, feeAddr, amountToTransfer);
     }
 
-    function setFeeRate(address token, uint16 rate) external onlyAdmin {
+    function setFeeRate(address token, uint16 rate) external nonReentrant onlyAdmin {
         require(rate <= 1e5, "!rate");
         tokenInfos[token].feeRate = rate;
     }
@@ -277,13 +278,13 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         super._unpause();
     }
 
-    function setAdmin(address addr, bool flag) external onlyAdmin {
+    function setAdmin(address addr, bool flag) external nonReentrant onlyAdmin {
         require(addr != address(0), "WooPPV2: !admin");
         isAdmin[addr] = flag;
         emit AdminUpdated(addr, flag);
     }
 
-    function deposit(address token, uint256 amount) public onlyAdmin {
+    function deposit(address token, uint256 amount) public nonReentrant onlyAdmin {
         uint256 balanceBefore = balance(token);
         TransferHelper.safeTransferFrom(token, msg.sender, address(this), amount);
         uint256 amountReceived = balance(token) - balanceBefore;
@@ -298,10 +299,10 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         deposit(token, IERC20(token).balanceOf(msg.sender));
     }
 
-    function withdraw(address token, uint256 amount) public onlyAdmin {
+    function withdraw(address token, uint256 amount) public nonReentrant onlyAdmin {
         require(tokenInfos[token].reserve >= amount, "WooPPV2: !amount");
-        TransferHelper.safeTransfer(token, owner(), amount);
         tokenInfos[token].reserve = uint192(tokenInfos[token].reserve - amount);
+        TransferHelper.safeTransfer(token, owner(), amount);
         emit Withdraw(token, owner(), amount);
     }
 
@@ -309,11 +310,11 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         withdraw(token, poolSize(token));
     }
 
-    function skim(address token) public onlyAdmin {
+    function skim(address token) public nonReentrant onlyAdmin {
         TransferHelper.safeTransfer(token, owner(), balance(token) - tokenInfos[token].reserve);
     }
 
-    function skimMulTokens(address[] memory tokens) external onlyAdmin {
+    function skimMulTokens(address[] memory tokens) external nonReentrant onlyAdmin {
         unchecked {
             uint256 len = tokens.length;
             for (uint256 i = 0; i < len; i++) {
@@ -322,7 +323,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         }
     }
 
-    function sync(address token) external onlyAdmin {
+    function sync(address token) external nonReentrant onlyAdmin {
         tokenInfos[token].reserve = uint192(balance(token));
     }
 
