@@ -43,6 +43,7 @@ interface IWooPPV2 {
 
     event Deposit(address indexed token, address indexed sender, uint256 amount);
     event Withdraw(address indexed token, address indexed receiver, uint256 amount);
+    event Migrate(address indexed token, address indexed receiver, uint256 amount);
     event AdminUpdated(address indexed addr, bool flag);
     event FeeAddrUpdated(address indexed newFeeAddr);
     event WooracleUpdated(address indexed newWooracle);
