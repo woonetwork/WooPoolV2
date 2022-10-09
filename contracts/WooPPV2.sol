@@ -310,6 +310,19 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         withdraw(token, poolSize(token));
     }
 
+    function migrateToNewPool(address token, address newPool) external nonReentrant onlyAdmin {
+        require(token != address(0), "WooPPV2: !token");
+        require(newPool != address(0), "WooPPV2: !newPool");
+
+        tokenInfos[token].reserve = 0;
+
+        uint256 bal = balance(token);
+        TransferHelper.safeApprove(token, newPool, bal);
+        WooPPV2(newPool).depositAll(token);
+
+        emit Migrate(token, newPool, bal);
+    }
+
     function skim(address token) public nonReentrant onlyAdmin {
         TransferHelper.safeTransfer(token, owner(), balance(token) - tokenInfos[token].reserve);
     }

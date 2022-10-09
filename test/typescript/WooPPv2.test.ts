@@ -515,7 +515,139 @@ describe('WooPPV2 Integration tests', () => {
       expect(await wooPP.poolSize(btcToken.address)).to.be.eq(bal2)
     })
 
+  })
 
-    // TODO: deposit & withdraw & withdrawAll
+  describe('wooPP admins', () => {
+    let wooPP: WooPPV2
+
+    beforeEach('Deploy WooPPV2', async () => {
+      wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2
+
+      await wooPP.init(wooracle.address, feeAddr.address)
+      await wooPP.setFeeRate(btcToken.address, 100);
+
+      await btcToken.mint(owner.address, ONE.mul(10))
+      await usdtToken.mint(owner.address, ONE.mul(300000))
+      await wooToken.mint(owner.address, ONE.mul(3000000))
+
+      await btcToken.approve(wooPP.address, ONE.mul(10))
+      await wooPP.deposit(btcToken.address, ONE.mul(10))
+
+      await usdtToken.approve(wooPP.address, ONE.mul(300000))
+      await wooPP.deposit(usdtToken.address, ONE.mul(300000))
+
+      await wooracle.postState(
+        btcToken.address,
+        PRICE_DEC.mul(BTC_PRICE),       // price
+        utils.parseEther('0.001'),      // spread
+        utils.parseEther('0.000000001') // coeff
+      )
+
+      await wooracle.setAdmin(wooPP.address, true)
+    })
+
+    it('deposit accuracy', async () => {
+      expect(await wooPP.balance(btcToken.address)).to.be.eq(ONE.mul(10))
+      expect(await wooPP.balance(usdtToken.address)).to.be.eq(ONE.mul(300000))
+
+      expect(await wooPP.poolSize(btcToken.address)).to.be.eq(ONE.mul(10))
+      expect(await wooPP.poolSize(usdtToken.address)).to.be.eq(ONE.mul(300000))
+    })
+
+    it('after swap: poolSize & balance accuracy1', async () => {
+      const btcBal = await wooPP.balance(btcToken.address)
+      const btcPool = await wooPP.poolSize(btcToken.address)
+      expect(btcBal).to.be.eq(btcPool)
+
+      const usdtBal = await wooPP.balance(usdtToken.address)
+      const usdtPool = await wooPP.poolSize(usdtToken.address)
+      expect(usdtBal).to.be.eq(usdtPool)
+
+      const btcTradeAmount = ONE
+      const minToAmount = btcTradeAmount.mul(BTC_PRICE).mul(997).div(1000)
+
+      const realToAmount = await wooPP.querySellBase(btcToken.address, btcTradeAmount)
+
+      await btcToken.transfer(wooPP.address, btcTradeAmount)
+      await wooPP.sellBase(btcToken.address, btcTradeAmount, minToAmount, owner.address, ZERO_ADDR)
+
+      const newBtcBal = await wooPP.balance(btcToken.address)
+      const newBtcPool = await wooPP.poolSize(btcToken.address)
+      expect(btcBal).to.be.eq(btcPool)
+      expect(newBtcBal).to.be.eq(btcBal.add(btcTradeAmount))
+      expect(newBtcPool).to.be.eq(btcBal.add(btcTradeAmount))
+
+      const newUsdtBal = await wooPP.balance(usdtToken.address)
+      const newUsdtPool = await wooPP.poolSize(usdtToken.address)
+      const fee = await wooPP.unclaimedFee()
+      expect(newUsdtBal).to.be.eq(newUsdtPool)
+      expect(newUsdtBal).to.be.eq(usdtBal.sub(realToAmount).sub(fee))
+      expect(newUsdtPool).to.be.eq(usdtPool.sub(realToAmount).sub(fee))
+    })
+
+    it('after swap: poolSize & balance accuracy2', async () => {
+      const btcBal = await wooPP.balance(btcToken.address)
+      const btcPool = await wooPP.poolSize(btcToken.address)
+      expect(btcBal).to.be.eq(btcPool)
+
+      const usdtBal = await wooPP.balance(usdtToken.address)
+      const usdtPool = await wooPP.poolSize(usdtToken.address)
+      expect(usdtBal).to.be.eq(usdtPool)
+
+      const btcTradeAmount = ONE
+      const minToAmount = btcTradeAmount.mul(BTC_PRICE).mul(997).div(1000)
+
+      const realToAmount = await wooPP.querySellBase(btcToken.address, btcTradeAmount)
+
+      await btcToken.transfer(wooPP.address, btcTradeAmount)
+      await wooPP.sellBase(btcToken.address, btcTradeAmount, minToAmount, wooPP.address, ZERO_ADDR)
+
+      const newBtcBal = await wooPP.balance(btcToken.address)
+      const newBtcPool = await wooPP.poolSize(btcToken.address)
+      expect(btcBal).to.be.eq(btcPool)
+      expect(newBtcBal).to.be.eq(btcBal.add(btcTradeAmount))
+      expect(newBtcPool).to.be.eq(btcBal.add(btcTradeAmount))
+
+      const newUsdtBal = await wooPP.balance(usdtToken.address)
+      const newUsdtPool = await wooPP.poolSize(usdtToken.address)
+      const fee = await wooPP.unclaimedFee()
+
+      // NOTE: here the two amount are totally different!
+      expect(newUsdtBal).to.not.be.eq(newUsdtPool)
+      expect(newUsdtBal).to.be.eq(usdtBal.sub(fee))
+      expect(newUsdtPool).to.be.eq(usdtPool.sub(realToAmount).sub(fee))
+    })
+
+    it('migrate accuracy', async () => {
+      const newPool = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2
+
+      expect(newPool.address).to.not.be.eq(wooPP.address)
+
+      expect(await wooPP.balance(btcToken.address)).to.be.eq(ONE.mul(10))
+      expect(await wooPP.balance(usdtToken.address)).to.be.eq(ONE.mul(300000))
+      expect(await wooPP.poolSize(btcToken.address)).to.be.eq(ONE.mul(10))
+      expect(await wooPP.poolSize(usdtToken.address)).to.be.eq(ONE.mul(300000))
+
+      expect(await newPool.balance(btcToken.address)).to.be.eq(ONE.mul(0))
+      expect(await newPool.balance(usdtToken.address)).to.be.eq(ONE.mul(0))
+      expect(await newPool.poolSize(btcToken.address)).to.be.eq(ONE.mul(0))
+      expect(await newPool.poolSize(usdtToken.address)).to.be.eq(ONE.mul(0))
+
+      await newPool.setAdmin(wooPP.address, true)
+
+      await wooPP.migrateToNewPool(btcToken.address, newPool.address)
+      await wooPP.migrateToNewPool(usdtToken.address, newPool.address)
+
+      expect(await wooPP.balance(btcToken.address)).to.be.eq(ONE.mul(0))
+      expect(await wooPP.balance(usdtToken.address)).to.be.eq(ONE.mul(0))
+      expect(await wooPP.poolSize(btcToken.address)).to.be.eq(ONE.mul(0))
+      expect(await wooPP.poolSize(usdtToken.address)).to.be.eq(ONE.mul(0))
+
+      expect(await newPool.balance(btcToken.address)).to.be.eq(ONE.mul(10))
+      expect(await newPool.balance(usdtToken.address)).to.be.eq(ONE.mul(300000))
+      expect(await newPool.poolSize(btcToken.address)).to.be.eq(ONE.mul(10))
+      expect(await newPool.poolSize(usdtToken.address)).to.be.eq(ONE.mul(300000))
+    })
+
   })
 })
