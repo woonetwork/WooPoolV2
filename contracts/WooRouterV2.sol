@@ -44,9 +44,9 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @title Woo Router V3 implementation.
+/// @title Woo Router V2 implementation.
 /// @notice Router for stateless execution of swaps against Woo private pool.
-contract WooRouterV3 is IWooRouterV2, Ownable, ReentrancyGuard {
+contract WooRouterV2 is IWooRouterV2, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /* ----- Constant variables ----- */
@@ -98,6 +98,26 @@ contract WooRouterV3 is IWooRouterV2, Ownable, ReentrancyGuard {
         } else {
             uint256 quoteAmount = wooPool.querySellBase(fromToken, fromAmount);
             toAmount = wooPool.querySellQuote(toToken, quoteAmount);
+        }
+    }
+
+    function tryQuerySwap(
+        address fromToken,
+        address toToken,
+        uint256 fromAmount
+    ) external view override returns (uint256 toAmount) {
+        if (fromToken == address(0) || toToken == address(0)) {
+            return 0;
+        }
+        fromToken = (fromToken == ETH_PLACEHOLDER_ADDR) ? WETH : fromToken;
+        toToken = (toToken == ETH_PLACEHOLDER_ADDR) ? WETH : toToken;
+        if (fromToken == quoteToken) {
+            toAmount = wooPool.tryQuerySellQuote(toToken, fromAmount);
+        } else if (toToken == quoteToken) {
+            toAmount = wooPool.tryQuerySellBase(fromToken, fromAmount);
+        } else {
+            uint256 quoteAmount = wooPool.tryQuerySellBase(fromToken, fromAmount);
+            toAmount = wooPool.tryQuerySellQuote(toToken, quoteAmount);
         }
     }
 

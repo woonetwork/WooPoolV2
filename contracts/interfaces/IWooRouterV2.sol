@@ -80,6 +80,19 @@ interface IWooRouterV2 {
         uint256 fromAmount
     ) external view returns (uint256 toAmount);
 
+    /// @dev query the amount to swap fromToken -> toToken,
+    ///      WITHOUT checking the reserve balance; so it
+    ///      always returns the quoted amount (for reference).
+    /// @param fromToken the from token
+    /// @param toToken the to token
+    /// @param fromAmount the amount of fromToken to swap
+    /// @return toAmount the predicted amount to receive
+    function tryQuerySwap(
+        address fromToken,
+        address toToken,
+        uint256 fromAmount
+    ) external view returns (uint256 toAmount);
+
     /// @dev swap fromToken -> toToken
     /// @param fromToken the from token
     /// @param toToken the to token
