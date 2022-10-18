@@ -59,6 +59,10 @@ interface IWooPPV2 {
 
     /* ----- External Functions ----- */
 
+    /// @dev get the quote token address (immutable)
+    /// @return address of quote token
+    function quoteToken() external view returns (address);
+
     /// @dev Swap baseToken into quoteToken
     /// @param baseToken the base token
     /// @param baseAmount amount of baseToken that user want to swap
@@ -112,8 +116,4 @@ interface IWooPPV2 {
     /// @param quoteAmount the amount to sell
     /// @return baseAmount the swapped base token amount
     function tryQuerySellQuote(address baseToken, uint256 quoteAmount) external view returns (uint256 baseAmount);
-
-    /// @dev get the quote token address (immutable)
-    /// @return address of quote token
-    function quoteToken() external view returns (address);
 }
