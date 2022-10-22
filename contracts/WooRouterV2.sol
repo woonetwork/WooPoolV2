@@ -91,14 +91,7 @@ contract WooRouterV2 is IWooRouterV2, Ownable, ReentrancyGuard {
         require(toToken != address(0), "WooRouter: !toToken");
         fromToken = (fromToken == ETH_PLACEHOLDER_ADDR) ? WETH : fromToken;
         toToken = (toToken == ETH_PLACEHOLDER_ADDR) ? WETH : toToken;
-        if (fromToken == quoteToken) {
-            toAmount = wooPool.querySellQuote(toToken, fromAmount);
-        } else if (toToken == quoteToken) {
-            toAmount = wooPool.querySellBase(fromToken, fromAmount);
-        } else {
-            uint256 quoteAmount = wooPool.querySellBase(fromToken, fromAmount);
-            toAmount = wooPool.querySellQuote(toToken, quoteAmount);
-        }
+        toAmount = wooPool.query(fromToken, toToken, fromAmount);
     }
 
     function tryQuerySwap(
@@ -111,14 +104,7 @@ contract WooRouterV2 is IWooRouterV2, Ownable, ReentrancyGuard {
         }
         fromToken = (fromToken == ETH_PLACEHOLDER_ADDR) ? WETH : fromToken;
         toToken = (toToken == ETH_PLACEHOLDER_ADDR) ? WETH : toToken;
-        if (fromToken == quoteToken) {
-            toAmount = wooPool.tryQuerySellQuote(toToken, fromAmount);
-        } else if (toToken == quoteToken) {
-            toAmount = wooPool.tryQuerySellBase(fromToken, fromAmount);
-        } else {
-            uint256 quoteAmount = wooPool.tryQuerySellBase(fromToken, fromAmount);
-            toAmount = wooPool.tryQuerySellQuote(toToken, quoteAmount);
-        }
+        toAmount = wooPool.tryQuery(fromToken, toToken, fromAmount);
     }
 
     /// @inheritdoc IWooRouterV2
@@ -149,16 +135,12 @@ contract WooRouterV2 is IWooRouterV2, Ownable, ReentrancyGuard {
         }
 
         // Step 2: swap and transfer
-        if (fromToken == quoteToken) {
-            // case 1: quoteToken --> baseToken
-            realToAmount = _sellQuoteAndTransfer(isToETH, toToken, fromAmount, minToAmount, to, rebateTo);
-        } else if (toToken == quoteToken) {
-            // case 2: fromToken --> quoteToken
-            realToAmount = wooPool.sellBase(fromToken, fromAmount, minToAmount, to, rebateTo);
+        if (isToETH) {
+            realToAmount = wooPool.swap(fromToken, toToken, fromAmount, minToAmount, address(this), rebateTo);
+            IWETH(WETH).withdraw(realToAmount);
+            TransferHelper.safeTransferETH(to, realToAmount);
         } else {
-            // case 3: fromToken --> quoteToken --> toToken
-            uint256 quoteAmount = wooPool.sellBase(fromToken, fromAmount, 0, address(wooPool), rebateTo);
-            realToAmount = _sellQuoteAndTransfer(isToETH, toToken, quoteAmount, minToAmount, to, rebateTo);
+            realToAmount = wooPool.swap(fromToken, toToken, fromAmount, minToAmount, to, rebateTo);
         }
 
         // Step 3: firing event
@@ -236,23 +218,6 @@ contract WooRouterV2 is IWooRouterV2, Ownable, ReentrancyGuard {
     }
 
     /* ----- Private Function ----- */
-
-    function _sellQuoteAndTransfer(
-        bool isToETH,
-        address toToken,
-        uint256 quoteAmount,
-        uint256 minToAmount,
-        address payable to,
-        address rebateTo
-    ) private returns (uint256 realToAmount) {
-        if (isToETH) {
-            realToAmount = wooPool.sellQuote(toToken, quoteAmount, minToAmount, address(this), rebateTo);
-            IWETH(WETH).withdraw(realToAmount);
-            TransferHelper.safeTransferETH(to, realToAmount);
-        } else {
-            realToAmount = wooPool.sellQuote(toToken, quoteAmount, minToAmount, to, rebateTo);
-        }
-    }
 
     function _internalFallbackSwap(
         address approveTarget,

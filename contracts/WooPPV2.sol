@@ -37,23 +37,21 @@ pragma solidity =0.8.14;
 import "./interfaces/IWooracleV2.sol";
 import "./interfaces/IWooPPV2.sol";
 import "./interfaces/AggregatorV3Interface.sol";
+import "./interfaces/IWooLendingManager.sol";
 
 import "./libraries/TransferHelper.sol";
 
 // OpenZeppelin contracts
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-/// @title Woo private pool for swaping.
+/// @title Woo pool for token swap, version 2.
 /// @notice the implementation class for interface IWooPPV2, mainly for query and swap tokens.
 contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     /* ----- Type declarations ----- */
-
-    using SafeERC20 for IERC20;
-
     struct Decimals {
         uint64 priceDec; // 10**(price_decimal)
         uint64 quoteDec; // 10**(quote_decimal)
@@ -66,6 +64,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     }
 
     /* ----- State variables ----- */
+    address constant ETH_PLACEHOLDER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     uint256 public unclaimedFee; // NOTE: in quote token
 
     // wallet address --> is admin
@@ -101,149 +101,67 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     /* ----- External Functions ----- */
 
     /// @inheritdoc IWooPPV2
-    function querySellBase(address baseToken, uint256 baseAmount)
-        external
-        view
-        override
-        whenNotPaused
-        returns (uint256 quoteAmount)
-    {
-        require(baseToken != address(0), "WooPPV2: !baseToken");
-        require(baseToken != quoteToken, "WooPPV2: baseToken==quoteToken");
-
-        (quoteAmount, ) = getQuoteAmountSellBase(baseToken, baseAmount);
-        uint256 fee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
-        quoteAmount = quoteAmount - fee;
-
-        require(quoteAmount <= tokenInfos[quoteToken].reserve, "WooPPV2: INSUFF_QUOTE");
+    function tryQuery(
+        address fromToken,
+        address toToken,
+        uint256 fromAmount
+    ) external view override returns (uint256 toAmount) {
+        if (fromToken == quoteToken) {
+            toAmount = _tryQuerySellQuote(toToken, fromAmount);
+        } else if (toToken == quoteToken) {
+            toAmount = _tryQuerySellBase(fromToken, fromAmount);
+        } else {
+            (toAmount, ) = _tryQueryBaseToBase(fromToken, toToken, fromAmount);
+        }
     }
 
     /// @inheritdoc IWooPPV2
-    function querySellQuote(address baseToken, uint256 quoteAmount)
-        external
-        view
-        override
-        whenNotPaused
-        returns (uint256 baseAmount)
-    {
-        require(baseToken != address(0), "WooPPV2: !baseToken");
-        require(baseToken != quoteToken, "WooPPV2: baseToken==quoteToken");
-
-        uint256 lpFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
-        quoteAmount = quoteAmount - lpFee;
-        (baseAmount, ) = getBaseAmountSellQuote(baseToken, quoteAmount);
-
-        require(baseAmount <= tokenInfos[baseToken].reserve, "WooPPV2: INSUFF_BASE");
-    }
-
-    function tryQuerySellBase(address baseToken, uint256 baseAmount)
-        external
-        view
-        override
-        whenNotPaused
-        returns (uint256 quoteAmount)
-    {
-        (quoteAmount, ) = getQuoteAmountSellBase(baseToken, baseAmount);
-        uint256 fee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
-        quoteAmount = quoteAmount - fee;
-    }
-
-    function tryQuerySellQuote(address baseToken, uint256 quoteAmount)
-        external
-        view
-        override
-        whenNotPaused
-        returns (uint256 baseAmount)
-    {
-        uint256 lpFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
-        quoteAmount = quoteAmount - lpFee;
-        (baseAmount, ) = getBaseAmountSellQuote(baseToken, quoteAmount);
+    function query(
+        address fromToken,
+        address toToken,
+        uint256 fromAmount
+    ) external view override returns (uint256 toAmount) {
+        if (fromToken == quoteToken) {
+            toAmount = _tryQuerySellQuote(toToken, fromAmount);
+        } else if (toToken == quoteToken) {
+            toAmount = _tryQuerySellBase(fromToken, fromAmount);
+        } else {
+            uint256 swapFee;
+            (toAmount, swapFee) = _tryQueryBaseToBase(fromToken, toToken, fromAmount);
+            require(swapFee <= tokenInfos[quoteToken].reserve, "WooPPV2: INSUFF_QUOTE_FOR_SWAPFEE");
+        }
+        require(toAmount <= tokenInfos[toToken].reserve, "WooPPV2: INSUFF_BALANCE");
     }
 
     /// @inheritdoc IWooPPV2
-    function sellBase(
-        address baseToken,
-        uint256 baseAmount,
-        uint256 minQuoteAmount,
+    function swap(
+        address fromToken,
+        address toToken,
+        uint256 fromAmount,
+        uint256 minToAmount,
         address to,
         address rebateTo
-    ) external override nonReentrant whenNotPaused returns (uint256 quoteAmount) {
-        require(baseToken != address(0), "WooPPV2: !baseToken");
-        require(to != address(0), "WooPPV2: !to");
-        require(baseToken != quoteToken, "WooPPV2: baseToken==quoteToken");
-
-        address from = msg.sender;
-
-        require(balance(baseToken) - tokenInfos[baseToken].reserve >= baseAmount, "WooPPV2: BASE_BALANCE_NOT_ENOUGH");
-
-        uint256 newPrice;
-        (quoteAmount, newPrice) = getQuoteAmountSellBase(baseToken, baseAmount);
-        IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
-
-        uint256 lpFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
-        quoteAmount = quoteAmount - lpFee;
-
-        require(quoteAmount >= minQuoteAmount, "WooPPV2: quoteAmount_LT_minQuoteAmount");
-
-        unclaimedFee = unclaimedFee + lpFee;
-
-        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve + baseAmount);
-        tokenInfos[quoteToken].reserve = uint192(tokenInfos[quoteToken].reserve - quoteAmount - lpFee);
-
-        if (to != address(this)) {
-            TransferHelper.safeTransfer(quoteToken, to, quoteAmount);
+    ) external override returns (uint256 realToAmount) {
+        if (fromToken == quoteToken) {
+            // case 1: quoteToken --> baseToken
+            realToAmount = _sellQuote(toToken, fromAmount, minToAmount, to, rebateTo);
+        } else if (toToken == quoteToken) {
+            // case 2: fromToken --> quoteToken
+            realToAmount = _sellBase(fromToken, fromAmount, minToAmount, to, rebateTo);
+        } else {
+            // case 3: fromToken --> toToken (base to base)
+            realToAmount = _swapBaseToBase(fromToken, toToken, fromAmount, minToAmount, to, rebateTo);
         }
-
-        emit WooSwap(baseToken, quoteToken, baseAmount, quoteAmount, from, to, rebateTo);
     }
 
     /// @inheritdoc IWooPPV2
-    function sellQuote(
-        address baseToken,
-        uint256 quoteAmount,
-        uint256 minBaseAmount,
-        address to,
-        address rebateTo
-    ) external override nonReentrant whenNotPaused returns (uint256 baseAmount) {
-        require(baseToken != address(0), "WooPPV2: !baseToken");
-        require(to != address(0), "WooPPV2: !to");
-        require(baseToken != quoteToken, "WooPPV2: baseToken==quoteToken");
-
-        address from = msg.sender;
-
-        require(
-            balance(quoteToken) - tokenInfos[quoteToken].reserve >= quoteAmount,
-            "WooPPV2: QUOTE_BALANCE_NOT_ENOUGH"
-        );
-
-        uint256 lpFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
-        quoteAmount = quoteAmount - lpFee;
-        uint256 newPrice;
-        (baseAmount, newPrice) = getBaseAmountSellQuote(baseToken, quoteAmount);
-        IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
-        require(baseAmount >= minBaseAmount, "WooPPV2: baseAmount_LT_minBaseAmount");
-
-        unclaimedFee = unclaimedFee + lpFee;
-
-        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve - baseAmount);
-        tokenInfos[quoteToken].reserve = uint192(tokenInfos[quoteToken].reserve + quoteAmount);
-
-        if (to != address(this)) {
-            TransferHelper.safeTransfer(baseToken, to, baseAmount);
-        }
-
-        emit WooSwap(quoteToken, baseToken, quoteAmount + lpFee, baseAmount, from, to, rebateTo);
+    function poolSize(address token) public view override returns (uint256) {
+        return tokenInfos[token].reserve;
     }
 
     /// @dev User pool balance (substracted unclaimed fee)
     function balance(address token) public view returns (uint256) {
         return token == quoteToken ? _rawBalance(token) - unclaimedFee : _rawBalance(token);
-    }
-
-    /// @dev Get the pool's balance of token
-    /// @param token the token pool to query
-    function poolSize(address token) public view returns (uint256) {
-        return tokenInfos[token].reserve;
     }
 
     function setWooracle(address _wooracle) external onlyAdmin {
@@ -299,6 +217,15 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         deposit(token, IERC20(token).balanceOf(msg.sender));
     }
 
+    function repayWeeklyLending(IWooLendingManager lendManager) external onlyAdmin {
+        lendManager.accureInterest();
+        uint256 amount = lendManager.weeklyRepayment();
+        if (amount > 0) {
+            TransferHelper.safeApprove(lendManager.want(), address(lendManager), amount);
+            lendManager.repayWeekly();
+        }
+    }
+
     function withdraw(address token, uint256 amount) public nonReentrant onlyAdmin {
         require(tokenInfos[token].reserve >= amount, "WooPPV2: !amount");
         tokenInfos[token].reserve = uint192(tokenInfos[token].reserve - amount);
@@ -340,12 +267,231 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         tokenInfos[token].reserve = uint192(balance(token));
     }
 
+    function inCaseTokenGotStuck(address stuckToken) external onlyOwner {
+        if (stuckToken == ETH_PLACEHOLDER_ADDR) {
+            TransferHelper.safeTransferETH(msg.sender, address(this).balance);
+        } else {
+            uint256 amount = IERC20(stuckToken).balanceOf(address(this));
+            TransferHelper.safeTransfer(stuckToken, msg.sender, amount);
+        }
+    }
+
     /* ----- Private Functions ----- */
+
+    function _tryQuerySellBase(address baseToken, uint256 baseAmount)
+        private
+        view
+        whenNotPaused
+        returns (uint256 quoteAmount)
+    {
+        IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+        (quoteAmount, ) = _calcQuoteAmountSellBase(baseToken, baseAmount, state);
+        uint256 fee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
+        quoteAmount = quoteAmount - fee;
+    }
+
+    function _tryQuerySellQuote(address baseToken, uint256 quoteAmount)
+        private
+        view
+        whenNotPaused
+        returns (uint256 baseAmount)
+    {
+        uint256 swapFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
+        quoteAmount = quoteAmount - swapFee;
+        IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+        (baseAmount, ) = _calcBaseAmountSellQuote(baseToken, quoteAmount, state);
+    }
+
+    function _tryQueryBaseToBase(
+        address baseToken1,
+        address baseToken2,
+        uint256 base1Amount
+    ) private view whenNotPaused returns (uint256 base2Amount, uint256 swapFee) {
+        if (
+            baseToken1 == address(0) || baseToken2 == address(0) || baseToken1 == quoteToken || baseToken2 == quoteToken
+        ) {
+            return (0, 0);
+        }
+
+        IWooracleV2.State memory state1 = IWooracleV2(wooracle).state(baseToken1);
+        IWooracleV2.State memory state2 = IWooracleV2(wooracle).state(baseToken2);
+
+        uint64 spread = _maxUInt64(state1.spread, state2.spread) / 2;
+        uint16 feeRate = _maxUInt16(tokenInfos[baseToken1].feeRate, tokenInfos[baseToken2].feeRate);
+
+        state1.spread = spread;
+        state2.spread = spread;
+
+        (uint256 quoteAmount, ) = _calcQuoteAmountSellBase(baseToken1, base1Amount, state1);
+
+        swapFee = (quoteAmount * feeRate) / 1e5;
+        quoteAmount = quoteAmount - swapFee;
+
+        (base2Amount, ) = _calcBaseAmountSellQuote(baseToken2, quoteAmount, state2);
+    }
+
+    function _sellBase(
+        address baseToken,
+        uint256 baseAmount,
+        uint256 minQuoteAmount,
+        address to,
+        address rebateTo
+    ) private nonReentrant whenNotPaused returns (uint256 quoteAmount) {
+        require(baseToken != address(0), "WooPPV2: !baseToken");
+        require(to != address(0), "WooPPV2: !to");
+        require(baseToken != quoteToken, "WooPPV2: baseToken==quoteToken");
+
+        require(balance(baseToken) - tokenInfos[baseToken].reserve >= baseAmount, "WooPPV2: BASE_BALANCE_NOT_ENOUGH");
+
+        {
+            uint256 newPrice;
+            IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+            (quoteAmount, newPrice) = _calcQuoteAmountSellBase(baseToken, baseAmount, state);
+            IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
+        }
+
+        uint256 swapFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
+        quoteAmount = quoteAmount - swapFee;
+        require(quoteAmount >= minQuoteAmount, "WooPPV2: quoteAmount_LT_minQuoteAmount");
+
+        unclaimedFee = unclaimedFee + swapFee;
+
+        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve + baseAmount);
+        tokenInfos[quoteToken].reserve = uint192(tokenInfos[quoteToken].reserve - quoteAmount - swapFee);
+
+        if (to != address(this)) {
+            TransferHelper.safeTransfer(quoteToken, to, quoteAmount);
+        }
+
+        emit WooSwap(
+            baseToken,
+            quoteToken,
+            baseAmount,
+            quoteAmount,
+            msg.sender,
+            to,
+            rebateTo,
+            quoteAmount + swapFee,
+            swapFee
+        );
+    }
+
+    function _sellQuote(
+        address baseToken,
+        uint256 quoteAmount,
+        uint256 minBaseAmount,
+        address to,
+        address rebateTo
+    ) private nonReentrant whenNotPaused returns (uint256 baseAmount) {
+        require(baseToken != address(0), "WooPPV2: !baseToken");
+        require(to != address(0), "WooPPV2: !to");
+        require(baseToken != quoteToken, "WooPPV2: baseToken==quoteToken");
+
+        require(
+            balance(quoteToken) - tokenInfos[quoteToken].reserve >= quoteAmount,
+            "WooPPV2: QUOTE_BALANCE_NOT_ENOUGH"
+        );
+
+        uint256 swapFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
+        quoteAmount = quoteAmount - swapFee;
+        unclaimedFee = unclaimedFee + swapFee;
+
+        {
+            uint256 newPrice;
+            IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+            (baseAmount, newPrice) = _calcBaseAmountSellQuote(baseToken, quoteAmount, state);
+            IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
+            require(baseAmount >= minBaseAmount, "WooPPV2: baseAmount_LT_minBaseAmount");
+        }
+
+        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve - baseAmount);
+        tokenInfos[quoteToken].reserve = uint192(tokenInfos[quoteToken].reserve + quoteAmount);
+
+        if (to != address(this)) {
+            TransferHelper.safeTransfer(baseToken, to, baseAmount);
+        }
+
+        emit WooSwap(
+            quoteToken,
+            baseToken,
+            quoteAmount + swapFee,
+            baseAmount,
+            msg.sender,
+            to,
+            rebateTo,
+            quoteAmount + swapFee,
+            swapFee
+        );
+    }
+
+    function _swapBaseToBase(
+        address baseToken1,
+        address baseToken2,
+        uint256 base1Amount,
+        uint256 minBase2Amount,
+        address to,
+        address rebateTo
+    ) private nonReentrant whenNotPaused returns (uint256 base2Amount) {
+        require(baseToken1 != address(0) && baseToken1 != quoteToken, "WooPPV2: !baseToken1");
+        require(baseToken2 != address(0) && baseToken2 != quoteToken, "WooPPV2: !baseToken2");
+        require(to != address(0), "WooPPV2: !to");
+
+        require(balance(baseToken1) - tokenInfos[baseToken1].reserve >= base1Amount, "WooPPV2: !BASE1_BALANCE");
+
+        IWooracleV2.State memory state1 = IWooracleV2(wooracle).state(baseToken1);
+        IWooracleV2.State memory state2 = IWooracleV2(wooracle).state(baseToken2);
+
+        uint256 swapFee;
+        uint256 quoteAmount;
+        {
+            uint64 spread = _maxUInt64(state1.spread, state2.spread) / 2;
+            uint16 feeRate = _maxUInt16(tokenInfos[baseToken1].feeRate, tokenInfos[baseToken2].feeRate);
+
+            state1.spread = spread;
+            state2.spread = spread;
+
+            uint256 newBase1Price;
+            (quoteAmount, newBase1Price) = _calcQuoteAmountSellBase(baseToken1, base1Amount, state1);
+            IWooracleV2(wooracle).postPrice(baseToken1, uint128(newBase1Price));
+
+            swapFee = (quoteAmount * feeRate) / 1e5;
+        }
+
+        quoteAmount = quoteAmount - swapFee;
+        unclaimedFee = unclaimedFee + swapFee;
+
+        tokenInfos[quoteToken].reserve = uint192(tokenInfos[quoteToken].reserve - swapFee);
+        tokenInfos[baseToken1].reserve = uint192(tokenInfos[baseToken1].reserve + base1Amount);
+
+        {
+            uint256 newBase2Price;
+            (base2Amount, newBase2Price) = _calcBaseAmountSellQuote(baseToken2, quoteAmount, state2);
+            IWooracleV2(wooracle).postPrice(baseToken2, uint128(newBase2Price));
+            require(base2Amount >= minBase2Amount, "WooPPV2: base2Amount_LT_minBase2Amount");
+        }
+
+        tokenInfos[baseToken2].reserve = uint192(tokenInfos[baseToken2].reserve - base2Amount);
+
+        if (to != address(this)) {
+            TransferHelper.safeTransfer(baseToken2, to, base2Amount);
+        }
+
+        emit WooSwap(
+            baseToken1,
+            baseToken2,
+            base1Amount,
+            base2Amount,
+            msg.sender,
+            to,
+            rebateTo,
+            quoteAmount + swapFee,
+            swapFee
+        );
+    }
 
     /// @dev Get the pool's balance of the specified token
     /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
-    /// @dev forked and curtesy by Uniswap v3-core
-    /// check
+    /// @dev forked and curtesy by Uniswap v3 core
     function _rawBalance(address token) private view returns (uint256) {
         (bool success, bytes memory data) = token.staticcall(
             abi.encodeWithSelector(IERC20.balanceOf.selector, address(this))
@@ -354,13 +500,21 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         return abi.decode(data, (uint256));
     }
 
-    function getQuoteAmountSellBase(address baseToken, uint256 baseAmount)
-        private
-        view
-        returns (uint256 quoteAmount, uint256 newPrice)
-    {
-        IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
-        require(state.woFeasible, "WooPPV2: ORACLE_PRICE_NOT_FEASIBLE");
+    function _decimals(address baseToken) private view returns (Decimals memory) {
+        return
+            Decimals({
+                priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
+                quoteDec: uint64(10)**(ERC20(quoteToken).decimals()), // 18 or 6
+                baseDec: uint64(10)**(ERC20(baseToken).decimals()) // 18 or 8
+            });
+    }
+
+    function _calcQuoteAmountSellBase(
+        address baseToken,
+        uint256 baseAmount,
+        IWooracleV2.State memory state
+    ) private view returns (uint256 quoteAmount, uint256 newPrice) {
+        require(state.woFeasible, "WooPPV2: !ORACLE_FEASIBLE");
 
         Decimals memory decs = _decimals(baseToken);
 
@@ -379,22 +533,12 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             1e18;
     }
 
-    function _decimals(address baseToken) private view returns (Decimals memory) {
-        return
-            Decimals({
-                priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
-                quoteDec: uint64(10)**(ERC20(quoteToken).decimals()), // 18 or 6
-                baseDec: uint64(10)**(ERC20(baseToken).decimals()) // 18 or 8
-            });
-    }
-
-    function getBaseAmountSellQuote(address baseToken, uint256 quoteAmount)
-        private
-        view
-        returns (uint256 baseAmount, uint256 newPrice)
-    {
-        IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
-        require(state.woFeasible, "WooPPV2: ORACLE_PRICE_NOT_FEASIBLE");
+    function _calcBaseAmountSellQuote(
+        address baseToken,
+        uint256 quoteAmount,
+        IWooracleV2.State memory state
+    ) private view returns (uint256 baseAmount, uint256 newPrice) {
+        require(state.woFeasible, "WooPPV2: !ORACLE_FEASIBLE");
 
         Decimals memory decs = _decimals(baseToken);
 
@@ -408,5 +552,13 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         newPrice =
             ((uint256(1e18) * decs.quoteDec + uint256(2) * state.coeff * quoteAmount) * state.price) /
             decs.quoteDec;
+    }
+
+    function _maxUInt16(uint16 a, uint16 b) private pure returns (uint16) {
+        return a > b ? a : b;
+    }
+
+    function _maxUInt64(uint64 a, uint64 b) private pure returns (uint64) {
+        return a > b ? a : b;
     }
 }
