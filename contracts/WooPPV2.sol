@@ -52,7 +52,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 /// @notice the implementation class for interface IWooPPV2, mainly for query and swap tokens.
 contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     /* ----- Type declarations ----- */
-    struct Decimals {
+    struct DecimalInfo {
         uint64 priceDec; // 10**(price_decimal)
         uint64 quoteDec; // 10**(quote_decimal)
         uint64 baseDec; // 10**(base_decimal)
@@ -155,6 +155,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     }
 
     /// @inheritdoc IWooPPV2
+    /// @dev pool size = tokenInfo.reserve
     function poolSize(address token) public view override returns (uint256) {
         return tokenInfos[token].reserve;
     }
@@ -164,6 +165,16 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         return token == quoteToken ? _rawBalance(token) - unclaimedFee : _rawBalance(token);
     }
 
+    /// @dev okay to be public method
+    function claimFee() external nonReentrant {
+        require(feeAddr != address(0), "WooPPV2: !feeAddr");
+        uint256 amountToTransfer = unclaimedFee;
+        unclaimedFee = 0;
+        TransferHelper.safeTransfer(quoteToken, feeAddr, amountToTransfer);
+    }
+
+    /* ----- Admin Functions ----- */
+
     function setWooracle(address _wooracle) external onlyAdmin {
         wooracle = IWooracleV2(_wooracle);
         emit WooracleUpdated(_wooracle);
@@ -172,15 +183,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     function setFeeAddr(address _feeAddr) external onlyAdmin {
         feeAddr = _feeAddr;
         emit FeeAddrUpdated(_feeAddr);
-    }
-
-    /* ----- Admin Functions ----- */
-
-    function claimFee() external nonReentrant onlyAdmin {
-        require(feeAddr != address(0), "WooPPV2: !feeAddr");
-        uint256 amountToTransfer = unclaimedFee;
-        unclaimedFee = 0;
-        TransferHelper.safeTransfer(quoteToken, feeAddr, amountToTransfer);
     }
 
     function setFeeRate(address token, uint16 rate) external nonReentrant onlyAdmin {
@@ -500,9 +502,9 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         return abi.decode(data, (uint256));
     }
 
-    function _decimals(address baseToken) private view returns (Decimals memory) {
+    function decimalInfo(address baseToken) public view returns (DecimalInfo memory) {
         return
-            Decimals({
+            DecimalInfo({
                 priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
                 quoteDec: uint64(10)**(ERC20(quoteToken).decimals()), // 18 or 6
                 baseDec: uint64(10)**(ERC20(baseToken).decimals()) // 18 or 8
@@ -516,7 +518,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     ) private view returns (uint256 quoteAmount, uint256 newPrice) {
         require(state.woFeasible, "WooPPV2: !ORACLE_FEASIBLE");
 
-        Decimals memory decs = _decimals(baseToken);
+        DecimalInfo memory decs = decimalInfo(baseToken);
 
         // quoteAmount = baseAmount * oracle.price * (1 - oracle.k * baseAmount * oracle.price - oracle.spread)
         {
@@ -540,7 +542,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     ) private view returns (uint256 baseAmount, uint256 newPrice) {
         require(state.woFeasible, "WooPPV2: !ORACLE_FEASIBLE");
 
-        Decimals memory decs = _decimals(baseToken);
+        DecimalInfo memory decs = decimalInfo(baseToken);
 
         // baseAmount = quoteAmount / oracle.price * (1 - oracle.k * quoteAmount - oracle.spread)
         {
