@@ -69,7 +69,7 @@ interface IWooRouterV2 {
 
     /* ----- Main query & swap APIs ----- */
 
-    /// @dev query the amount to swap fromToken -> toToken
+    /// @notice query the amount to swap fromToken -> toToken
     /// @param fromToken the from token
     /// @param toToken the to token
     /// @param fromAmount the amount of fromToken to swap
@@ -80,9 +80,9 @@ interface IWooRouterV2 {
         uint256 fromAmount
     ) external view returns (uint256 toAmount);
 
-    /// @dev query the amount to swap fromToken -> toToken,
-    ///      WITHOUT checking the reserve balance; so it
-    ///      always returns the quoted amount (for reference).
+    /// @notice query the amount to swap fromToken -> toToken,
+    ///     WITHOUT checking the reserve balance; so it
+    ///     always returns the quoted amount (for reference).
     /// @param fromToken the from token
     /// @param toToken the to token
     /// @param fromAmount the amount of fromToken to swap
@@ -93,11 +93,11 @@ interface IWooRouterV2 {
         uint256 fromAmount
     ) external view returns (uint256 toAmount);
 
-    /// @dev swap fromToken -> toToken
+    /// @notice Swap `fromToken` to `toToken`.
     /// @param fromToken the from token
     /// @param toToken the to token
-    /// @param fromAmount the amount of fromToken to swap
-    /// @param minToAmount the amount of fromToken to swap
+    /// @param fromAmount the amount of `fromToken` to swap
+    /// @param minToAmount the minimum amount of `toToken` to receive
     /// @param to the destination address
     /// @param rebateTo the rebate address (optional, can be 0)
     /// @return realToAmount the amount of toToken to receive
@@ -112,7 +112,7 @@ interface IWooRouterV2 {
 
     /* ----- 3rd party DEX swap ----- */
 
-    /// @dev swap fromToken -> toToken via an external 3rd swap
+    /// @notice swap fromToken -> toToken via an external 3rd swap
     /// @param approveTarget the contract address for token transfer approval
     /// @param swapTarget the contract address for swap
     /// @param fromToken the from token

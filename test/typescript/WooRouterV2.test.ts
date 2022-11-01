@@ -176,14 +176,14 @@ describe('WooRouterV2 Integration Tests', () => {
     it('querySwap revert1', async () => {
       const btcAmount = 100
       await expect(wooRouter.querySwap(btcToken.address, usdtToken.address, ONE.mul(btcAmount))).to.be.revertedWith(
-        'WooPPV2: INSUFF_QUOTE'
+        'WooPPV2: INSUFF_BALANCE'
       )
     })
 
     it('querySwap revert2', async () => {
       const uAmount = 300000
       await expect(wooRouter.querySwap(usdtToken.address, btcToken.address, ONE.mul(uAmount))).to.be.revertedWith(
-        'WooPPV2: INSUFF_BASE'
+        'WooPPV2: INSUFF_BALANCE'
       )
     })
   })
@@ -404,6 +404,7 @@ describe('WooRouterV2 Integration Tests', () => {
       wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2
 
       await wooPP.init(wooracle.address, feeAddr.address)
+      await wooPP.setFeeRate(btcToken.address, 100);
 
       wooRouter = (await deployContract(owner, WooRouterV2Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV2
 
@@ -440,7 +441,7 @@ describe('WooRouterV2 Integration Tests', () => {
       await expect(
         wooRouter.querySwap(btcToken.address, usdtToken.address, ONE.mul(btcNum))
       ).to.be.revertedWith(
-        'WooPPV2: INSUFF_QUOTE'
+        'WooPPV2: INSUFF_BALANCE'
       )
 
       const amount = await wooRouter.tryQuerySwap(
@@ -449,7 +450,7 @@ describe('WooRouterV2 Integration Tests', () => {
       const benchmark = BTC_PRICE * btcNum
       expect(amountNum).to.lessThan(benchmark)
       const slippage = (benchmark - amountNum) / benchmark
-      expect(slippage).to.lessThan(0.002)
+      expect(slippage).to.lessThan(0.0021)
       console.log('Query selling 1 btc for usdt: ', amountNum, slippage)
     })
 
@@ -459,7 +460,7 @@ describe('WooRouterV2 Integration Tests', () => {
       await expect(
         wooRouter.querySwap(usdtToken.address, btcToken.address, ONE.mul(uAmount))
       ).to.be.revertedWith(
-        'WooPPV2: INSUFF_BASE'
+        'WooPPV2: INSUFF_BALANCE'
       )
 
       const amount = await wooRouter.tryQuerySwap(
@@ -478,18 +479,41 @@ describe('WooRouterV2 Integration Tests', () => {
       await expect(
         wooRouter.querySwap(btcToken.address, wooToken.address, ONE.mul(btcNum))
       ).to.be.revertedWith(
-        'WooPPV2: INSUFF_QUOTE'
+        'WooPPV2: INSUFF_QUOTE_FOR_SWAPFEE'
       )
 
       const amount = await wooRouter.tryQuerySwap(
-        btcToken.address, usdtToken.address, ONE.mul(btcNum))
+        btcToken.address, wooToken.address, ONE.mul(btcNum))
       const amountNum = Number(utils.formatEther(amount))
-      const benchmark = BTC_PRICE * btcNum
+      const benchmark = BTC_PRICE * btcNum / WOO_PRICE
       expect(amountNum).to.lessThan(benchmark)
       const slippage = (benchmark - amountNum) / benchmark
-      expect(slippage).to.lessThan(0.002)
-      console.log('Query selling 1 btc for usdt: ', amountNum, slippage)
+      expect(slippage).to.lessThan(0.0021)
+      console.log('Query selling 1 btc for woo: ', amountNum, slippage)
     })
+
+    it('tryQuerySwap accuracy3_2', async () => {
+      await usdtToken.approve(wooPP.address, ONE.mul(150))
+      await wooPP.deposit(usdtToken.address, ONE.mul(150))
+
+      const btcNum = 1
+
+      await expect(
+        wooRouter.querySwap(btcToken.address, wooToken.address, ONE.mul(btcNum))
+      ).to.be.revertedWith(
+        'WooPPV2: INSUFF_BALANCE'
+      )
+
+      const amount = await wooRouter.tryQuerySwap(
+        btcToken.address, wooToken.address, ONE.mul(btcNum))
+      const amountNum = Number(utils.formatEther(amount))
+      const benchmark = BTC_PRICE * btcNum / WOO_PRICE
+      expect(amountNum).to.lessThan(benchmark)
+      const slippage = (benchmark - amountNum) / benchmark
+      expect(slippage).to.lessThan(0.0021)
+      console.log('Query selling 1 btc for woo: ', amountNum, slippage)
+    })
+
 
     it('tryQuerySwap accuracy4', async () => {
       await usdtToken.mint(owner.address, ONE.mul(5000000))
@@ -498,22 +522,23 @@ describe('WooRouterV2 Integration Tests', () => {
       await wooToken.approve(wooPP.address, ONE.mul(150000))
       await wooPP.deposit(wooToken.address, ONE.mul(150000))
 
+      await usdtToken.approve(wooPP.address, ONE.mul(150000))
+      await wooPP.deposit(usdtToken.address, ONE.mul(150000))
+
       const btcNum = 1
 
-      await expect(
-        wooRouter.querySwap(btcToken.address, wooToken.address, ONE.mul(btcNum))
-      ).to.be.revertedWith(
-        'WooPPV2: INSUFF_QUOTE'
-      )
-
+      const amount1 = await wooRouter.querySwap(
+        btcToken.address, wooToken.address, ONE.mul(btcNum))
       const amount = await wooRouter.tryQuerySwap(
-        btcToken.address, usdtToken.address, ONE.mul(btcNum))
+        btcToken.address, wooToken.address, ONE.mul(btcNum))
+
+      expect(amount1).to.be.eq(amount)
       const amountNum = Number(utils.formatEther(amount))
-      const benchmark = BTC_PRICE * btcNum
+      const benchmark = BTC_PRICE * btcNum / WOO_PRICE
       expect(amountNum).to.lessThan(benchmark)
       const slippage = (benchmark - amountNum) / benchmark
-      expect(slippage).to.lessThan(0.002)
-      console.log('Query selling 1 btc for usdt: ', amountNum, slippage)
+      expect(slippage).to.lessThan(0.0021)
+      console.log('Query selling 1 btc for woo: ', amountNum, slippage)
     })
 
     it('tryQuerySwap accuracy5', async () => {
@@ -528,17 +553,18 @@ describe('WooRouterV2 Integration Tests', () => {
       await expect(
         wooRouter.querySwap(btcToken.address, wooToken.address, ONE.mul(btcNum))
       ).to.be.revertedWith(
-        'WooPPV2: INSUFF_BASE'
+        'WooPPV2: INSUFF_BALANCE'
       )
 
       const amount = await wooRouter.tryQuerySwap(
-        btcToken.address, usdtToken.address, ONE.mul(btcNum))
+        btcToken.address, wooToken.address, ONE.mul(btcNum))
       const amountNum = Number(utils.formatEther(amount))
-      const benchmark = BTC_PRICE * btcNum
+      const benchmark = BTC_PRICE * btcNum / WOO_PRICE
       expect(amountNum).to.lessThan(benchmark)
       const slippage = (benchmark - amountNum) / benchmark
-      expect(slippage).to.lessThan(0.002)
-      console.log('Query selling 1 btc for usdt: ', amountNum, slippage)
+      expect(slippage).to.lessThan(0.0021)
+      console.log('Query selling 1 btc for woo: ', amountNum, slippage)
     })
   })
+
 })
