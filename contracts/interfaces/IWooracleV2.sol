@@ -44,34 +44,42 @@ interface IWooracleV2 {
         bool woFeasible;
     }
 
+    /// @notice Wooracle spread value
     function woSpread(address base) external view returns (uint64);
 
+    /// @notice Wooracle coeff value
     function woCoeff(address base) external view returns (uint64);
 
+    /// @notice Wooracle state for the specified base token
     function woState(address base) external view returns (State memory);
 
+    /// @notice Chainlink oracle address for the specified base token
     function cloAddress(address base) external view returns (address clo);
 
-    // ChainLink price of the base token / quote token
+    /// @notice ChainLink price of the base token / quote token
     function cloPrice(address base) external view returns (uint256 price, uint256 timestamp);
 
-    // Wooracle price of the base token
+    /// @notice Wooracle price of the base token
     function woPrice(address base) external view returns (uint128 price, uint256 timestamp);
 
-    // Returns Woooracle price if available, otherwise fallback to ChainLink
+    /// @notice Returns Woooracle price if available, otherwise fallback to ChainLink
     function price(address base) external view returns (uint256 priceNow, bool feasible);
 
+    /// @notice Updates the Wooracle price for the specified base token
     function postPrice(address base, uint128 newPrice) external;
 
-    // post state
-
+    /// @notice State of the specified base token.
     function state(address base) external view returns (State memory);
 
+    /// @notice The price decimal for the specified base token (e.g. 8)
     function decimals(address base) external view returns (uint8);
 
+    /// @notice The quote token for calculating WooPP query price
     function quoteToken() external view returns (address);
 
+    /// @notice last updated timestamp
     function timestamp() external view returns (uint256);
 
+    /// @notice Flag for Wooracle price feasible
     function isWoFeasible(address base) external view returns (bool);
 }

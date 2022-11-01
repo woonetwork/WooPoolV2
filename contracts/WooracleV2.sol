@@ -111,6 +111,11 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         cloRef.cloPreferred = _cloPreferred;
     }
 
+    function setCloPreferred(address token, bool _cloPreferred) external onlyAdmin {
+        CLOracle storage cloRef = clOracles[token];
+        cloRef.cloPreferred = _cloPreferred;
+    }
+
     /// @dev Set the staleDuration.
     /// @param newStaleDuration the new stale duration
     function setStaleDuration(uint256 newStaleDuration) external onlyAdmin {
@@ -234,6 +239,7 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         }
     }
 
+    /// @notice the price decimal for the specified base token
     function decimals(address base) external view override returns (uint8) {
         uint8 d = clOracles[base].decimal;
         return d != 0 ? d : 8;
