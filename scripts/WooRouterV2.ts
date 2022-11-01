@@ -2,11 +2,11 @@
 import { ethers, run } from "hardhat";
 
 // eslint-disable-next-line prefer-const
-let contractName = "WooRouterV3";
+let contractName = "WooRouterV2";
 
 // Specify need before deploying contract
-const weth = "";
-const pool = "";
+const weth = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1";
+const pool = "0x8693F9701D6DB361Fe9CC15Bc455Ef4366E39AE0";
 
 async function main() {
   const args = [weth, pool];
