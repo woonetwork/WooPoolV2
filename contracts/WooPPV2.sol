@@ -45,8 +45,11 @@ import "./libraries/TransferHelper.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
+
+// REMOVE IT IN PROD
+// import "hardhat/console.sol";
 
 /// @title Woo pool for token swap, version 2.
 /// @notice the implementation class for interface IWooPPV2, mainly for query and swap tokens.
@@ -350,6 +353,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
             (quoteAmount, newPrice) = _calcQuoteAmountSellBase(baseToken, baseAmount, state);
             IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
+            // console.log('Post new price:', newPrice, newPrice/1e8);
         }
 
         uint256 swapFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
@@ -403,6 +407,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
             (baseAmount, newPrice) = _calcBaseAmountSellQuote(baseToken, quoteAmount, state);
             IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
+            // console.log('Post new price:', newPrice, newPrice/1e8);
             require(baseAmount >= minBaseAmount, "WooPPV2: baseAmount_LT_minBaseAmount");
         }
 
@@ -455,6 +460,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             uint256 newBase1Price;
             (quoteAmount, newBase1Price) = _calcQuoteAmountSellBase(baseToken1, base1Amount, state1);
             IWooracleV2(wooracle).postPrice(baseToken1, uint128(newBase1Price));
+            // console.log('Post new base1 price:', newBase1Price, newBase1Price/1e8);
 
             swapFee = (quoteAmount * feeRate) / 1e5;
         }
@@ -469,6 +475,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             uint256 newBase2Price;
             (base2Amount, newBase2Price) = _calcBaseAmountSellQuote(baseToken2, quoteAmount, state2);
             IWooracleV2(wooracle).postPrice(baseToken2, uint128(newBase2Price));
+            // console.log('Post new base2 price:', newBase2Price, newBase2Price/1e8);
             require(base2Amount >= minBase2Amount, "WooPPV2: base2Amount_LT_minBase2Amount");
         }
 
@@ -506,8 +513,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         return
             DecimalInfo({
                 priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
-                quoteDec: uint64(10)**(ERC20(quoteToken).decimals()), // 18 or 6
-                baseDec: uint64(10)**(ERC20(baseToken).decimals()) // 18 or 8
+                quoteDec: uint64(10)**(IERC20Metadata(quoteToken).decimals()), // 18 or 6
+                baseDec: uint64(10)**(IERC20Metadata(baseToken).decimals()) // 18 or 8
             });
     }
 
@@ -553,7 +560,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         // oracle.postPrice(base, oracle.price * (1 + 2 * k * quoteAmount)
         newPrice =
             ((uint256(1e18) * decs.quoteDec + uint256(2) * state.coeff * quoteAmount) * state.price) /
-            decs.quoteDec;
+            decs.quoteDec /
+            1e18;
     }
 
     function _maxUInt16(uint16 a, uint16 b) private pure returns (uint16) {
