@@ -65,7 +65,7 @@ describe('WooAccessManager Accuracy & Access Control & Require Check', () => {
   let whenPausedRevertedMessage: string
 
   before(async () => {
-    ;[
+    [
       owner,
       user,
       feeAdmin,

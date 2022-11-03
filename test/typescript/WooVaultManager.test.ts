@@ -74,7 +74,7 @@ describe('WooVaultManager', () => {
   let wooRouter: Contract
 
   before('Deploy Contracts', async () => {
-    ;[owner, vault1, vault2] = await ethers.getSigners()
+    [owner, vault1, vault2] = await ethers.getSigners()
     btcToken = await deployContract(owner, TestERC20TokenArtifact, [])
     usdtToken = await deployContract(owner, TestERC20TokenArtifact, [])
     wooToken = await deployContract(owner, TestERC20TokenArtifact, [])
@@ -343,7 +343,7 @@ describe('WooVaultManager Access Control', () => {
   let onlyAdminRevertedMessage: string
 
   before(async () => {
-    ;[owner, admin, user, vault] = await ethers.getSigners()
+    [owner, admin, user, vault] = await ethers.getSigners()
     usdtToken = await deployContract(owner, TestERC20TokenArtifact, [])
     wooToken = await deployContract(owner, TestERC20TokenArtifact, [])
 

@@ -78,7 +78,7 @@ describe('WooRebateManager', () => {
   let args: string[]
 
   before('Deploy Contracts', async () => {
-    ;[owner, broker] = await ethers.getSigners()
+    [owner, broker] = await ethers.getSigners()
     btcToken = await deployContract(owner, TestERC20TokenArtifact, [])
     usdtToken = await deployContract(owner, TestERC20TokenArtifact, [])
     wooToken = await deployContract(owner, TestERC20TokenArtifact, [])
@@ -300,7 +300,7 @@ describe('WooRebateManager Access Control', () => {
   let onlyAdminRevertedMessage: string
 
   before(async () => {
-    ;[owner, admin, user, broker] = await ethers.getSigners()
+    [owner, admin, user, broker] = await ethers.getSigners()
     usdtToken = await deployContract(owner, TestERC20TokenArtifact, [])
     wooToken = await deployContract(owner, TestERC20TokenArtifact, [])
 

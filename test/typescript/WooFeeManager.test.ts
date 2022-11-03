@@ -73,7 +73,7 @@ describe('WooFeeManager Info', () => {
   let wooAccessManager: Contract
 
   before('Deploy Contracts', async () => {
-    ;[owner, user1, broker1, broker2, treasury] = await ethers.getSigners()
+    [owner, user1, broker1, broker2, treasury] = await ethers.getSigners()
     btcToken = await deployContract(owner, TestERC20TokenArtifact, [])
     usdtToken = await deployContract(owner, TestERC20TokenArtifact, [])
     wooToken = await deployContract(owner, TestERC20TokenArtifact, [])
@@ -283,7 +283,7 @@ describe('WooFeeManager Access Control', () => {
   const mintToken = BigNumber.from(30000)
 
   before(async () => {
-    ;[owner, admin, user, rebateManager, newRebateManager, vaultManager, newVaultManager, treasury] =
+    [owner, admin, user, rebateManager, newRebateManager, vaultManager, newVaultManager, treasury] =
       await ethers.getSigners()
     token = await deployContract(owner, TestERC20TokenArtifact, [])
     wooAccessManager = (await deployContract(owner, WooAccessManagerArtifact, [])) as WooAccessManager
