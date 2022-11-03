@@ -43,6 +43,7 @@ import "./libraries/TransferHelper.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 contract WooVaultManager is Ownable, ReentrancyGuard, IWooVaultManager {
@@ -102,8 +103,8 @@ contract WooVaultManager is Ownable, ReentrancyGuard, IWooVaultManager {
     function setVaultWeight(address vaultAddr, uint256 weight) external override onlyAdmin {
         require(vaultAddr != address(0), "WooVaultManager: !vaultAddr");
 
-        // NOTE: First clear all the pending reward if > 100u to keep the things fair
-        if (IERC20(quoteToken).balanceOf(address(this)) >= 1e20) {
+        // NOTE: First clear all the pending reward if > 1u to keep the things fair
+        if (IERC20(quoteToken).balanceOf(address(this)) >= 10**IERC20Metadata(quoteToken).decimals()) {
             distributeAllReward();
         }
 
