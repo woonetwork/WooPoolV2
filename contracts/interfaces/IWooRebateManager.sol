@@ -14,7 +14,7 @@ pragma solidity =0.8.14;
 * MIT License
 * ===========
 *
-* Copyright (c) 2022 WooTrade
+* Copyright (c) 2020 WooTrade
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -34,40 +34,42 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/// @title Contract to collect transaction fee of Woo private pool.
-interface IWooFeeManager {
-    /* ----- Events ----- */
+/// @title Rebate manager interface for WooFi Swap.
+/// @notice this is for swap rebate or potential incentive program
 
-    event FeeRateUpdated(address indexed token, uint256 newFeeRate);
+interface IWooRebateManager {
     event Withdraw(address indexed token, address indexed to, uint256 amount);
+    event RebateRateUpdated(address indexed brokerAddr, uint256 rate);
+    event ClaimReward(address indexed brokerAddr, uint256 amount);
 
-    /* ----- External Functions ----- */
+    /// @dev Gets the rebate rate for the given broker.
+    /// Note: decimal: 18;  1e16 = 1%, 1e15 = 0.1%, 1e14 = 0.01%
+    /// @param brokerAddr the address for rebate
+    /// @return The rebate rate (decimal: 18; 1e16 = 1%, 1e15 = 0.1%, 1e14 = 0.01%)
+    function rebateRate(address brokerAddr) external view returns (uint256);
 
-    /// @dev fee rate for the given base token:
-    /// NOTE: fee rate decimal 18: 1e16 = 1%, 1e15 = 0.1%, 1e14 = 0.01%
-    /// @param token the base token
-    /// @return the fee rate
-    function feeRate(address token) external view returns (uint256);
+    /// @dev set the rebate rate
+    /// @param brokerAddr the rebate address
+    /// @param rate the rebate rate
+    function setRebateRate(address brokerAddr, uint256 rate) external;
 
-    /// @dev Sets the fee rate for the given token
-    /// @param token the base token
-    /// @param newFeeRate the new fee rate
-    function setFeeRate(address token, uint256 newFeeRate) external;
+    /// @dev adds the pending reward for the given user.
+    /// @param brokerAddr the address for rebate
+    /// @param amountInUSD the pending reward amount
+    function addRebate(address brokerAddr, uint256 amountInUSD) external;
 
-    /// @dev Collects the swap fee to the given brokder address.
-    /// @param amount the swap fee amount
-    /// @param brokerAddr the broker address to rebate to
-    function collectFee(uint256 amount, address brokerAddr) external;
+    /// @dev Pending amount in reward token (e.g. $woo).
+    /// @param brokerAddr the address for rebate
+    function pendingRebateInReward(address brokerAddr) external view returns (uint256);
+
+    /// @dev Pending amount in quote token (e.g. usdc).
+    /// @param brokerAddr the address for rebate
+    function pendingRebateInQuote(address brokerAddr) external view returns (uint256);
+
+    /// @dev Claims the reward ($woo token will be distributed)
+    function claimRebate() external;
 
     /// @dev get the quote token address
     /// @return address of quote token
     function quoteToken() external view returns (address);
-
-    /// @dev Collects the fee and distribute to rebate and vault managers.
-    function distributeFees() external;
-
-    /// @dev Add the rebate amounts for the specified broker addresses.
-    /// @param brokerAddrs the broker address for rebate
-    /// @param amounts the rebate amount for each broker address
-    function addRebates(address[] memory brokerAddrs, uint256[] memory amounts) external;
 }

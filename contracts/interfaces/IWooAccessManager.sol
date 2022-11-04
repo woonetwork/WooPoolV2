@@ -14,7 +14,7 @@ pragma solidity =0.8.14;
 * MIT License
 * ===========
 *
-* Copyright (c) 2022 WooTrade
+* Copyright (c) 2020 WooTrade
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -34,40 +34,40 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/// @title Contract to collect transaction fee of Woo private pool.
-interface IWooFeeManager {
+/// @title Reward manager interface for WooFi Swap.
+/// @notice this is for swap rebate or potential incentive program
+interface IWooAccessManager {
     /* ----- Events ----- */
 
-    event FeeRateUpdated(address indexed token, uint256 newFeeRate);
-    event Withdraw(address indexed token, address indexed to, uint256 amount);
+    event FeeAdminUpdated(address indexed feeAdmin, bool flag);
+
+    event VaultAdminUpdated(address indexed vaultAdmin, bool flag);
+
+    event RebateAdminUpdated(address indexed rebateAdmin, bool flag);
+
+    event ZeroFeeVaultUpdated(address indexed vault, bool flag);
 
     /* ----- External Functions ----- */
 
-    /// @dev fee rate for the given base token:
-    /// NOTE: fee rate decimal 18: 1e16 = 1%, 1e15 = 0.1%, 1e14 = 0.01%
-    /// @param token the base token
-    /// @return the fee rate
-    function feeRate(address token) external view returns (uint256);
+    function isFeeAdmin(address feeAdmin) external returns (bool);
 
-    /// @dev Sets the fee rate for the given token
-    /// @param token the base token
-    /// @param newFeeRate the new fee rate
-    function setFeeRate(address token, uint256 newFeeRate) external;
+    function isVaultAdmin(address vaultAdmin) external returns (bool);
 
-    /// @dev Collects the swap fee to the given brokder address.
-    /// @param amount the swap fee amount
-    /// @param brokerAddr the broker address to rebate to
-    function collectFee(uint256 amount, address brokerAddr) external;
+    function isRebateAdmin(address rebateAdmin) external returns (bool);
 
-    /// @dev get the quote token address
-    /// @return address of quote token
-    function quoteToken() external view returns (address);
+    function isZeroFeeVault(address vault) external returns (bool);
 
-    /// @dev Collects the fee and distribute to rebate and vault managers.
-    function distributeFees() external;
+    /* ----- Admin Functions ----- */
 
-    /// @dev Add the rebate amounts for the specified broker addresses.
-    /// @param brokerAddrs the broker address for rebate
-    /// @param amounts the rebate amount for each broker address
-    function addRebates(address[] memory brokerAddrs, uint256[] memory amounts) external;
+    /// @notice Sets feeAdmin
+    function setFeeAdmin(address feeAdmin, bool flag) external;
+
+    /// @notice Sets vaultAdmin
+    function setVaultAdmin(address vaultAdmin, bool flag) external;
+
+    /// @notice Sets rebateAdmin
+    function setRebateAdmin(address rebateAdmin, bool flag) external;
+
+    /// @notice Sets zeroFeeVault
+    function setZeroFeeVault(address vault, bool flag) external;
 }

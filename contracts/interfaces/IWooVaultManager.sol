@@ -14,7 +14,7 @@ pragma solidity =0.8.14;
 * MIT License
 * ===========
 *
-* Copyright (c) 2022 WooTrade
+* Copyright (c) 2020 WooTrade
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -34,40 +34,43 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/// @title Contract to collect transaction fee of Woo private pool.
-interface IWooFeeManager {
-    /* ----- Events ----- */
+/// @title Vault reward manager interface for WooFi Swap.
+interface IWooVaultManager {
+    event VaultWeightUpdated(address indexed vaultAddr, uint256 weight);
+    event RewardDistributed(address indexed vaultAddr, uint256 amount);
 
-    event FeeRateUpdated(address indexed token, uint256 newFeeRate);
-    event Withdraw(address indexed token, address indexed to, uint256 amount);
+    /// @dev Gets the reward weight for the given vault.
+    /// @param vaultAddr the vault address
+    /// @return The weight of the given vault.
+    function vaultWeight(address vaultAddr) external view returns (uint256);
 
-    /* ----- External Functions ----- */
+    /// @dev Sets the reward weight for the given vault.
+    /// @param vaultAddr the vault address
+    /// @param weight the vault weight
+    function setVaultWeight(address vaultAddr, uint256 weight) external;
 
-    /// @dev fee rate for the given base token:
-    /// NOTE: fee rate decimal 18: 1e16 = 1%, 1e15 = 0.1%, 1e14 = 0.01%
-    /// @param token the base token
-    /// @return the fee rate
-    function feeRate(address token) external view returns (uint256);
+    /// @dev Adds the reward quote amount.
+    /// Note: The reward will be stored in this manager contract for
+    ///       further weight adjusted distribution.
+    /// @param quoteAmount the reward amount in quote token.
+    function addReward(uint256 quoteAmount) external;
 
-    /// @dev Sets the fee rate for the given token
-    /// @param token the base token
-    /// @param newFeeRate the new fee rate
-    function setFeeRate(address token, uint256 newFeeRate) external;
+    /// @dev Pending amount in quote token for the given vault.
+    /// @param vaultAddr the vault address
+    function pendingReward(address vaultAddr) external view returns (uint256);
 
-    /// @dev Collects the swap fee to the given brokder address.
-    /// @param amount the swap fee amount
-    /// @param brokerAddr the broker address to rebate to
-    function collectFee(uint256 amount, address brokerAddr) external;
+    /// @dev All pending amount in quote token.
+    /// @return the total pending reward
+    function pendingAllReward() external view returns (uint256);
+
+    /// @dev Distributes the reward to all the vaults based on the weights.
+    function distributeAllReward() external;
+
+    /// @dev All the vaults
+    /// @return the vault address array
+    function allVaults() external view returns (address[] memory);
 
     /// @dev get the quote token address
     /// @return address of quote token
     function quoteToken() external view returns (address);
-
-    /// @dev Collects the fee and distribute to rebate and vault managers.
-    function distributeFees() external;
-
-    /// @dev Add the rebate amounts for the specified broker addresses.
-    /// @param brokerAddrs the broker address for rebate
-    /// @param amounts the rebate amount for each broker address
-    function addRebates(address[] memory brokerAddrs, uint256[] memory amounts) external;
 }

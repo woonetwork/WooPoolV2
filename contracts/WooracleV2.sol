@@ -49,8 +49,8 @@ contract WooracleV2 is Ownable, IWooracleV2 {
     // 128 + 64 + 64 = 256 bits (slot size)
     struct TokenInfo {
         uint128 price; // as chainlink oracle (e.g. decimal = 8)
-        uint64 coeff; // 18. e.g. 10000000000
-        uint64 spread; // 18. e.g. 828008000000000
+        uint64 coeff; // 18.    18.4 * 1e18
+        uint64 spread; // 18.   spread <= 2e18   18.4 * 1e18
     }
 
     struct CLOracle {
@@ -245,7 +245,7 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         return d != 0 ? d : 8;
     }
 
-    function cloPrice(address base) external view override returns (uint256, uint256) {
+    function cloPrice(address base) external view override returns (uint256 refPrice, uint256 refTimestamp) {
         return _cloPriceInQuote(base, quoteToken);
     }
 
