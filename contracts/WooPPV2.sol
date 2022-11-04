@@ -157,6 +157,14 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         }
     }
 
+    /// @dev OKAY to be public method
+    function claimFee() external nonReentrant {
+        require(feeAddr != address(0), "WooPPV2: !feeAddr");
+        uint256 amountToTransfer = unclaimedFee;
+        unclaimedFee = 0;
+        TransferHelper.safeTransfer(quoteToken, feeAddr, amountToTransfer);
+    }
+
     /// @inheritdoc IWooPPV2
     /// @dev pool size = tokenInfo.reserve
     function poolSize(address token) public view override returns (uint256) {
@@ -168,12 +176,13 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         return token == quoteToken ? _rawBalance(token) - unclaimedFee : _rawBalance(token);
     }
 
-    /// @dev okay to be public method
-    function claimFee() external nonReentrant {
-        require(feeAddr != address(0), "WooPPV2: !feeAddr");
-        uint256 amountToTransfer = unclaimedFee;
-        unclaimedFee = 0;
-        TransferHelper.safeTransfer(quoteToken, feeAddr, amountToTransfer);
+    function decimalInfo(address baseToken) public view returns (DecimalInfo memory) {
+        return
+            DecimalInfo({
+                priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
+                quoteDec: uint64(10)**(IERC20Metadata(quoteToken).decimals()), // 18 or 6
+                baseDec: uint64(10)**(IERC20Metadata(baseToken).decimals()) // 18 or 8
+            });
     }
 
     /* ----- Admin Functions ----- */
@@ -188,7 +197,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         emit FeeAddrUpdated(_feeAddr);
     }
 
-    function setFeeRate(address token, uint16 rate) external nonReentrant onlyAdmin {
+    function setFeeRate(address token, uint16 rate) external onlyAdmin {
         require(rate <= 1e5, "!rate");
         tokenInfos[token].feeRate = rate;
     }
@@ -201,7 +210,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         super._unpause();
     }
 
-    function setAdmin(address addr, bool flag) external nonReentrant onlyAdmin {
+    function setAdmin(address addr, bool flag) external onlyAdmin {
         require(addr != address(0), "WooPPV2: !admin");
         isAdmin[addr] = flag;
         emit AdminUpdated(addr, flag);
@@ -225,10 +234,13 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     function repayWeeklyLending(IWooLendingManager lendManager) external onlyAdmin {
         lendManager.accureInterest();
         uint256 amount = lendManager.weeklyRepayment();
+        address repaidToken = lendManager.want();
         if (amount > 0) {
-            TransferHelper.safeApprove(lendManager.want(), address(lendManager), amount);
+            tokenInfos[repaidToken].reserve = uint192(tokenInfos[repaidToken].reserve - amount);
+            TransferHelper.safeApprove(repaidToken, address(lendManager), amount);
             lendManager.repayWeekly();
         }
+        emit Withdraw(repaidToken, address(lendManager), amount);
     }
 
     function withdraw(address token, uint256 amount) public nonReentrant onlyAdmin {
@@ -507,15 +519,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         );
         require(success && data.length >= 32, "WooPPV2: !BALANCE");
         return abi.decode(data, (uint256));
-    }
-
-    function decimalInfo(address baseToken) public view returns (DecimalInfo memory) {
-        return
-            DecimalInfo({
-                priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
-                quoteDec: uint64(10)**(IERC20Metadata(quoteToken).decimals()), // 18 or 6
-                baseDec: uint64(10)**(IERC20Metadata(baseToken).decimals()) // 18 or 8
-            });
     }
 
     function _calcQuoteAmountSellBase(

@@ -166,7 +166,7 @@ contract WooRouterV2 is IWooRouterV2, Ownable, ReentrancyGuard {
         uint256 minToAmount,
         address payable to,
         bytes calldata data
-    ) public payable override nonReentrant returns (uint256 realToAmount) {
+    ) external payable override nonReentrant returns (uint256 realToAmount) {
         require(approveTarget != address(0), "WooRouter: approveTarget_ADDR_ZERO");
         require(swapTarget != address(0), "WooRouter: swapTarget_ADDR_ZERO");
         require(fromToken != address(0), "WooRouter: fromToken_ADDR_ZERO");
