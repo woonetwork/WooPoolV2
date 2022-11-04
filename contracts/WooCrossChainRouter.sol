@@ -75,7 +75,7 @@ contract WooCrossChainRouter is IStargateReceiver, Ownable, ReentrancyGuard {
 
         bridgeSlippage = 100;
 
-        dstGasForSwapCall = 120000;
+        dstGasForSwapCall = 360000;
         dstGasForNoSwapCall = 80000;
 
         // usdc: 1, usdt: 2, busd: 5
