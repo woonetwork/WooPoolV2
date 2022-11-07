@@ -549,7 +549,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             quoteAmount = (((baseAmount * decs.quoteDec * state.price) / decs.priceDec) * coef) / 1e18 / decs.baseDec;
         }
 
-        // newPrice = (1 - 2 * k * oracle.price * baseAmount) * oracle.price
+        // newPrice = oracle.price * (1 - 2 * k * oracle.price * baseAmount)
         newPrice =
             ((uint256(1e18) - (uint256(2) * state.coeff * state.price * baseAmount) / decs.priceDec / decs.baseDec) *
                 state.price) /
@@ -571,7 +571,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             baseAmount = (((quoteAmount * decs.baseDec * decs.priceDec) / state.price) * coef) / 1e18 / decs.quoteDec;
         }
 
-        // oracle.postPrice(base, oracle.price * (1 + 2 * k * quoteAmount)
+        // new_price = oracle.price * (1 + 2 * k * quoteAmount)
         newPrice =
             ((uint256(1e18) * decs.quoteDec + uint256(2) * state.coeff * quoteAmount) * state.price) /
             decs.quoteDec /
