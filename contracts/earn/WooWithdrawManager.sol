@@ -35,8 +35,8 @@ pragma solidity =0.8.14;
 * SOFTWARE.
 */
 
-import '../interfaces/IWETH.sol';
-import '../interfaces/IWooAccessManager.sol';
+import "../interfaces/IWETH.sol";
+import "../interfaces/IWooAccessManager.sol";
 
 import "../libraries/TransferHelper.sol";
 
@@ -45,9 +45,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-
 contract WooWithdrawManager is Ownable, ReentrancyGuard {
-
     // addedAmount: added withdrawal amount for this user
     // totalAmount: total withdrawal amount for this user
     event WithdrawAdded(address indexed user, uint256 addedAmount, uint256 totalAmount);
@@ -80,13 +78,13 @@ contract WooWithdrawManager is Ownable, ReentrancyGuard {
     modifier onlyAdmin() {
         require(
             owner() == msg.sender || IWooAccessManager(accessManager).isVaultAdmin(msg.sender),
-            'WooWithdrawManager: !owner'
+            "WooWithdrawManager: !owner"
         );
         _;
     }
 
     modifier onlySuperChargerVault() {
-        require(superChargerVault == msg.sender, 'WooWithdrawManager: !superChargerVault');
+        require(superChargerVault == msg.sender, "WooWithdrawManager: !superChargerVault");
         _;
     }
 
