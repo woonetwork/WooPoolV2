@@ -199,7 +199,7 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
         TransferHelper.safeApprove(want, wooPP, amount);
         IWooPPV2(wooPP).deposit(want, amount);
 
-        emit Borrow(wooPP, amount);
+        emit Borrow(msg.sender, amount);
     }
 
     // NOTE: this is the view functiono;
