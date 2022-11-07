@@ -38,6 +38,10 @@ import { ethers } from 'hardhat'
 import { deployContract, solidity } from 'ethereum-waffle'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
+import { WooracleV2, WooPPV2 } from '../../typechain'
+import WooracleV2Artifact from '../../artifacts/contracts/WooracleV2.sol/WooracleV2.json'
+import WooPPV2Artifact from '../../artifacts/contracts/WooPPV2.sol/WooPPV2.json'
+
 import {
   WooAccessManager,
   WooSuperChargerVault,
@@ -61,8 +65,10 @@ const ONE = ethers.BigNumber.from(10).pow(18)
 describe('WooSuperChargerVault USDC', () => {
   let owner: SignerWithAddress
   let user1: SignerWithAddress
-  let wooPP: SignerWithAddress
   let treasury: SignerWithAddress
+
+  let wooracle: WooracleV2
+  let wooPP: WooPPV2
 
   let accessManager: WooAccessManager
   let reserveVault: WOOFiVaultV2
@@ -74,13 +80,14 @@ describe('WooSuperChargerVault USDC', () => {
   let want: Contract
   let wftm: Contract
   let usdcToken: Contract
+  let quote: Contract
 
   before('Tests Init', async () => {
-    [owner, user1, wooPP, treasury] = await ethers.getSigners()
+    [owner, user1, treasury] = await ethers.getSigners()
     usdcToken = await deployContract(owner, TestERC20TokenArtifact, [])
     wftm = await deployContract(owner, TestERC20TokenArtifact, [])
-
     want = usdcToken
+    quote = usdcToken
 
     accessManager = (await deployContract(owner, WooAccessManagerArtifact, [])) as WooAccessManager
 
@@ -95,6 +102,15 @@ describe('WooSuperChargerVault USDC', () => {
 
     await wftm.mint(user1.address, utils.parseEther('20000'))
     await usdcToken.mint(user1.address, utils.parseEther('3000'))
+
+    wooracle = (await deployContract(owner, WooracleV2Artifact, [])) as WooracleV2
+
+    wooPP = (await deployContract(owner, WooPPV2Artifact, [quote.address])) as WooPPV2
+
+    await wooPP.init(wooracle.address, treasury.address)
+    await wooPP.setFeeRate(wftm.address, 100);
+
+    await wooracle.setAdmin(wooPP.address, true)
   })
 
   describe('ctor, init & basic func', () => {
@@ -119,6 +135,8 @@ describe('WooSuperChargerVault USDC', () => {
       await withdrawManager.init(wftm.address, want.address, accessManager.address, superChargerVault.address)
 
       await superChargerVault.init(reserveVault.address, lendingManager.address, withdrawManager.address)
+
+      await wooPP.setAdmin(lendingManager.address, true)
     })
 
     it('Integration Test1: request withdraw, borrow, weekly settle, withdraw', async () => {
@@ -173,9 +191,9 @@ describe('WooSuperChargerVault USDC', () => {
       await expect(lendingManager.connect(user1.address).borrow(100)).to.be.revertedWith('WooLendingManager: !borrower')
 
       let borrowAmount = utils.parseEther('20')
-      const bal1 = await want.balanceOf(wooPP.address)
+      const bal1 = await wooPP.poolSize(want.address)
       await lendingManager.borrow(borrowAmount) // borrow 20 want token
-      const bal2 = await want.balanceOf(wooPP.address)
+      const bal2 = await wooPP.poolSize(want.address)
       expect(bal2.sub(bal1)).to.eq(borrowAmount)
 
       expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0)
@@ -191,7 +209,7 @@ describe('WooSuperChargerVault USDC', () => {
       const borrowAmount1 = utils.parseEther('10')
       borrowAmount = borrowAmount.add(borrowAmount1)
       await lendingManager.borrow(borrowAmount1) // borrow 10 want token
-      const wooBal = await want.balanceOf(wooPP.address)
+      const wooBal = await wooPP.poolSize(want.address)
       expect(wooBal.sub(bal2)).to.eq(borrowAmount1)
 
       expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0)

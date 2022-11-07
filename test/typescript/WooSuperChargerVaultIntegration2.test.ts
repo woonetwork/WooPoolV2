@@ -45,6 +45,10 @@ import {
   WOOFiVaultV2,
 } from '../../typechain'
 
+import { WooracleV2, WooPPV2 } from '../../typechain'
+import WooracleV2Artifact from '../../artifacts/contracts/WooracleV2.sol/WooracleV2.json'
+import WooPPV2Artifact from '../../artifacts/contracts/WooPPV2.sol/WooPPV2.json'
+
 import TestERC20TokenArtifact from '../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json'
 import WFTMArtifact from '../../artifacts/contracts/test/WFTM.sol/WFTM.json'
 import WooAccessManagerArtifact from '../../artifacts/contracts/WooAccessManager.sol/WooAccessManager.json'
@@ -62,7 +66,10 @@ const ONE = ethers.BigNumber.from(10).pow(18)
 describe('WooSuperChargerVault WFTM', () => {
   let owner: SignerWithAddress
   let user1: SignerWithAddress
-  let wooPP: SignerWithAddress
+  let treasury: SignerWithAddress
+
+  let wooracle: WooracleV2
+  let wooPP: WooPPV2
 
   let accessManager: WooAccessManager
   let reserveVault: WOOFiVaultV2
@@ -74,13 +81,14 @@ describe('WooSuperChargerVault WFTM', () => {
   let want: Contract
   let wftm: Contract
   let usdcToken: Contract
+  let quote: Contract
 
   before('Tests Init', async () => {
-    [owner, user1, wooPP] = await ethers.getSigners()
+    [owner, user1, treasury] = await ethers.getSigners()
     usdcToken = await deployContract(owner, TestERC20TokenArtifact, [])
     wftm = await deployContract(owner, WFTMArtifact, [])
-
     want = wftm
+    quote = usdcToken
 
     accessManager = (await deployContract(owner, WooAccessManagerArtifact, [])) as WooAccessManager
 
@@ -95,6 +103,15 @@ describe('WooSuperChargerVault WFTM', () => {
 
     await wftm.mint(user1.address, utils.parseEther('20000'))
     await usdcToken.mint(user1.address, utils.parseEther('6000'))
+
+    wooracle = (await deployContract(owner, WooracleV2Artifact, [])) as WooracleV2
+
+    wooPP = (await deployContract(owner, WooPPV2Artifact, [quote.address])) as WooPPV2
+
+    await wooPP.init(wooracle.address, treasury.address)
+    await wooPP.setFeeRate(wftm.address, 100);
+
+    await wooracle.setAdmin(wooPP.address, true)
   })
 
   describe('ctor, init & basic func', () => {
@@ -118,6 +135,8 @@ describe('WooSuperChargerVault WFTM', () => {
       await withdrawManager.init(wftm.address, want.address, accessManager.address, superChargerVault.address)
 
       await superChargerVault.init(reserveVault.address, lendingManager.address, withdrawManager.address)
+
+      await wooPP.setAdmin(lendingManager.address, true)
     })
 
     it('Verify ctor & init', async () => {
