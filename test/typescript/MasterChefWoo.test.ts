@@ -31,16 +31,16 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { use } from 'chai';
-import { Contract } from 'ethers';
-import { ethers } from 'hardhat';
-import { deployContract, solidity } from 'ethereum-waffle';
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { use } from "chai";
+import { Contract } from "ethers";
+import { ethers } from "hardhat";
+import { deployContract, solidity } from "ethereum-waffle";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-import { MasterChefWoo, WooSimpleRewarder } from '../../typechain';
-import TestERC20TokenArtifact from '../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json';
-import MasterChefWooArtifact from '../../artifacts/contracts/MasterChefWoo.sol/MasterChefWoo.json';
-import WooSimpleRewarderArtifact from '../../artifacts/contracts/WooSimpleRewarder.sol/WooSimpleRewarder.json';
+import { MasterChefWoo, WooSimpleRewarder } from "../../typechain";
+import TestERC20TokenArtifact from "../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json";
+import MasterChefWooArtifact from "../../artifacts/contracts/MasterChefWoo.sol/MasterChefWoo.json";
+import WooSimpleRewarderArtifact from "../../artifacts/contracts/WooSimpleRewarder.sol/WooSimpleRewarder.json";
 
 use(solidity);
 
@@ -49,7 +49,7 @@ const { BigNumber } = ethers;
 const ONE = BigNumber.from(10).pow(18);
 const TOKEN_100 = ONE.mul(100);
 
-describe('WooPPV2 Integration tests', () => {
+describe("WooPPV2 Integration tests", () => {
   let owner: SignerWithAddress;
 
   let masterCW: MasterChefWoo;
@@ -60,7 +60,7 @@ describe('WooPPV2 Integration tests', () => {
 
   let ownerAddr: string;
 
-  before('Deploy contracts', async () => {
+  before("Deploy contracts", async () => {
     const signers = await ethers.getSigners();
     owner = signers[0];
     ownerAddr = owner.address;
@@ -71,25 +71,30 @@ describe('WooPPV2 Integration tests', () => {
 
     masterCW = (await deployContract(owner, MasterChefWooArtifact, [xWooToken.address, 10])) as MasterChefWoo;
     console.log("MasterChefWoo address: ", masterCW.address);
-    wooSR = (await deployContract(owner, WooSimpleRewarderArtifact, [rewardToken.address, weToken.address, masterCW.address, 20])) as WooSimpleRewarder;
+    wooSR = (await deployContract(owner, WooSimpleRewarderArtifact, [
+      rewardToken.address,
+      weToken.address,
+      masterCW.address,
+      20,
+    ])) as WooSimpleRewarder;
     console.log("WooSimpleRewarder address: ", wooSR.address);
 
     await xWooToken.mint(ownerAddr, TOKEN_100);
     await weToken.mint(ownerAddr, TOKEN_100);
     await rewardToken.mint(ownerAddr, TOKEN_100);
-  })
+  });
 
-  describe('MasterChefWoo', () => {
-    beforeEach('Deploy MasterChefWoo', async () => {
-      console.log('Deploy')
-    })
+  describe("MasterChefWoo", () => {
+    beforeEach("Deploy MasterChefWoo", async () => {
+      console.log("Deploy");
+    });
 
-    it('test MasterChefWoo', async () => {
-      console.log('MasterChefWoo tests')
-    })
+    it("test MasterChefWoo", async () => {
+      console.log("MasterChefWoo tests");
+    });
 
-    it('test WooSimpleRewarder', async () => {
-      console.log('WooSimpleRewarder tests')
-    })
-  })
-})
+    it("test WooSimpleRewarder", async () => {
+      console.log("WooSimpleRewarder tests");
+    });
+  });
+});
