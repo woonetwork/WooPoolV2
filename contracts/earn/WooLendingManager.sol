@@ -194,7 +194,7 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
         uint256 preBalance = IERC20(want).balanceOf(address(this));
         superChargerVault.borrowFromLendingManager(amount, address(this));
         uint256 afterBalance = IERC20(want).balanceOf(address(this));
-        require(afterBalance - preBalance == amount, 'WooLendingManager: BORROW_AMOUNT_ERROR');
+        require(afterBalance - preBalance == amount, "WooLendingManager: BORROW_AMOUNT_ERROR");
 
         TransferHelper.safeApprove(want, wooPP, amount);
         IWooPPV2(wooPP).deposit(want, amount);

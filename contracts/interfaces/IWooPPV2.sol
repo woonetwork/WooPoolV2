@@ -113,8 +113,5 @@ interface IWooPPV2 {
     /// @notice Deposit the specified token into the liquidity pool of WooPPV2.
     /// @param token the token to deposit
     /// @param amount the deposit amount
-    function deposit(
-        address token,
-        uint256 amount
-    ) external;
+    function deposit(address token, uint256 amount) external;
 }
