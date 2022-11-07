@@ -216,7 +216,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         emit AdminUpdated(addr, flag);
     }
 
-    function deposit(address token, uint256 amount) public nonReentrant onlyAdmin {
+    function deposit(address token, uint256 amount) public override nonReentrant onlyAdmin {
         uint256 balanceBefore = balance(token);
         TransferHelper.safeTransferFrom(token, msg.sender, address(this), amount);
         uint256 amountReceived = balance(token) - balanceBefore;

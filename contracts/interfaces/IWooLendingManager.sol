@@ -44,6 +44,8 @@ interface IWooLendingManager {
 
     function repay(uint256 amount) external;
 
+    /// @notice Borrow the fund from super charger and then deposit directly into WooPP.
+    /// @param amount the borrowing amount
     function borrow(uint256 amount) external;
 
     function accureInterest() external;

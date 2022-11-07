@@ -38,6 +38,7 @@ pragma solidity =0.8.14;
 import "./WooSuperChargerVault.sol";
 import "../interfaces/IWETH.sol";
 import "../interfaces/IWooAccessManager.sol";
+import "../interfaces/IWooPPV2.sol";
 
 import "../libraries/TransferHelper.sol";
 
@@ -182,21 +183,23 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
         return superChargerVault.maxBorrowableAmount();
     }
 
+    /// @dev Borrow the fund from super charger and then deposit directly into WooPP.
+    /// @param amount the borrowing amount
     function borrow(uint256 amount) external onlyBorrower {
         require(amount > 0, "!AMOUNT");
 
         accureInterest();
         borrowedPrincipal = borrowedPrincipal + amount;
 
-        uint256 preBalance = IERC20(want).balanceOf(wooPP);
+        uint256 preBalance = IERC20(want).balanceOf(address(this));
+        superChargerVault.borrowFromLendingManager(amount, address(this));
+        uint256 afterBalance = IERC20(want).balanceOf(address(this));
+        require(afterBalance - preBalance == amount, 'WooLendingManager: BORROW_AMOUNT_ERROR');
 
-        // NOTE: this method settles the fund and sends it to the wooPP address.
-        superChargerVault.borrowFromLendingManager(amount, wooPP);
+        TransferHelper.safeApprove(want, wooPP, amount);
+        IWooPPV2(wooPP).deposit(want, amount);
 
-        uint256 afterBalance = IERC20(want).balanceOf(wooPP);
-        require(afterBalance - preBalance == amount, "WooLendingManager: BORROW_AMOUNT_ERROR");
-
-        emit Borrow(msg.sender, amount);
+        emit Borrow(wooPP, amount);
     }
 
     // NOTE: this is the view functiono;
