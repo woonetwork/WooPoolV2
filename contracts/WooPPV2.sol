@@ -84,6 +84,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
     address public feeAddr;
 
+    IWooLendingManager public lendManager;
+
     /* ----- Modifiers ----- */
 
     modifier onlyAdmin() {
@@ -231,7 +233,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         deposit(token, IERC20(token).balanceOf(msg.sender));
     }
 
-    function repayWeeklyLending(IWooLendingManager lendManager) external onlyAdmin {
+    function repayWeeklyLending() external nonReentrant onlyAdmin {
         lendManager.accureInterest();
         uint256 amount = lendManager.weeklyRepayment();
         address repaidToken = lendManager.want();
@@ -254,19 +256,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         withdraw(token, poolSize(token));
     }
 
-    function migrateToNewPool(address token, address newPool) external nonReentrant onlyAdmin {
-        require(token != address(0), "WooPPV2: !token");
-        require(newPool != address(0), "WooPPV2: !newPool");
-
-        tokenInfos[token].reserve = 0;
-
-        uint256 bal = balance(token);
-        TransferHelper.safeApprove(token, newPool, bal);
-        WooPPV2(newPool).depositAll(token);
-
-        emit Migrate(token, newPool, bal);
-    }
-
     function skim(address token) public nonReentrant onlyAdmin {
         TransferHelper.safeTransfer(token, owner(), balance(token) - tokenInfos[token].reserve);
     }
@@ -282,6 +271,27 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
     function sync(address token) external nonReentrant onlyAdmin {
         tokenInfos[token].reserve = uint192(balance(token));
+    }
+
+    /* ----- Owner Functions ----- */
+
+    function setLendManager(IWooLendingManager _lendManager) external onlyOwner {
+        lendManager = _lendManager;
+        isAdmin[address(_lendManager)] = true;
+        emit AdminUpdated(address(_lendManager), true);
+    }
+
+    function migrateToNewPool(address token, address newPool) external onlyOwner {
+        require(token != address(0), "WooPPV2: !token");
+        require(newPool != address(0), "WooPPV2: !newPool");
+
+        tokenInfos[token].reserve = 0;
+
+        uint256 bal = balance(token);
+        TransferHelper.safeApprove(token, newPool, bal);
+        WooPPV2(newPool).depositAll(token);
+
+        emit Migrate(token, newPool, bal);
     }
 
     function inCaseTokenGotStuck(address stuckToken) external onlyOwner {

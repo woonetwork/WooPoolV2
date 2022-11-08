@@ -137,7 +137,8 @@ describe("WooSuperChargerVault USDC", () => {
 
       await superChargerVault.init(reserveVault.address, lendingManager.address, withdrawManager.address);
 
-      await wooPP.setAdmin(lendingManager.address, true);
+      await wooPP.setLendManager(lendingManager.address);
+      await lendingManager.setBorrower(wooPP.address, true);
     });
 
     it("Verify ctor & init", async () => {
@@ -652,6 +653,112 @@ describe("WooSuperChargerVault USDC", () => {
       bal2 = await want.balanceOf(user1.address);
       expect(bal2.sub(bal1).add(gas).div(ONE)).to.eq(10);
     });
+
+    it("Integration Test4: borrow and repay with WooPPV2", async () => {
+      // Steps:
+      // 1. user deposits 100 usdc
+      // 2. request withdraw 10 usdc
+      // 3. borrow 20 + 10 usdc
+      // 4. WooPP repay
+
+      const amount = utils.parseEther("100");
+      await want.approve(superChargerVault.address, amount);
+      await superChargerVault.deposit(amount);
+
+      // Check vault status
+      expect(await superChargerVault.costSharePrice(owner.address)).to.eq(utils.parseEther("1.0"));
+      expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
+      expect(await superChargerVault.balance()).to.eq(amount);
+      expect(await superChargerVault.reserveBalance()).to.eq(amount);
+      expect(await superChargerVault.lendingBalance()).to.eq(0);
+      expect(await superChargerVault.available()).to.eq(0);
+
+      expect(await superChargerVault.instantWithdrawCap()).to.eq(amount.div(10));
+      expect(await superChargerVault.instantWithdrawnAmount()).to.eq(0);
+
+      expect(await superChargerVault.isSettling()).to.eq(false);
+      expect(await superChargerVault.requestedTotalAmount()).to.eq(0);
+      expect(await superChargerVault.requestedWithdrawAmount(owner.address)).to.eq(0);
+
+      // Request withdraw 10
+
+      const rwAmount = utils.parseEther("10");
+      await superChargerVault.approve(superChargerVault.address, rwAmount);
+      await superChargerVault.requestWithdraw(rwAmount);
+
+      expect(await superChargerVault.isSettling()).to.eq(false);
+      expect(await superChargerVault.requestedTotalAmount()).to.eq(rwAmount);
+      expect(await superChargerVault.requestedWithdrawAmount(owner.address)).to.eq(rwAmount);
+
+      // Check lending manager status
+      await lendingManager.setBorrower(owner.address, true);
+      await lendingManager.setInterestRate(1000); // APR - 10%
+      expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
+      expect(await lendingManager.borrowedPrincipal()).to.eq(0);
+      expect(await lendingManager.borrowedInterest()).to.eq(0);
+      expect(await lendingManager.debt()).to.eq(0);
+      expect(await lendingManager.interestRate()).to.eq(1000);
+      expect(await lendingManager.isBorrower(owner.address)).to.eq(true);
+      expect(await lendingManager.isBorrower(user1.address)).to.eq(false);
+
+      // Borrow
+      await expect(lendingManager.connect(user1.address).borrow(100)).to.be.revertedWith(
+        "WooLendingManager: !borrower"
+      );
+
+      let borrowAmount = utils.parseEther("20");
+      const bal1 = await wooPP.poolSize(want.address);
+      await lendingManager.borrow(borrowAmount); // borrow 20 want token
+      const bal2 = await wooPP.poolSize(want.address);
+      expect(bal2.sub(bal1)).to.eq(borrowAmount);
+
+      expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
+      expect(await lendingManager.borrowedPrincipal()).to.eq(borrowAmount);
+      expect(await lendingManager.borrowedInterest()).to.eq(0);
+      expect(await lendingManager.debt()).to.eq(borrowAmount);
+
+      expect(await superChargerVault.balance()).to.eq(amount);
+      expect(await superChargerVault.reserveBalance()).to.eq(amount.sub(borrowAmount));
+      expect(await superChargerVault.lendingBalance()).to.eq(borrowAmount);
+      expect(await superChargerVault.available()).to.eq(0);
+
+      const borrowAmount1 = utils.parseEther("10");
+      borrowAmount = borrowAmount.add(borrowAmount1);
+      await lendingManager.borrow(borrowAmount1); // borrow 10 want token
+      const wooppSize = await wooPP.poolSize(want.address);
+      console.log('wooPP size', utils.formatEther(wooppSize));
+      expect(wooppSize.sub(bal2)).to.eq(borrowAmount1);
+
+      // Repay
+      await expect(wooPP.connect(user1).repayWeeklyLending()).to.be.revertedWith("WooPPV2: !admin");
+
+      const rw2Amount = utils.parseEther("80");
+      await superChargerVault.approve(superChargerVault.address, rw2Amount);
+      await superChargerVault.requestWithdraw(rw2Amount);
+
+      console.log('weekly repayment: ', utils.formatEther(await lendingManager.weeklyRepayment()));
+
+      await superChargerVault.startWeeklySettle();
+
+      expect(await superChargerVault.isSettling()).to.eq(true);
+      expect((await superChargerVault.requestedTotalAmount()).div(ONE)).to.eq(90);
+
+      // Repay
+
+      const weeklyRepayAmount = await lendingManager.weeklyRepayment();
+      console.log('needed repay amount: ', utils.formatEther(weeklyRepayAmount));
+
+      const prePoolSize = await wooPP.poolSize(want.address);
+      await wooPP.repayWeeklyLending();
+      const poolSizeDelta = prePoolSize.sub(await wooPP.poolSize(want.address));
+
+      await superChargerVault.endWeeklySettle();
+
+      expect(await superChargerVault.isSettling()).to.eq(false);
+      expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
+
+      expect(poolSizeDelta.mul(1e6).div(ONE)).to.be.eq(weeklyRepayAmount.mul(1e6).div(ONE))
+    })
 
     it("Integration Test: migrate reserve vault", async () => {
       let amount = utils.parseEther("80");
