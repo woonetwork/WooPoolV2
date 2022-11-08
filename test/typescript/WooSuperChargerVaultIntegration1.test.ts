@@ -730,7 +730,7 @@ describe("WooSuperChargerVault USDC", () => {
       expect(wooppSize.sub(bal2)).to.eq(borrowAmount1);
 
       // Repay
-      await expect(wooPP.connect(user1).repayWeeklyLending()).to.be.revertedWith("WooPPV2: !admin");
+      await expect(wooPP.connect(user1).repayWeeklyLending(want.address)).to.be.revertedWith("WooPPV2: !admin");
 
       const rw2Amount = utils.parseEther("80");
       await superChargerVault.approve(superChargerVault.address, rw2Amount);
@@ -749,7 +749,7 @@ describe("WooSuperChargerVault USDC", () => {
       console.log('needed repay amount: ', utils.formatEther(weeklyRepayAmount));
 
       const prePoolSize = await wooPP.poolSize(want.address);
-      await wooPP.repayWeeklyLending();
+      await wooPP.repayWeeklyLending(want.address);
       const poolSizeDelta = prePoolSize.sub(await wooPP.poolSize(want.address));
 
       await superChargerVault.endWeeklySettle();
