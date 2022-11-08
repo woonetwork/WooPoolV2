@@ -84,7 +84,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
     address public feeAddr;
 
-    IWooLendingManager public lendManager;
+    mapping(address => IWooLendingManager) public lendManagers;
 
     /* ----- Modifiers ----- */
 
@@ -233,7 +233,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         deposit(token, IERC20(token).balanceOf(msg.sender));
     }
 
-    function repayWeeklyLending() external nonReentrant onlyAdmin {
+    function repayWeeklyLending(address wantToken) external nonReentrant onlyAdmin {
+        IWooLendingManager lendManager = lendManagers[wantToken];
         lendManager.accureInterest();
         uint256 amount = lendManager.weeklyRepayment();
         address repaidToken = lendManager.want();
@@ -276,7 +277,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     /* ----- Owner Functions ----- */
 
     function setLendManager(IWooLendingManager _lendManager) external onlyOwner {
-        lendManager = _lendManager;
+        lendManagers[_lendManager.want()] = _lendManager;
         isAdmin[address(_lendManager)] = true;
         emit AdminUpdated(address(_lendManager), true);
     }
