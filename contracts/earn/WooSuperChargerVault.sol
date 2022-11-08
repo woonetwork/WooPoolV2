@@ -38,6 +38,7 @@ import "../interfaces/IStrategy.sol";
 import "../interfaces/IWETH.sol";
 import "../interfaces/IWooAccessManager.sol";
 import "../interfaces/IVaultV2.sol";
+import "../interfaces/IMasterChefWoo.sol";
 
 import "./WooWithdrawManager.sol";
 import "./WooLendingManager.sol";
@@ -96,6 +97,9 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     address public treasury = 0x815D4517427Fc940A90A5653cdCEA1544c6283c9;
     uint256 public instantWithdrawFeeRate = 30; // 1 in 10000th. default: 30 -> 0.3%
 
+    address public masterChef;
+    uint256 public pid;
+
     constructor(
         address _weth,
         address _want,
@@ -142,6 +146,22 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
 
     /* ----- External Functions ----- */
 
+    function setMasterChef(address _masterChef, uint256 _pid) external onlyOwner {
+        require(_masterChef != address(0), "!_masterChef");
+        masterChef = _masterChef;
+        pid = _pid;
+        (IERC20 weToken, , , , ) = IMasterChefWoo(masterChef).poolInfo(pid);
+        require(address(weToken) == address(this), "!pid");
+    }
+
+    function stakedShares(address _user) public view returns (uint256 shares) {
+        if (masterChef == address(0)) {
+            shares = 0;
+        } else {
+            (shares, ) = IMasterChefWoo(masterChef).userInfo(pid, _user);
+        }
+    }
+
     function deposit(uint256 amount) external payable whenNotPaused nonReentrant {
         // require(amount > 0, 'WooSuperChargerVault: !amount');
         if (amount == 0) {
@@ -152,11 +172,10 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         uint256 shares = _shares(amount, getPricePerFullShare());
         require(shares > 0, "!shares");
 
-        uint256 sharesBefore = balanceOf(msg.sender);
+        uint256 sharesBefore = balanceOf(msg.sender) + stakedShares(msg.sender);
         uint256 costBefore = costSharePrice[msg.sender];
         uint256 costAfter = (sharesBefore * costBefore + amount * 1e18) / (sharesBefore + shares);
 
-        // TODO: considering the staked weToken
         costSharePrice[msg.sender] = costAfter;
 
         if (want == weth) {

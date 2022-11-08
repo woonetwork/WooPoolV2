@@ -60,4 +60,17 @@ interface IMasterChefWoo {
     function harvest(uint256 pid) external;
 
     function emergencyWithdraw(uint256 pid) external;
+
+    function userInfo(uint256 pid, address user) external view returns (uint256 amount, uint256 rewardDebt);
+
+    function poolInfo(uint256 pid)
+        external
+        view
+        returns (
+            IERC20 weToken,
+            uint256 allocPoint,
+            uint256 lastRewardBlock,
+            uint256 accTokenPerShare,
+            IRewarder rewarder
+        );
 }
