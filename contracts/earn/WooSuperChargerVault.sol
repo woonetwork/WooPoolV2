@@ -205,6 +205,38 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         emit InstantWithdraw(msg.sender, amount, reserveShares, fee);
     }
 
+    function instantWithdrawAll() external whenNotPaused nonReentrant {
+        require(!isSettling, "WooSuperChargerVault: NOT_ALLOWED_IN_SETTLING");
+
+        if (instantWithdrawnAmount >= instantWithdrawCap) {
+            // NOTE: no more instant withdraw quota.
+            return;
+        }
+
+        lendingManager.accureInterest();
+        uint256 shares = balanceOf(msg.sender);
+        uint256 amount = _assets(shares);
+        require(amount <= instantWithdrawCap - instantWithdrawnAmount, "WooSuperChargerVault: OUT_OF_CAP");
+
+        _burn(msg.sender, shares);
+
+        uint256 reserveShares = _sharesUp(amount, reserveVault.getPricePerFullShare());
+        reserveVault.withdraw(reserveShares);
+
+        uint256 fee = accessManager.isZeroFeeVault(msg.sender) ? 0 : (amount * instantWithdrawFeeRate) / 10000;
+        if (want == weth) {
+            TransferHelper.safeTransferETH(treasury, fee);
+            TransferHelper.safeTransferETH(msg.sender, amount - fee);
+        } else {
+            TransferHelper.safeTransfer(want, treasury, fee);
+            TransferHelper.safeTransfer(want, msg.sender, amount - fee);
+        }
+
+        instantWithdrawnAmount = instantWithdrawnAmount + amount;
+
+        emit InstantWithdraw(msg.sender, amount, reserveShares, fee);
+    }
+
     function requestWithdraw(uint256 amount) external whenNotPaused nonReentrant {
         require(amount > 0, "WooSuperChargerVault: !amount");
         require(!isSettling, "WooSuperChargerVault: CANNOT_WITHDRAW_IN_SETTLING");
@@ -218,6 +250,20 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         requestUsers.add(msg.sender);
 
         emit RequestWithdraw(msg.sender, amount, shares);
+    }
+
+    function requestWithdrawAll() external whenNotPaused nonReentrant {
+        require(!isSettling, "WooSuperChargerVault: CANNOT_WITHDRAW_IN_SETTLING");
+
+        lendingManager.accureInterest();
+        uint256 shares = balanceOf(msg.sender);
+        TransferHelper.safeTransferFrom(address(this), msg.sender, address(this), shares);
+
+        requestedWithdrawShares[msg.sender] = requestedWithdrawShares[msg.sender] + shares;
+        requestedTotalShares = requestedTotalShares + shares;
+        requestUsers.add(msg.sender);
+
+        emit RequestWithdraw(msg.sender, _assets(shares), shares);
     }
 
     function requestedTotalAmount() public view returns (uint256) {
