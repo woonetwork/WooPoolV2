@@ -34,5 +34,3 @@ jobs:
         run: yarn compile
       - name: Run format checks
         run: yarn format:check
-      - name: Run lint
-        run: yarn lint
