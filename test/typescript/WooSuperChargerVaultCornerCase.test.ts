@@ -91,12 +91,6 @@ describe("WooSuperChargerVault CornerCase", () => {
 
     accessManager = (await deployContract(owner, WooAccessManagerArtifact, [])) as WooAccessManager;
 
-    reserveVault = (await deployContract(owner, WOOFiVaultV2Artifact, [
-      wftm.address,
-      want.address,
-      accessManager.address,
-    ])) as WOOFiVaultV2;
-
     await wftm.mint(owner.address, utils.parseEther("10000"));
     await usdcToken.mint(owner.address, utils.parseEther("5000"));
 
@@ -115,6 +109,12 @@ describe("WooSuperChargerVault CornerCase", () => {
 
   describe("ctor, init & basic func", () => {
     beforeEach("Deploy WooVaultManager", async () => {
+      reserveVault = (await deployContract(owner, WOOFiVaultV2Artifact, [
+        wftm.address,
+        want.address,
+        accessManager.address,
+      ])) as WOOFiVaultV2;
+
       superChargerVault = (await deployContract(owner, WooSuperChargerVaultArtifact, [
         wftm.address,
         want.address,
