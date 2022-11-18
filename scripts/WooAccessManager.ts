@@ -2,28 +2,39 @@
 import { ethers, run } from "hardhat";
 
 // eslint-disable-next-line prefer-const
-let contractName = "WooRouterV2";
+let contractName = "WooAccessManager";
 
 // Specify need before deploying contract
-const weth = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1";
-const pool = "0x8693F9701D6DB361Fe9CC15Bc455Ef4366E39AE0";
+const buybackAdmin = "0xb08Dc5670682658A77841Db446B226dd355527f2";
+const settleAdmin = "0x3668ba88A32332269483a0EB2406A7f8149b486D";
+const marketMaker = "0x4c298512e78C1FA8fc36c8f9c0a8B9522e5fB48c";
 const owner = "0x7C8A5d20b22Ce9b369C043A3E0091b5575B732d9";
 
 async function main() {
-  const args = [weth, pool];
   const factory = await ethers.getContractFactory(contractName);
-  const contract = await factory.deploy(...args);
+  const contract = await factory.deploy();
   await contract.deployed();
   console.log(`${contractName} deployed to: ${contract.address}`);
 
   await new Promise((resolve) => setTimeout(resolve, 10000));
+  await contract.setFeeAdmin(buybackAdmin, true);
 
+  await new Promise((resolve) => setTimeout(resolve, 10000));
+  await contract.setVaultAdmin(buybackAdmin, true);
+
+  await new Promise((resolve) => setTimeout(resolve, 10000));
+  await contract.setVaultAdmin(settleAdmin, true);
+
+  await new Promise((resolve) => setTimeout(resolve, 10000));
+  await contract.setVaultAdmin(marketMaker, true);
+
+  await new Promise((resolve) => setTimeout(resolve, 10000));
   await contract.transferOwnership(owner);
-  
+
   try {
     await run("verify:verify", {
       address: contract.address,
-      constructorArguments: args,
+      constructorArguments: [],
     });
   } catch (e) {
     if (typeof e === "string") {
