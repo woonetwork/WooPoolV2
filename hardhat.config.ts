@@ -78,12 +78,12 @@ const config: HardhatUserConfig = {
       chainId: 421611,
       accounts: accounts,
     },
-    optimistic_mainnet: {
+    optimism_mainnet: {
       url: "https://mainnet.optimism.io/",
       chainId: 10,
       accounts: accounts,
     },
-    optimistic_testnet: {
+    optimism_testnet: {
       url: "https://goerli.optimism.io/",
       chainId: 420,
       accounts: accounts,
