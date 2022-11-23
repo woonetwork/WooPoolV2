@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.14;
 
-import "./interfaces/IWooPPV2.sol";
-import "./interfaces/IWETH.sol";
 import "./interfaces/IWooRouterV2.sol";
+import "./interfaces/IWETH.sol";
 
 import "./interfaces/Stargate/IStargateRouter.sol";
 import "./interfaces/Stargate/IStargateReceiver.sol";
@@ -50,7 +49,7 @@ contract WooCrossChainRouter is IStargateReceiver, Ownable, ReentrancyGuard {
     address constant ETH_PLACEHOLDER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     IStargateRouter public stargateRouter;
-    IWooPPV2 public wooPool;
+    IWooRouterV2 public wooRouter;
     address public quoteToken;
     address public WETH;
     uint256 public bridgeSlippage; // 1 in 10000th: default 1%
@@ -65,12 +64,12 @@ contract WooCrossChainRouter is IStargateReceiver, Ownable, ReentrancyGuard {
 
     constructor(
         address _weth,
-        address _wooPool,
+        address _wooRouter,
         address _stargateRouter
     ) {
         WETH = _weth;
-        wooPool = IWooPPV2(_wooPool);
-        quoteToken = wooPool.quoteToken();
+        wooRouter = IWooRouterV2(_wooRouter);
+        quoteToken = wooRouter.wooPool().quoteToken();
         stargateRouter = IStargateRouter(_stargateRouter);
 
         bridgeSlippage = 100;
@@ -121,8 +120,8 @@ contract WooCrossChainRouter is IStargateReceiver, Ownable, ReentrancyGuard {
         stargateRouter = IStargateRouter(_stargateRouter);
     }
 
-    function setWooPool(address _wooPool) external onlyOwner {
-        wooPool = IWooPPV2(_wooPool);
+    function setWooRouter(address _wooRouter) external onlyOwner {
+        wooRouter = IWooRouterV2(_wooRouter);
     }
 
     function setBridgeSlippage(uint256 _bridgeSlippage) external onlyOwner {
@@ -176,8 +175,15 @@ contract WooCrossChainRouter is IStargateReceiver, Ownable, ReentrancyGuard {
         // Step 2: local transfer
         uint256 bridgeAmount;
         if (fromToken != quoteToken) {
-            TransferHelper.safeTransfer(fromToken, address(wooPool), fromAmount);
-            bridgeAmount = wooPool.swap(fromToken, quoteToken, fromAmount, srcMinQuoteAmount, address(this), to);
+            TransferHelper.safeApprove(fromToken, address(wooRouter), fromAmount);
+            bridgeAmount = wooRouter.swap(
+                fromToken,
+                quoteToken,
+                fromAmount,
+                srcMinQuoteAmount,
+                payable(address(this)),
+                to
+            );
         } else {
             bridgeAmount = fromAmount;
         }
@@ -256,7 +262,7 @@ contract WooCrossChainRouter is IStargateReceiver, Ownable, ReentrancyGuard {
             (address, uint256, uint256, address)
         );
 
-        if (wooPool.quoteToken() != _token) {
+        if (wooRouter.wooPool().quoteToken() != _token) {
             // NOTE: The bridged token is not WooPP's quote token.
             // So Cannot do the swap; just return it to users.
             TransferHelper.safeTransfer(_token, to, amountLD);
@@ -278,8 +284,10 @@ contract WooCrossChainRouter is IStargateReceiver, Ownable, ReentrancyGuard {
 
         if (toToken == ETH_PLACEHOLDER_ADDR) {
             // quoteToken -> WETH -> ETH
-            TransferHelper.safeTransfer(_token, address(wooPool), quoteAmount);
-            try wooPool.swap(_token, WETH, quoteAmount, minToAmount, address(this), to) returns (uint256 realToAmount) {
+            TransferHelper.safeApprove(_token, address(wooRouter), quoteAmount);
+            try wooRouter.swap(_token, WETH, quoteAmount, minToAmount, payable(address(this)), to) returns (
+                uint256 realToAmount
+            ) {
                 IWETH(WETH).withdraw(realToAmount);
                 TransferHelper.safeTransferETH(to, realToAmount);
                 emit WooCrossSwapOnDstChain(
@@ -326,8 +334,10 @@ contract WooCrossChainRouter is IStargateReceiver, Ownable, ReentrancyGuard {
                 );
             } else {
                 // swap to the ERC20 token
-                TransferHelper.safeTransfer(_token, address(wooPool), quoteAmount);
-                try wooPool.swap(_token, toToken, quoteAmount, minToAmount, to, to) returns (uint256 realToAmount) {
+                TransferHelper.safeApprove(_token, address(wooRouter), quoteAmount);
+                try wooRouter.swap(_token, toToken, quoteAmount, minToAmount, payable(to), to) returns (
+                    uint256 realToAmount
+                ) {
                     emit WooCrossSwapOnDstChain(
                         refId,
                         msg.sender,
