@@ -158,7 +158,7 @@ describe("WooSuperChargerVault USDC", () => {
     it("Integration Test: status, deposit, instant withdraw", async () => {
       let amount = utils.parseEther("80");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       // Check vault status
       expect(await superChargerVault.costSharePrice(owner.address)).to.eq(utils.parseEther("1.0"));
@@ -175,7 +175,7 @@ describe("WooSuperChargerVault USDC", () => {
 
       const amount1 = utils.parseEther("20");
       await want.approve(superChargerVault.address, amount1);
-      await superChargerVault.deposit(amount1);
+      await superChargerVault["deposit(uint256)"](amount1);
       amount = amount.add(amount1);
 
       expect(await superChargerVault.costSharePrice(owner.address)).to.eq(utils.parseEther("1.0"));
@@ -188,8 +188,8 @@ describe("WooSuperChargerVault USDC", () => {
       expect(await superChargerVault.instantWithdrawCap()).to.eq(amount.div(10));
       expect(await superChargerVault.instantWithdrawnAmount()).to.eq(0);
 
-      await expect(superChargerVault.instantWithdraw(0)).to.be.revertedWith("WooSuperChargerVault: !amount");
-      await expect(superChargerVault.instantWithdraw(amount.div(2))).to.be.revertedWith(
+      await expect(superChargerVault["instantWithdraw(uint256)"](0)).to.be.revertedWith("WooSuperChargerVault: !amount");
+      await expect(superChargerVault["instantWithdraw(uint256)"](amount.div(2))).to.be.revertedWith(
         "WooSuperChargerVault: OUT_OF_CAP"
       );
 
@@ -197,7 +197,7 @@ describe("WooSuperChargerVault USDC", () => {
 
       const bal1 = await want.balanceOf(owner.address);
       const instantWithdrawAmount = amount.div(20); // instant withdraw = 100 / 20 = 5
-      await superChargerVault.instantWithdraw(instantWithdrawAmount);
+      await superChargerVault["instantWithdraw(uint256)"](instantWithdrawAmount);
       const bal2 = await want.balanceOf(owner.address);
 
       const rate = await superChargerVault.instantWithdrawFeeRate();
@@ -224,7 +224,7 @@ describe("WooSuperChargerVault USDC", () => {
       // Instant withdraw all capped amount
       const instantWithdrawAmount2 = withdrawCap.sub(instantWithdrawAmount);
       amount = amount.sub(instantWithdrawAmount2);
-      await superChargerVault.instantWithdraw(instantWithdrawAmount2);
+      await superChargerVault["instantWithdraw(uint256)"](instantWithdrawAmount2);
       expect(await superChargerVault.balance()).to.eq(amount);
       expect(await superChargerVault.reserveBalance()).to.eq(amount);
 
@@ -235,7 +235,7 @@ describe("WooSuperChargerVault USDC", () => {
     it("Integration Test: request withdraw, weekly settle, withdraw", async () => {
       let amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       // Check vault status
       expect(await superChargerVault.costSharePrice(owner.address)).to.eq(utils.parseEther("1.0"));
@@ -254,14 +254,14 @@ describe("WooSuperChargerVault USDC", () => {
 
       // Request Withdrawn
 
-      await expect(superChargerVault.requestWithdraw(0)).to.be.revertedWith("WooSuperChargerVault: !amount");
-      await expect(superChargerVault.requestWithdraw(utils.parseEther("1000"))).to.be.revertedWith("");
+      await expect(superChargerVault["requestWithdraw(uint256)"](0)).to.be.revertedWith("WooSuperChargerVault: !amount");
+      await expect(superChargerVault["requestWithdraw(uint256)"](utils.parseEther("1000"))).to.be.revertedWith("");
 
       // Double check the status
 
       let rwAmount = utils.parseEther("10");
       await superChargerVault.approve(superChargerVault.address, rwAmount);
-      await superChargerVault.requestWithdraw(rwAmount);
+      await superChargerVault["requestWithdraw(uint256)"](rwAmount);
 
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount.sub(rwAmount));
       expect(await superChargerVault.balance()).to.eq(amount);
@@ -278,7 +278,7 @@ describe("WooSuperChargerVault USDC", () => {
 
       const rwAmount1 = utils.parseEther("5");
       await superChargerVault.approve(superChargerVault.address, rwAmount1);
-      await superChargerVault.requestWithdraw(rwAmount1);
+      await superChargerVault["requestWithdraw(uint256)"](rwAmount1);
       rwAmount = rwAmount.add(rwAmount1);
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount.sub(rwAmount));
       expect(await superChargerVault.balance()).to.eq(amount);
@@ -337,7 +337,7 @@ describe("WooSuperChargerVault USDC", () => {
 
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       // Check vault status
       expect(await superChargerVault.costSharePrice(owner.address)).to.eq(utils.parseEther("1.0"));
@@ -358,7 +358,7 @@ describe("WooSuperChargerVault USDC", () => {
 
       const rwAmount = utils.parseEther("10");
       await superChargerVault.approve(superChargerVault.address, rwAmount);
-      await superChargerVault.requestWithdraw(rwAmount);
+      await superChargerVault["requestWithdraw(uint256)"](rwAmount);
 
       expect(await superChargerVault.isSettling()).to.eq(false);
       expect(await superChargerVault.requestedTotalAmount()).to.eq(rwAmount);
@@ -467,11 +467,11 @@ describe("WooSuperChargerVault USDC", () => {
 
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       let rwAmount = utils.parseEther("40");
       await superChargerVault.approve(superChargerVault.address, rwAmount);
-      await superChargerVault.requestWithdraw(rwAmount);
+      await superChargerVault["requestWithdraw(uint256)"](rwAmount);
 
       expect(await superChargerVault.isSettling()).to.eq(false);
       expect(await superChargerVault.requestedTotalAmount()).to.eq(rwAmount);
@@ -535,7 +535,7 @@ describe("WooSuperChargerVault USDC", () => {
 
       rwAmount = utils.parseEther("30");
       await superChargerVault.approve(superChargerVault.address, rwAmount);
-      await superChargerVault.requestWithdraw(rwAmount);
+      await superChargerVault["requestWithdraw(uint256)"](rwAmount);
 
       // Settle
 
@@ -571,19 +571,19 @@ describe("WooSuperChargerVault USDC", () => {
 
       const amount1 = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount1);
-      await superChargerVault.deposit(amount1, { value: amount1 });
+      await superChargerVault["deposit(uint256)"](amount1, { value: amount1 });
 
       const amount2 = utils.parseEther("20");
       await want.connect(user1).approve(superChargerVault.address, amount2);
-      await superChargerVault.connect(user1).deposit(amount2, { value: amount2 });
+      await superChargerVault.connect(user1)["deposit(uint256)"](amount2, { value: amount2 });
 
       const rwAmount1 = utils.parseEther("30");
       await superChargerVault.approve(superChargerVault.address, rwAmount1);
-      await superChargerVault.requestWithdraw(rwAmount1);
+      await superChargerVault["requestWithdraw(uint256)"](rwAmount1);
 
       const rwAmount2 = utils.parseEther("10");
       await superChargerVault.connect(user1).approve(superChargerVault.address, rwAmount2);
-      await superChargerVault.connect(user1).requestWithdraw(rwAmount2);
+      await superChargerVault.connect(user1)["requestWithdraw(uint256)"](rwAmount2);
 
       expect(await superChargerVault.isSettling()).to.eq(false);
       expect(await superChargerVault.requestedTotalAmount()).to.eq(rwAmount1.add(rwAmount2));
@@ -663,7 +663,7 @@ describe("WooSuperChargerVault USDC", () => {
 
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       // Check vault status
       expect(await superChargerVault.costSharePrice(owner.address)).to.eq(utils.parseEther("1.0"));
@@ -684,7 +684,7 @@ describe("WooSuperChargerVault USDC", () => {
 
       const rwAmount = utils.parseEther("10");
       await superChargerVault.approve(superChargerVault.address, rwAmount);
-      await superChargerVault.requestWithdraw(rwAmount);
+      await superChargerVault["requestWithdraw(uint256)"](rwAmount);
 
       expect(await superChargerVault.isSettling()).to.eq(false);
       expect(await superChargerVault.requestedTotalAmount()).to.eq(rwAmount);
@@ -734,7 +734,7 @@ describe("WooSuperChargerVault USDC", () => {
 
       const rw2Amount = utils.parseEther("80");
       await superChargerVault.approve(superChargerVault.address, rw2Amount);
-      await superChargerVault.requestWithdraw(rw2Amount);
+      await superChargerVault["requestWithdraw(uint256)"](rw2Amount);
 
       console.log('weekly repayment: ', utils.formatEther(await lendingManager.weeklyRepayment()));
 
@@ -763,7 +763,7 @@ describe("WooSuperChargerVault USDC", () => {
     it("Integration Test: migrate reserve vault", async () => {
       let amount = utils.parseEther("80");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount, { value: amount });
+      await superChargerVault["deposit(uint256)"](amount, { value: amount });
 
       expect(await superChargerVault.costSharePrice(owner.address)).to.eq(utils.parseEther("1.0"));
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
@@ -779,7 +779,7 @@ describe("WooSuperChargerVault USDC", () => {
 
       const amount1 = utils.parseEther("50");
       await want.approve(superChargerVault.address, amount1);
-      await superChargerVault.deposit(amount1, { value: amount1 });
+      await superChargerVault["deposit(uint256)"](amount1, { value: amount1 });
       amount = amount.add(amount1);
 
       console.log(utils.formatEther(await superChargerVault.balanceOf(owner.address)));
