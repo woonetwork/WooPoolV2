@@ -150,7 +150,7 @@ describe("WooSuperChargerVault CornerCase", () => {
 
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       // Check vault status
       expect(await superChargerVault.costSharePrice(owner.address)).to.eq(utils.parseEther("1.0"));
@@ -171,7 +171,7 @@ describe("WooSuperChargerVault CornerCase", () => {
 
       const rwAmount = utils.parseEther("10");
       await superChargerVault.approve(superChargerVault.address, rwAmount);
-      await superChargerVault.requestWithdraw(rwAmount);
+      await superChargerVault["requestWithdraw(uint256)"](rwAmount);
 
       expect(await superChargerVault.isSettling()).to.eq(false);
       expect(await superChargerVault.requestedTotalAmount()).to.eq(rwAmount);
@@ -280,7 +280,7 @@ describe("WooSuperChargerVault CornerCase", () => {
 
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
       expect(await superChargerVault.balance()).to.eq(amount);
@@ -299,19 +299,19 @@ describe("WooSuperChargerVault CornerCase", () => {
     it("Integration Test3: request withdraw amount exceeds MAX", async () => {
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
       expect(await superChargerVault.balance()).to.eq(amount);
       expect(await superChargerVault.reserveBalance()).to.eq(amount);
 
-      await expect(superChargerVault.requestWithdraw(0)).to.be.revertedWith("WooSuperChargerVault: !amount");
-      await expect(superChargerVault.requestWithdraw(amount.add(1))).to.be.reverted;
+      await expect(superChargerVault["requestWithdraw(uint256)"](0)).to.be.revertedWith("WooSuperChargerVault: !amount");
+      await expect(superChargerVault["requestWithdraw(uint256)"](amount.add(1))).to.be.reverted;
 
-      await expect(superChargerVault.connect(user1.address).requestWithdraw(utils.parseEther("1"))).to.be.reverted;
+      await expect(superChargerVault.connect(user1.address)["requestWithdraw(uint256)"](utils.parseEther("1"))).to.be.reverted;
 
       await superChargerVault.approve(superChargerVault.address, amount);
-      await superChargerVault.requestWithdraw(amount);
+      await superChargerVault["requestWithdraw(uint256)"](amount);
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(0);
       expect(await superChargerVault.balance()).to.eq(amount);
       expect(await superChargerVault.reserveBalance()).to.eq(amount);
@@ -320,19 +320,19 @@ describe("WooSuperChargerVault CornerCase", () => {
     it("Integration Test4: instant withdraw amount exceeds MAX", async () => {
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
       expect(await superChargerVault.balance()).to.eq(amount);
       expect(await superChargerVault.reserveBalance()).to.eq(amount);
 
-      await expect(superChargerVault.instantWithdraw(0)).to.be.revertedWith("WooSuperChargerVault: !amount");
-      await expect(superChargerVault.instantWithdraw(amount)).to.be.revertedWith("WooSuperChargerVault: OUT_OF_CAP");
-      await expect(superChargerVault.instantWithdraw(amount.div(10).add(1))).to.be.revertedWith(
+      await expect(superChargerVault["instantWithdraw(uint256)"](0)).to.be.revertedWith("WooSuperChargerVault: !amount");
+      await expect(superChargerVault["instantWithdraw(uint256)"](amount)).to.be.revertedWith("WooSuperChargerVault: OUT_OF_CAP");
+      await expect(superChargerVault["instantWithdraw(uint256)"](amount.div(10).add(1))).to.be.revertedWith(
         "WooSuperChargerVault: OUT_OF_CAP"
       );
 
-      await superChargerVault.instantWithdraw(amount.div(10));
+      await superChargerVault["instantWithdraw(uint256)"](amount.div(10));
       const leftBal = amount.sub(amount.div(10));
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(leftBal);
       expect(await superChargerVault.balance()).to.eq(leftBal);
@@ -342,19 +342,19 @@ describe("WooSuperChargerVault CornerCase", () => {
     it("Integration Test5: request and instant withdraw NOT ALLOWED during settling", async () => {
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
       expect(await superChargerVault.balance()).to.eq(amount);
       expect(await superChargerVault.reserveBalance()).to.eq(amount);
 
-      await expect(superChargerVault.instantWithdraw(0)).to.be.revertedWith("WooSuperChargerVault: !amount");
-      await expect(superChargerVault.instantWithdraw(amount)).to.be.revertedWith("WooSuperChargerVault: OUT_OF_CAP");
-      await expect(superChargerVault.instantWithdraw(amount.div(10).add(1))).to.be.revertedWith(
+      await expect(superChargerVault["instantWithdraw(uint256)"](0)).to.be.revertedWith("WooSuperChargerVault: !amount");
+      await expect(superChargerVault["instantWithdraw(uint256)"](amount)).to.be.revertedWith("WooSuperChargerVault: OUT_OF_CAP");
+      await expect(superChargerVault["instantWithdraw(uint256)"](amount.div(10).add(1))).to.be.revertedWith(
         "WooSuperChargerVault: OUT_OF_CAP"
       );
 
-      await superChargerVault.instantWithdraw(amount.div(10));
+      await superChargerVault["instantWithdraw(uint256)"](amount.div(10));
       const leftBal = amount.sub(amount.div(10));
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(leftBal);
       expect(await superChargerVault.balance()).to.eq(leftBal);
@@ -364,10 +364,10 @@ describe("WooSuperChargerVault CornerCase", () => {
 
       expect(await superChargerVault.isSettling()).to.eq(true);
 
-      await expect(superChargerVault.requestWithdraw(utils.parseEther("1"))).to.be.revertedWith(
+      await expect(superChargerVault["requestWithdraw(uint256)"](utils.parseEther("1"))).to.be.revertedWith(
         "WooSuperChargerVault: CANNOT_WITHDRAW_IN_SETTLING"
       );
-      await expect(superChargerVault.instantWithdraw(utils.parseEther("0.5"))).to.be.revertedWith(
+      await expect(superChargerVault["instantWithdraw(uint256)"](utils.parseEther("0.5"))).to.be.revertedWith(
         "WooSuperChargerVault: NOT_ALLOWED_IN_SETTLING"
       );
 
@@ -383,7 +383,7 @@ describe("WooSuperChargerVault CornerCase", () => {
     it("Integration Test6: repay in settling", async () => {
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
       expect(await superChargerVault.balance()).to.eq(amount);
@@ -398,10 +398,10 @@ describe("WooSuperChargerVault CornerCase", () => {
 
       expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
 
-      await superChargerVault.instantWithdraw(utils.parseEther("10"));
+      await superChargerVault["instantWithdraw(uint256)"](utils.parseEther("10"));
 
       await superChargerVault.approve(superChargerVault.address, utils.parseEther("1000"));
-      await superChargerVault.requestWithdraw(utils.parseEther("50"));
+      await superChargerVault["requestWithdraw(uint256)"](utils.parseEther("50"));
 
       console.log("balance: ", utils.formatEther(await superChargerVault.balance()));
       console.log("reserve balance: ", utils.formatEther(await superChargerVault.reserveBalance()));
@@ -443,7 +443,7 @@ describe("WooSuperChargerVault CornerCase", () => {
     it("Integration Test7: deposit in settling", async () => {
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
       expect(await superChargerVault.balance()).to.eq(amount);
@@ -458,10 +458,10 @@ describe("WooSuperChargerVault CornerCase", () => {
 
       expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
 
-      await superChargerVault.instantWithdraw(utils.parseEther("10"));
+      await superChargerVault["instantWithdraw(uint256)"](utils.parseEther("10"));
 
       await superChargerVault.approve(superChargerVault.address, utils.parseEther("1000"));
-      await superChargerVault.requestWithdraw(utils.parseEther("50"));
+      await superChargerVault["requestWithdraw(uint256)"](utils.parseEther("50"));
 
       console.log("balance: ", utils.formatEther(await superChargerVault.balance()));
       console.log("reserve balance: ", utils.formatEther(await superChargerVault.reserveBalance()));
@@ -488,7 +488,7 @@ describe("WooSuperChargerVault CornerCase", () => {
       await expect(superChargerVault.endWeeklySettle()).to.be.revertedWith("WEEKLY_REPAY_NOT_CLEARED");
 
       await want.approve(superChargerVault.address, utils.parseEther("100"));
-      await superChargerVault.deposit(utils.parseEther("26.7"));
+      await superChargerVault["deposit(uint256)"](utils.parseEther("26.7"));
 
       console.log("return: ", utils.formatEther(await superChargerVault.weeklyNeededAmountForWithdraw()));
 
@@ -504,21 +504,21 @@ describe("WooSuperChargerVault CornerCase", () => {
     it("Integration Test8: instantWithdrawAll", async () => {
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
       expect(await superChargerVault.balance()).to.eq(amount);
       expect(await superChargerVault.reserveBalance()).to.eq(amount);
 
-      await expect(superChargerVault.instantWithdrawAll()).to.be.revertedWith('WooSuperChargerVault: OUT_OF_CAP')
+      await expect(superChargerVault["instantWithdrawAll()"]()).to.be.revertedWith('WooSuperChargerVault: OUT_OF_CAP')
 
       const user1Amount = amount.mul(10);
       await want.connect(user1).approve(superChargerVault.address, user1Amount);
-      await superChargerVault.connect(user1).deposit(user1Amount);
+      await superChargerVault.connect(user1)["deposit(uint256)"](user1Amount);
 
       const curBal = await want.balanceOf(owner.address);
       const preTreasuryBal = await want.balanceOf(treasury.address);
-      await superChargerVault.instantWithdrawAll();
+      await superChargerVault["instantWithdrawAll()"]();
       const newBal = await want.balanceOf(owner.address);
       const treasuryBal = (await want.balanceOf(treasury.address)).sub(preTreasuryBal);
       expect(treasuryBal).to.eq(amount.mul(await superChargerVault.instantWithdrawFeeRate()).div(10000));
@@ -532,7 +532,7 @@ describe("WooSuperChargerVault CornerCase", () => {
     it("Integration Test9: requestWithdrawAll", async () => {
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount);
+      await superChargerVault["deposit(uint256)"](amount);
 
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
       expect(await superChargerVault.balance()).to.eq(amount);
@@ -540,11 +540,11 @@ describe("WooSuperChargerVault CornerCase", () => {
 
       const user1Amount = amount.mul(10);
       await want.connect(user1).approve(superChargerVault.address, user1Amount);
-      await superChargerVault.connect(user1).deposit(user1Amount);
+      await superChargerVault.connect(user1)["deposit(uint256)"](user1Amount);
 
       const userBal = await superChargerVault.balanceOf(owner.address);
       await superChargerVault.approve(superChargerVault.address, userBal);
-      await superChargerVault.requestWithdrawAll();
+      await superChargerVault["requestWithdrawAll()"]();
 
       expect(await superChargerVault.isSettling()).to.eq(false);
       expect(await superChargerVault.requestedTotalAmount()).to.eq(amount);

@@ -157,7 +157,7 @@ describe("WooSuperChargerVault WFTM", () => {
     it("Integration Test1: status, deposit, instant withdraw", async () => {
       let amount = utils.parseEther("80");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount, { value: amount });
+      await superChargerVault["deposit(uint256)"](amount, { value: amount });
 
       // Check vault statu
       console.log(utils.formatEther(await superChargerVault.balanceOf(owner.address)));
@@ -182,7 +182,7 @@ describe("WooSuperChargerVault WFTM", () => {
 
       const amount1 = utils.parseEther("20");
       await want.approve(superChargerVault.address, amount1.mul(2));
-      await superChargerVault.deposit(amount1, { value: amount1 });
+      await superChargerVault["deposit(uint256)"](amount1, { value: amount1 });
       amount = amount.add(amount1);
       const cap = amount.div(10);
 
@@ -203,8 +203,8 @@ describe("WooSuperChargerVault WFTM", () => {
       expect(await superChargerVault.instantWithdrawCap()).to.eq(cap);
       expect(await superChargerVault.instantWithdrawnAmount()).to.eq(0);
 
-      await expect(superChargerVault.instantWithdraw(0)).to.be.revertedWith("WooSuperChargerVault: !amount");
-      await expect(superChargerVault.instantWithdraw(amount.div(2))).to.be.revertedWith(
+      await expect(superChargerVault["instantWithdraw(uint256)"](0)).to.be.revertedWith("WooSuperChargerVault: !amount");
+      await expect(superChargerVault["instantWithdraw(uint256)"](amount.div(2))).to.be.revertedWith(
         "WooSuperChargerVault: OUT_OF_CAP"
       );
 
@@ -213,7 +213,7 @@ describe("WooSuperChargerVault WFTM", () => {
       // let bal1 = await want.balanceOf(owner.address)
       const bal1 = await ethers.provider.getBalance(owner.address);
       const instantWithdrawAmount = amount.div(20); // instant withdraw = 100 / 20 = 5
-      await superChargerVault.instantWithdraw(instantWithdrawAmount);
+      await superChargerVault["instantWithdraw(uint256)"](instantWithdrawAmount);
       // let bal2 = await want.balanceOf(owner.address)
       const bal2 = await ethers.provider.getBalance(owner.address);
 
@@ -245,7 +245,7 @@ describe("WooSuperChargerVault WFTM", () => {
       // Instant withdraw all capped amount
       const instantWithdrawAmount2 = amount.div(10).sub(instantWithdrawAmount);
       amount = amount.sub(instantWithdrawAmount2);
-      await superChargerVault.instantWithdraw(instantWithdrawAmount2);
+      await superChargerVault["instantWithdraw(uint256)"](instantWithdrawAmount2);
       expect(await superChargerVault.balance()).to.eq(amount);
       expect(await superChargerVault.reserveBalance()).to.eq(amount);
 
@@ -263,11 +263,11 @@ describe("WooSuperChargerVault WFTM", () => {
 
       const amount = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount, { value: amount });
+      await superChargerVault["deposit(uint256)"](amount, { value: amount });
 
       let rwAmount = utils.parseEther("40");
       await superChargerVault.approve(superChargerVault.address, rwAmount);
-      await superChargerVault.requestWithdraw(rwAmount);
+      await superChargerVault["requestWithdraw(uint256)"](rwAmount);
 
       expect(await superChargerVault.isSettling()).to.eq(false);
       expect(await superChargerVault.requestedTotalAmount()).to.eq(rwAmount);
@@ -331,7 +331,7 @@ describe("WooSuperChargerVault WFTM", () => {
 
       rwAmount = utils.parseEther("30");
       await superChargerVault.approve(superChargerVault.address, rwAmount);
-      await superChargerVault.requestWithdraw(rwAmount);
+      await superChargerVault["requestWithdraw(uint256)"](rwAmount);
 
       // Settle
 
@@ -374,19 +374,19 @@ describe("WooSuperChargerVault WFTM", () => {
 
       const amount1 = utils.parseEther("100");
       await want.approve(superChargerVault.address, amount1);
-      await superChargerVault.deposit(amount1, { value: amount1 });
+      await superChargerVault["deposit(uint256)"](amount1, { value: amount1 });
 
       const amount2 = utils.parseEther("20");
       await want.connect(user1).approve(superChargerVault.address, amount2);
-      await superChargerVault.connect(user1).deposit(amount2, { value: amount2 });
+      await superChargerVault.connect(user1)["deposit(uint256)"](amount2, { value: amount2 });
 
       const rwAmount1 = utils.parseEther("30");
       await superChargerVault.approve(superChargerVault.address, rwAmount1);
-      await superChargerVault.requestWithdraw(rwAmount1);
+      await superChargerVault["requestWithdraw(uint256)"](rwAmount1);
 
       const rwAmount2 = utils.parseEther("10");
       await superChargerVault.connect(user1).approve(superChargerVault.address, rwAmount2);
-      await superChargerVault.connect(user1).requestWithdraw(rwAmount2);
+      await superChargerVault.connect(user1)["requestWithdraw(uint256)"](rwAmount2);
 
       expect(await superChargerVault.isSettling()).to.eq(false);
       expect(await superChargerVault.requestedTotalAmount()).to.eq(rwAmount1.add(rwAmount2));
@@ -460,7 +460,7 @@ describe("WooSuperChargerVault WFTM", () => {
     it("Integration Test: migrate reserve vault", async () => {
       let amount = utils.parseEther("80");
       await want.approve(superChargerVault.address, amount);
-      await superChargerVault.deposit(amount, { value: amount });
+      await superChargerVault["deposit(uint256)"](amount, { value: amount });
 
       expect(await superChargerVault.costSharePrice(owner.address)).to.eq(utils.parseEther("1.0"));
       expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
@@ -476,7 +476,7 @@ describe("WooSuperChargerVault WFTM", () => {
 
       const amount1 = utils.parseEther("50");
       await want.approve(superChargerVault.address, amount1);
-      await superChargerVault.deposit(amount1, { value: amount1 });
+      await superChargerVault["deposit(uint256)"](amount1, { value: amount1 });
       amount = amount.add(amount1);
 
       console.log(utils.formatEther(await superChargerVault.balanceOf(owner.address)));

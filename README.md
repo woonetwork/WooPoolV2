@@ -10,7 +10,7 @@
 
 ## WOOFi Swap V2.0
 
-This repository contains the smart contracts and solidity library for the WOOFi swap. WOOFi Swap is a decentralized exchange using a brand new on-chain market making algorithm called Synthetic Proactive Market Making (sPMM), which is designed for professional market makers to generate an on-chain orderbook simulating the price, spread and depth from centralized liquidity sources. Read more here.
+This repository contains the smart contracts and solidity library for the WOOFi swap. WOOFi Swap is a decentralized exchange using a brand new on-chain market making algorithm called Synthetic Proactive Market Making version 2 (sPMM v2), which is designed for professional market makers to generate an on-chain orderbook simulating the price, spread and depth from centralized liquidity sources. Read more here.
 
 ## Security
 
