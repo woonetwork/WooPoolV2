@@ -50,6 +50,7 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
 
     address public constant ETH_PLACEHOLDER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
+    IERC20 public immutable Woo;
     IERC20 public immutable xWoo;
     uint256 public xWooPerBlock;
     uint256 public totalAllocPoint;
@@ -58,7 +59,12 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
     mapping(uint256 => mapping(address => UserInfo)) public userInfo;
     EnumerableSet.AddressSet private weTokenSet;
 
-    constructor(IERC20 _xWoo, uint256 _xWooPerBlock) {
+    constructor(
+        IERC20 _Woo,
+        IERC20 _xWoo,
+        uint256 _xWooPerBlock
+    ) {
+        Woo = _Woo;
         xWoo = _xWoo;
         xWooPerBlock = _xWooPerBlock;
     }
@@ -132,8 +138,14 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
             accTokenPerShare += (xWooReward * 1e12) / weTokenSupply;
         }
         pendingXWooAmount = (user.amount * accTokenPerShare) / 1e12 - user.rewardDebt;
-        uint256 rate = IXWoo(address(xWoo)).getPricePerFullShare();
-        pendingWooAmount = (pendingXWooAmount * rate) / 1e18;
+        if (address(Woo) == address(xWoo)) {
+            // WOO token as reward
+            pendingWooAmount = pendingXWooAmount;
+        } else {
+            // xWOO token as reward
+            uint256 rate = IXWoo(address(xWoo)).getPricePerFullShare();
+            pendingWooAmount = (pendingXWooAmount * rate) / 1e18;
+        }
     }
 
     // Update reward variables for all pools. Be careful of gas spending!

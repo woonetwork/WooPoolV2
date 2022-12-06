@@ -5,9 +5,9 @@ import { ethers, run } from "hardhat";
 let contractName = "WooVaultManager";
 
 // Specify need before deploying contract
-const quoteToken = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8";
-const rewardToken = "0xcAFcD85D8ca7Ad1e1C6F82F651fA15E33AEfD07b";
-const wooAccessManager = "0x8cd11C6F710E8Bf65B5078e92Dc8529cFF14b108";
+const quoteToken = "0x7F5c764cBc14f9669B88837ca1490cCa17c31607";
+const rewardToken = "0x871f2F2ff935FD1eD867842FF2a7bfD051A5E527";
+const wooAccessManager = "0x8A68849c8a61225964d2caE170fDD19eC46bf246";
 const owner = "0x7C8A5d20b22Ce9b369C043A3E0091b5575B732d9";
 
 async function main() {
