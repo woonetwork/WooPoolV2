@@ -49,11 +49,12 @@ const { BigNumber } = ethers;
 const ONE = BigNumber.from(10).pow(18);
 const TOKEN_100 = ONE.mul(100);
 
-describe("WooPPV2 Integration tests", () => {
+describe("MasterChefWoo tests", () => {
   let owner: SignerWithAddress;
 
   let masterCW: MasterChefWoo;
   let wooSR: WooSimpleRewarder;
+  let WooToken: Contract;
   let xWooToken: Contract;
   let weToken: Contract;
   let rewardToken: Contract;
@@ -65,11 +66,12 @@ describe("WooPPV2 Integration tests", () => {
     owner = signers[0];
     ownerAddr = owner.address;
 
+    WooToken = await deployContract(owner, TestERC20TokenArtifact, []);
     xWooToken = await deployContract(owner, TestERC20TokenArtifact, []);
     weToken = await deployContract(owner, TestERC20TokenArtifact, []);
     rewardToken = await deployContract(owner, TestERC20TokenArtifact, []);
 
-    masterCW = (await deployContract(owner, MasterChefWooArtifact, [xWooToken.address, 10])) as MasterChefWoo;
+    masterCW = (await deployContract(owner, MasterChefWooArtifact, [WooToken.address, xWooToken.address, 10])) as MasterChefWoo;
     console.log("MasterChefWoo address: ", masterCW.address);
     wooSR = (await deployContract(owner, WooSimpleRewarderArtifact, [
       rewardToken.address,
