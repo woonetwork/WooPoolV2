@@ -115,7 +115,12 @@ contract MasterChefReward is IMasterChefReward, Ownable, ReentrancyGuard {
         emit PoolSet(_pid, _allocPoint, pool.rewarder);
     }
 
-    function pendingReward(uint256 _pid, address _user) external view override returns (uint256 pendingRewardAmount) {
+    function pendingReward(uint256 _pid, address _user)
+        external
+        view
+        override
+        returns (uint256 pendingRewardAmount, uint256 pendingRewarderTokens)
+    {
         PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
         uint256 accTokenPerShare = pool.accTokenPerShare;
@@ -126,6 +131,9 @@ contract MasterChefReward is IMasterChefReward, Ownable, ReentrancyGuard {
             accTokenPerShare += (totalRewardAmount * 1e12) / weTokenSupply;
         }
         pendingRewardAmount = (user.amount * accTokenPerShare) / 1e12 - user.rewardDebt;
+
+        IRewarder rewarder = pool.rewarder;
+        pendingRewarderTokens = address(rewarder) != address(0) ? rewarder.pendingTokens(_user) : 0;
     }
 
     // Update reward variables for all pools. Be careful of gas spending!

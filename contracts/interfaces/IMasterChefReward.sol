@@ -51,7 +51,7 @@ interface IMasterChefReward {
     function updatePool(uint256 pid) external;
 
     // User-related functions
-    function pendingReward(uint256 pid, address user) external view returns (uint256);
+    function pendingReward(uint256 pid, address user) external view returns (uint256, uint256);
 
     function deposit(uint256 pid, uint256 amount) external;
 
