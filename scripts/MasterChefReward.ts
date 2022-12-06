@@ -2,16 +2,16 @@
 import { ethers, run } from "hardhat";
 
 // eslint-disable-next-line prefer-const
-let contractName = "MasterChefWoo";
+let contractName = "MasterChefReward";
 
 // Specify need before deploying contract
-const xWoo = "";
-const xWooPerBlock = 10000000000000;
+const reward = "";
+const rewardPerBlock = 10000000000000;
 
 const ownerAddress = "0x7C8A5d20b22Ce9b369C043A3E0091b5575B732d9";
 
 async function main() {
-  const args = [xWoo, xWooPerBlock];
+  const args = [reward, rewardPerBlock];
   const factory = await ethers.getContractFactory(contractName);
   const contract = await factory.deploy(...args);
   await contract.deployed();

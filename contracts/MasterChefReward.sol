@@ -40,27 +40,26 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./interfaces/IMasterChefWoo.sol";
-import "./interfaces/IXWoo.sol";
+import "./interfaces/IMasterChefReward.sol";
 import "./libraries/TransferHelper.sol";
 
-contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
+contract MasterChefReward is IMasterChefReward, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
 
     address public constant ETH_PLACEHOLDER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    IERC20 public immutable xWoo;
-    uint256 public xWooPerBlock;
+    IERC20 public immutable reward;
+    uint256 public rewardPerBlock;
     uint256 public totalAllocPoint;
 
     PoolInfo[] public poolInfo;
     mapping(uint256 => mapping(address => UserInfo)) public userInfo;
     EnumerableSet.AddressSet private weTokenSet;
 
-    constructor(IERC20 _xWoo, uint256 _xWooPerBlock) {
-        xWoo = _xWoo;
-        xWooPerBlock = _xWooPerBlock;
+    constructor(IERC20 _reward, uint256 _rewardPerBlock) {
+        reward = _reward;
+        rewardPerBlock = _rewardPerBlock;
     }
 
     function poolLength() public view override returns (uint256) {
@@ -116,24 +115,17 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         emit PoolSet(_pid, _allocPoint, pool.rewarder);
     }
 
-    function pendingXWoo(uint256 _pid, address _user)
-        external
-        view
-        override
-        returns (uint256 pendingXWooAmount, uint256 pendingWooAmount)
-    {
+    function pendingReward(uint256 _pid, address _user) external view override returns (uint256 pendingRewardAmount) {
         PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
         uint256 accTokenPerShare = pool.accTokenPerShare;
         uint256 weTokenSupply = pool.weToken.balanceOf(address(this));
         if (block.number > pool.lastRewardBlock && weTokenSupply != 0) {
             uint256 blocks = block.number - pool.lastRewardBlock;
-            uint256 xWooReward = (blocks * xWooPerBlock * pool.allocPoint) / totalAllocPoint;
-            accTokenPerShare += (xWooReward * 1e12) / weTokenSupply;
+            uint256 totalRewardAmount = (blocks * rewardPerBlock * pool.allocPoint) / totalAllocPoint;
+            accTokenPerShare += (totalRewardAmount * 1e12) / weTokenSupply;
         }
-        pendingXWooAmount = (user.amount * accTokenPerShare) / 1e12 - user.rewardDebt;
-        uint256 rate = IXWoo(address(xWoo)).getPricePerFullShare();
-        pendingWooAmount = (pendingXWooAmount * rate) / 1e18;
+        pendingRewardAmount = (user.amount * accTokenPerShare) / 1e12 - user.rewardDebt;
     }
 
     // Update reward variables for all pools. Be careful of gas spending!
@@ -151,20 +143,20 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
             uint256 weSupply = pool.weToken.balanceOf(address(this));
             if (weSupply > 0) {
                 uint256 blocks = block.number - pool.lastRewardBlock;
-                uint256 xWooReward = (blocks * xWooPerBlock * pool.allocPoint) / totalAllocPoint;
-                pool.accTokenPerShare += (xWooReward * 1e12) / weSupply;
+                uint256 totalRewardAmount = (blocks * rewardPerBlock * pool.allocPoint) / totalAllocPoint;
+                pool.accTokenPerShare += (totalRewardAmount * 1e12) / weSupply;
             }
             pool.lastRewardBlock = block.number;
             emit PoolUpdated(_pid, pool.lastRewardBlock, weSupply, pool.accTokenPerShare);
         }
     }
 
-    function setXWooPerBlock(uint256 _xWooPerBlock) external override onlyOwner {
-        require(_xWooPerBlock > 0, "Invalid value");
+    function setRewardPerBlock(uint256 _rewardPerBlock) external override onlyOwner {
+        require(_rewardPerBlock > 0, "Invalid value");
         massUpdatePools();
-        xWooPerBlock = _xWooPerBlock;
+        rewardPerBlock = _rewardPerBlock;
 
-        emit XWooPerBlockUpdated(xWooPerBlock);
+        emit RewardPerBlockUpdated(_rewardPerBlock);
     }
 
     function deposit(uint256 _pid, uint256 _amount) external override nonReentrant {
@@ -174,9 +166,9 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         UserInfo storage user = userInfo[_pid][caller];
 
         if (user.amount > 0) {
-            // Harvest xWoo
+            // Harvest reward
             uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
-            xWoo.safeTransfer(caller, pending);
+            reward.safeTransfer(caller, pending);
             emit Harvest(caller, _pid, pending);
         }
 
@@ -203,7 +195,7 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
 
         if (user.amount > 0) {
             uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
-            xWoo.safeTransfer(caller, pending);
+            reward.safeTransfer(caller, pending);
         }
         user.amount -= _amount;
         user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
@@ -231,7 +223,7 @@ contract MasterChefWoo is IMasterChefWoo, Ownable, ReentrancyGuard {
         user.rewardDebt = totalReward;
 
         // Interactions
-        xWoo.safeTransfer(caller, pending);
+        reward.safeTransfer(caller, pending);
 
         IRewarder _rewarder = pool.rewarder;
         if (address(_rewarder) != address(0)) {
