@@ -107,7 +107,7 @@ const config: HardhatUserConfig = {
       // arbitrum
       arbitrumOne: process.env.ARBISCAN_KEY,
       arbitrumTestnet: process.env.ARBISCAN_KEY,
-      // Optimistic
+      // optimism
       optimisticEthereum: process.env.OPTIMISTIC_ETHERSCAN_KEY,
     },
   },

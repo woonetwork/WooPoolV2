@@ -6,9 +6,9 @@ let contractName = "MasterChefWoo";
 
 // Specify need before deploying contract
 const xWoo = "";
-const xWooPerBlock = 100000000000000;
+const xWooPerBlock = 10000000000000;
 
-const ownerAddress = "0x0e91A3ebCA9C51ED97142d457110BdE6E4d6C5f6";
+const ownerAddress = "0x7C8A5d20b22Ce9b369C043A3E0091b5575B732d9";
 
 async function main() {
   const args = [xWoo, xWooPerBlock];

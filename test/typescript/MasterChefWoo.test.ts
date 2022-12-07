@@ -49,7 +49,7 @@ const { BigNumber } = ethers;
 const ONE = BigNumber.from(10).pow(18);
 const TOKEN_100 = ONE.mul(100);
 
-describe("WooPPV2 Integration tests", () => {
+describe("MasterChefWoo tests", () => {
   let owner: SignerWithAddress;
 
   let masterCW: MasterChefWoo;

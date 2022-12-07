@@ -5,9 +5,9 @@ import { ethers, run } from "hardhat";
 let contractName = "WooCrossChainRouter";
 
 // Specify need before deploying contract
-const weth = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1";
-const wooPool = "0x86b1742A1D7c963D3E8985829D722725316aBF0A";
-const stargateRouter = "0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614";
+const weth = "0x4200000000000000000000000000000000000006";
+const wooRouter = "0xEAf1Ac8E89EA0aE13E0f03634A4FF23502527024";
+const stargateRouter = "0xB0D502E938ed5f4df2E681fE6E419ff29631d62b";
 const owner = "0x7C8A5d20b22Ce9b369C043A3E0091b5575B732d9";
 
 const sgChainIdMapping: {[key: number]: string} = {
@@ -15,10 +15,12 @@ const sgChainIdMapping: {[key: number]: string} = {
   106: "0xdF37F7A85D4563f39A78494568824b4dF8669B7a",
   109: "0x376d567C5794cfc64C74852A9DB2105E0b5B482C",
   112: "0xcF6Ce5Fd6bf28bB1AeAc88A55251f6c840059De5",
+  110: "0x44dF096D2600C6a6db77899dB3DE3AeCff746cb8",
+  111: "0x655e2FE03fe19327239b5294a556965192386a7b",
 }
 
 async function main() {
-  const args = [weth, wooPool, stargateRouter];
+  const args = [weth, wooRouter, stargateRouter];
   const factory = await ethers.getContractFactory(contractName);
   const contract = await factory.deploy(...args);
   await contract.deployed();
