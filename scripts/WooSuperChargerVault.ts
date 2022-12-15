@@ -16,10 +16,6 @@ const wethReserveVault = "0x7e1996945eA8866DE873179DC1677E93A4380107";
 const usdcReserveVault = "0x64EDb6450F5a1C6158D76C1E30900fD7D8493636";
 const opReserveVault = "0xCEC7E58CF02749b2592Bb3C0c392737Eec3f9636";
 
-const masterChefWoo = "0xc0f8C29e3a9A7650a3F642e467d70087819926d6";
-const weWETHPid = 0;
-const weUSDCPid = 1;
-
 const want = weth;
 const reserveVault = wethReserveVault;
 
@@ -98,6 +94,8 @@ async function main() {
   await new Promise((resolve) => setTimeout(resolve, 10000));
   await wlmContract.transferOwnership(owner);
   console.log(`${wlmContractName} transferOwnership`);
+
+  // await contract.setMasterChef(masterChef, pid); // Set MasterChef and pid manually
 
   // Verify contracts
   await new Promise((resolve) => setTimeout(resolve, 10000));

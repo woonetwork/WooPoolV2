@@ -5,15 +5,15 @@ import { ethers, run } from "hardhat";
 let contractName = "WooCrossChainRouter";
 
 // Specify need before deploying contract
-const weth = "0x4200000000000000000000000000000000000006";
-const wooRouter = "0xEAf1Ac8E89EA0aE13E0f03634A4FF23502527024";
-const stargateRouter = "0xB0D502E938ed5f4df2E681fE6E419ff29631d62b";
+const weth = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
+const wooRouter = "0x817Eb46D60762442Da3D931Ff51a30334CA39B74";
+const stargateRouter = "0x45A01E4e04F14f7A4a6702c74187c5F6222033cd";
 const owner = "0x7C8A5d20b22Ce9b369C043A3E0091b5575B732d9";
 
 const sgChainIdMapping: {[key: number]: string} = {
   102: "0x53E255e8Bbf4EDF16797f9885291B3Ca0C70B59f",
   106: "0xdF37F7A85D4563f39A78494568824b4dF8669B7a",
-  109: "0x376d567C5794cfc64C74852A9DB2105E0b5B482C",
+  // 109: "0x376d567C5794cfc64C74852A9DB2105E0b5B482C", // Don't set the local chain that you're deploying
   112: "0xcF6Ce5Fd6bf28bB1AeAc88A55251f6c840059De5",
   110: "0x44dF096D2600C6a6db77899dB3DE3AeCff746cb8",
   111: "0x655e2FE03fe19327239b5294a556965192386a7b",
