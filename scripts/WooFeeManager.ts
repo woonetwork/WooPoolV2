@@ -7,7 +7,7 @@ let contractName = "WooFeeManager";
 // Specify need before deploying contract
 const quoteToken = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
 const wooRebateManager = "0x913E116cD0E279763B0419798c0bA18F9311B390";
-const wooVaultManager = "0x7E894935Ed739Cd5681240fBBAEa1f8341627254";
+const wooVaultManager = "0x88748243DE01c4F3C103F2De2833f39F6807db17";
 const wooAccessManager = "0x925AFA2318825FCAC673Ef4eF551208b125dd965";
 const treasury = "0xBD9D33926Da514586201995cf20FEc9f21133166";
 const vaultRewardRate = ethers.utils.parseEther("0.8");
