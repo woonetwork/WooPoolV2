@@ -91,24 +91,25 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
-      mainnet: process.env.ETHERSCAN_KEY,
+      mainnet: process.env.ETHERSCAN_KEY !== undefined ? process.env.ETHERSCAN_KEY : "",
       // binance smart chain
-      bsc: process.env.BSCSCAN_KEY,
-      bscTestnet: process.env.BSCSCAN_KEY,
+      bsc: process.env.BSCSCAN_KEY !== undefined ? process.env.BSCSCAN_KEY : "",
+      bscTestnet: process.env.BSCSCAN_KEY !== undefined ? process.env.BSCSCAN_KEY : "",
       // avalanche
-      avalanche: process.env.SNOWTRACE_KEY,
-      avalancheFujiTestnet: process.env.SNOWTRACE_KEY,
+      avalanche: process.env.SNOWTRACE_KEY !== undefined ? process.env.SNOWTRACE_KEY : "",
+      avalancheFujiTestnet: process.env.SNOWTRACE_KEY !== undefined ? process.env.SNOWTRACE_KEY : "",
       // fantom mainnet
-      opera: process.env.FTMSCAN_KEY,
-      ftmTestnet: process.env.FTMSCAN_KEY,
+      opera: process.env.FTMSCAN_KEY !== undefined ? process.env.FTMSCAN_KEY : "",
+      ftmTestnet: process.env.FTMSCAN_KEY !== undefined ? process.env.FTMSCAN_KEY : "",
       // polygon
-      polygon: process.env.POLYGONSCAN_KEY,
-      polygonMumbai: process.env.POLYGONSCAN_KEY,
+      polygon: process.env.POLYGONSCAN_KEY !== undefined ? process.env.POLYGONSCAN_KEY : "",
+      polygonMumbai: process.env.POLYGONSCAN_KEY !== undefined ? process.env.POLYGONSCAN_KEY : "",
       // arbitrum
-      arbitrumOne: process.env.ARBISCAN_KEY,
-      arbitrumTestnet: process.env.ARBISCAN_KEY,
+      arbitrumOne: process.env.ARBISCAN_KEY !== undefined ? process.env.ARBISCAN_KEY : "",
+      arbitrumTestnet: process.env.ARBISCAN_KEY !== undefined ? process.env.ARBISCAN_KEY : "",
       // optimism
-      optimisticEthereum: process.env.OPTIMISTIC_ETHERSCAN_KEY,
+      optimisticEthereum: process.env.OPTIMISTIC_ETHERSCAN_KEY !== undefined ? process.env.OPTIMISTIC_ETHERSCAN_KEY : "",
+      optimisticGoerli: process.env.OPTIMISTIC_ETHERSCAN_KEY !== undefined ? process.env.OPTIMISTIC_ETHERSCAN_KEY : "",
     },
   },
   solidity: {
