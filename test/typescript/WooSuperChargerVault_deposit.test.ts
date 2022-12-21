@@ -45,6 +45,7 @@ import {
   WooLendingManager,
   WooWithdrawManager,
   WOOFiVaultV2,
+  IVaultV2,
 } from "../../typechain";
 import WooracleV2Artifact from "../../artifacts/contracts/WooracleV2.sol/WooracleV2.json";
 import WooPPV2Artifact from "../../artifacts/contracts/WooPPV2.sol/WooPPV2.json";
@@ -240,6 +241,175 @@ describe("WooSuperChargerVault deposit USDC", () => {
       expect(await superChargerVault.reserveBalance()).to.eq(totalAmount);
       expect(await superChargerVault.lendingBalance()).to.eq(0);
       expect(await superChargerVault.available()).to.eq(0);
+    });
+
+
+    it("instantWithdraw test1", async () => {
+      let bal1 = await want.balanceOf(owner.address);
+      let amount = utils.parseEther("80");
+      await want.approve(superChargerVault.address, amount);
+      await superChargerVault["deposit(uint256,address)"](amount, user1.address);
+      let bal2 = await want.balanceOf(owner.address);
+
+      expect(bal1.sub(bal2)).to.be.eq(amount);
+
+      // Check vault status
+      expect(await superChargerVault.balanceOf(owner.address)).to.eq(0);
+      expect(await superChargerVault.balanceOf(user1.address)).to.eq(amount);
+
+      expect(await superChargerVault.balance()).to.eq(amount);
+      expect(await superChargerVault.reserveBalance()).to.eq(amount);
+      expect(await superChargerVault.lendingBalance()).to.eq(0);
+      expect(await superChargerVault.available()).to.eq(0);
+
+      expect(await superChargerVault.instantWithdrawCap()).to.eq(amount.div(10));
+      expect(await superChargerVault.instantWithdrawnAmount()).to.eq(0);
+
+      // instantWithdraw
+      let amount1 = utils.parseEther("1");
+
+      await expect(superChargerVault["instantWithdraw(uint256,address)"](0, owner.address)).to.be.revertedWith("WooSuperChargerVault: !amount");
+      await expect(superChargerVault["instantWithdraw(uint256,address)"](amount1, owner.address)).to.be.revertedWith("ERC20: burn amount exceeds balance");
+      await expect(superChargerVault["instantWithdraw(uint256,address)"](amount1, user1.address)).to.be.revertedWith("'ERC20: insufficient allowance");
+
+      await superChargerVault.connect(user1).approve(owner.address, amount1);
+      await superChargerVault["instantWithdraw(uint256,address)"](amount1, user1.address);
+      let totalAmount = amount.sub(amount1);
+
+      expect(await superChargerVault.balanceOf(owner.address)).to.eq(0);
+      expect(await superChargerVault.balanceOf(user1.address)).to.eq(amount.sub(amount1));
+      expect(await superChargerVault.balance()).to.eq(totalAmount);
+      expect(await superChargerVault.reserveBalance()).to.eq(totalAmount);
+      expect(await superChargerVault.lendingBalance()).to.eq(0);
+      expect(await superChargerVault.available()).to.eq(0);
+
+      // await superChargerVault.connect(user1).approve(owner.address, amount1);
+      await superChargerVault.connect(user1)["instantWithdraw(uint256,address)"](amount1, user1.address);
+      totalAmount = totalAmount.sub(amount1);
+
+      expect(await superChargerVault.balanceOf(owner.address)).to.eq(0);
+      expect(await superChargerVault.balanceOf(user1.address)).to.eq(totalAmount);
+      expect(await superChargerVault.balance()).to.eq(totalAmount);
+      expect(await superChargerVault.reserveBalance()).to.eq(totalAmount);
+      expect(await superChargerVault.lendingBalance()).to.eq(0);
+      expect(await superChargerVault.available()).to.eq(0);
+
+      await expect(superChargerVault.connect(user1)["instantWithdrawAll(address)"](user1.address))
+        .to.be.revertedWith("WooSuperChargerVault: OUT_OF_CAP");
+
+      amount = utils.parseEther("800");
+      let user1Bal = await superChargerVault.balanceOf(user1.address); // price per share = 1.0
+      await want.approve(superChargerVault.address, amount);
+      await superChargerVault["deposit(uint256,address)"](amount, owner.address);
+      totalAmount = totalAmount.add(amount).sub(user1Bal);
+
+      await superChargerVault.connect(user1)["instantWithdrawAll(address)"](user1.address);
+      expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount);
+      expect(await superChargerVault.balanceOf(user1.address)).to.eq(0);
+      expect(await superChargerVault.balance()).to.eq(totalAmount);
+      expect(await superChargerVault.reserveBalance()).to.eq(totalAmount);
+    });
+
+    it("requestWithdraw test1", async () => {
+      let bal1 = await want.balanceOf(owner.address);
+      let amount = utils.parseEther("80");
+      await want.approve(superChargerVault.address, amount);
+      await superChargerVault["deposit(uint256,address)"](amount, user1.address);
+      let bal2 = await want.balanceOf(owner.address);
+
+      expect(bal1.sub(bal2)).to.be.eq(amount);
+
+      let amount1 = utils.parseEther("10");
+
+      await expect(superChargerVault["requestWithdraw(uint256)"](amount1)).to.be.revertedWith("TransferHelper::transferFrom: transferFrom failed");
+      await expect(superChargerVault["requestWithdraw(uint256)"](0)).to.be.revertedWith("WooSuperChargerVault: !amount");
+
+      await superChargerVault.connect(user1).approve(superChargerVault.address, amount);
+      await superChargerVault.connect(user1)["requestWithdraw(uint256)"](amount1);
+      // let totalAmount = amount.sub(amount1);
+
+      expect(await superChargerVault.balanceOf(owner.address)).to.eq(0);
+      expect(await superChargerVault.balanceOf(user1.address)).to.eq(amount.sub(amount1));
+      expect(await superChargerVault.balance()).to.eq(amount);
+      expect(await superChargerVault.reserveBalance()).to.eq(amount);
+      expect(await superChargerVault.lendingBalance()).to.eq(0);
+      expect(await superChargerVault.available()).to.eq(0);
+      expect(await superChargerVault.requestedTotalAmount()).to.eq(amount1);
+      expect(await superChargerVault.requestedWithdrawAmount(user1.address)).to.eq(amount1);
+
+      // let userBal = await superChargerVault.balanceOf(user1.address); // price per share = 1.0
+      await superChargerVault.connect(user1)["requestWithdrawAll()"]();
+
+      expect(await superChargerVault.balanceOf(owner.address)).to.eq(0);
+      expect(await superChargerVault.balanceOf(user1.address)).to.eq(0);
+      expect(await superChargerVault.balance()).to.eq(amount);
+      expect(await superChargerVault.reserveBalance()).to.eq(amount);
+      expect(await superChargerVault.lendingBalance()).to.eq(0);
+      expect(await superChargerVault.available()).to.eq(0);
+      expect(await superChargerVault.requestedTotalAmount()).to.eq(amount);
+      expect(await superChargerVault.requestedWithdrawAmount(user1.address)).to.eq(amount);
+    });
+
+    it("migrateToNewVault test1", async () => {
+      let amount = utils.parseEther("80");
+      await want.approve(superChargerVault.address, amount);
+      await superChargerVault["deposit(uint256,address)"](amount, user1.address);
+
+      let amount1 = utils.parseEther("20");
+      await want.approve(superChargerVault.address, amount1);
+      await superChargerVault["deposit(uint256,address)"](amount1, owner.address);
+
+      expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount1);
+      expect(await superChargerVault.balanceOf(user1.address)).to.eq(amount);
+
+      await expect(superChargerVault["migrateToNewVault(address)"](user1.address)).to.be.revertedWith("WooSuperChargerVault: !migrationVault");
+
+      await expect(superChargerVault.setMigrationVault(user1.address)).to.be.revertedWith("");
+
+      const _reserveVault = (await deployContract(owner, WOOFiVaultV2Artifact, [
+        wftm.address,
+        want.address,
+        accessManager.address,
+      ])) as WOOFiVaultV2;
+      const newVault = (await deployContract(owner, WooSuperChargerVaultArtifact, [
+        wftm.address,
+        want.address,
+        accessManager.address,
+      ])) as WooSuperChargerVault;
+      const _lendingManager = (await deployContract(owner, WooLendingManagerArtifact, [])) as WooLendingManager;
+      await _lendingManager.init(
+        wftm.address,
+        want.address,
+        accessManager.address,
+        wooPP.address,
+        newVault.address
+      );
+      await _lendingManager.setTreasury(treasury.address);
+      const _withdrawManager = (await deployContract(owner, WooWithdrawManagerArtifact, [])) as WooWithdrawManager;
+      await _withdrawManager.init(wftm.address, want.address, accessManager.address, newVault.address);
+      await newVault.init(_reserveVault.address, _lendingManager.address, _withdrawManager.address);
+
+      expect(await newVault.balanceOf(owner.address)).to.eq(0);
+      expect(await newVault.balanceOf(user1.address)).to.eq(0);
+
+      await superChargerVault.setMigrationVault(newVault.address);
+      expect(await superChargerVault.migrationVault()).to.eq(newVault.address);
+      await expect(superChargerVault["migrateToNewVault(address)"](user1.address)).to.be.revertedWith("ERC20: insufficient allowance");
+
+      await superChargerVault.connect(user1).approve(owner.address, amount);
+      await superChargerVault["migrateToNewVault(address)"](user1.address);
+
+      expect(await superChargerVault.balanceOf(owner.address)).to.eq(amount1);
+      expect(await superChargerVault.balanceOf(user1.address)).to.eq(0);
+      expect(await newVault.balanceOf(owner.address)).to.eq(0);
+      expect(await newVault.balanceOf(user1.address)).to.eq(amount);
+
+      await superChargerVault["migrateToNewVault()"]();
+
+      expect(await superChargerVault.balanceOf(owner.address)).to.eq(0);
+      expect(await superChargerVault.balanceOf(user1.address)).to.eq(0);
+      expect(await newVault.balanceOf(owner.address)).to.eq(amount1);
+      expect(await newVault.balanceOf(user1.address)).to.eq(amount);
     });
 
   });
