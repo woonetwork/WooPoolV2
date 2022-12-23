@@ -193,7 +193,7 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         costSharePrice[receiver] = costAfter;
 
         if (want == weth) {
-            require(amount <= msg.value, "WooSuperChargerVault: msg.value_INSUFFICIENT");
+            require(amount == msg.value, "WooSuperChargerVault: msg.value_INSUFFICIENT");
             reserveVault.deposit{value: msg.value}(amount);
         } else {
             TransferHelper.safeTransferFrom(want, msg.sender, address(this), amount);

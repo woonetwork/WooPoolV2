@@ -50,6 +50,7 @@ import WooracleV2Artifact from "../../artifacts/contracts/WooracleV2.sol/Wooracl
 import WooPPV2Artifact from "../../artifacts/contracts/WooPPV2.sol/WooPPV2.json";
 
 import TestERC20TokenArtifact from "../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json";
+import WFTMArtifact from "../../artifacts/contracts/test/WFTM.sol/WFTM.json";
 import WooAccessManagerArtifact from "../../artifacts/contracts/WooAccessManager.sol/WooAccessManager.json";
 import WooSuperChargerVaultArtifact from "../../artifacts/contracts/earn/WooSuperChargerVault.sol/WooSuperChargerVault.json";
 import WooLendingManagerArtifact from "../../artifacts/contracts/earn/WooLendingManager.sol/WooLendingManager.json";
@@ -86,7 +87,7 @@ describe("WooSuperChargerVault USDC", () => {
   before("Tests Init", async () => {
     [owner, user1, treasury] = await ethers.getSigners();
     usdcToken = await deployContract(owner, TestERC20TokenArtifact, []);
-    wftm = await deployContract(owner, TestERC20TokenArtifact, []);
+    wftm = await deployContract(owner, WFTMArtifact, []);
     want = usdcToken;
     quote = usdcToken;
 
