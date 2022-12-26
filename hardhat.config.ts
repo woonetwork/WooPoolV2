@@ -1,6 +1,5 @@
 import type { HardhatUserConfig } from "hardhat/types";
 import { task } from "hardhat/config";
-
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
@@ -8,6 +7,10 @@ import "hardhat-abi-exporter";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import "dotenv/config";
+
+import "@matterlabs/hardhat-zksync-deploy";
+import "@matterlabs/hardhat-zksync-solc";
+import "@matterlabs/hardhat-zksync-verify";
 
 task("accounts", "Prints the list of accounts", async (_args, hre) => {
   const accounts = await hre.ethers.getSigners();
@@ -17,7 +20,12 @@ task("accounts", "Prints the list of accounts", async (_args, hre) => {
 const accounts = process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [];
 
 const config: HardhatUserConfig = {
-  defaultNetwork: "hardhat",
+  zksolc: {
+    version: "1.2.1",
+    compilerSource: "binary",
+    settings: {},
+  },
+  defaultNetwork: "zkSyncTestnet",
   networks: {
     hardhat: {
       allowUnlimitedContractSize: false,
@@ -28,87 +36,11 @@ const config: HardhatUserConfig = {
       },
       gasPrice: "auto",
     },
-    bsc_mainnet: {
-      url: "https://bsc-dataseed.binance.org/",
-      chainId: 56,
-      accounts: accounts,
-    },
-    bsc_testnet: {
-      url: "https://data-seed-prebsc-1-s1.binance.org:8545/",
-      chainId: 97,
-      accounts: accounts,
-    },
-    avalanche_mainnet: {
-      url: "https://api.avax.network/ext/bc/C/rpc",
-      chainId: 43114,
-      accounts: accounts,
-    },
-    avalanche_testnet: {
-      url: "https://api.avax-test.network/ext/bc/C/rpc",
-      chainId: 43113,
-      accounts: accounts,
-    },
-    fantom_mainnet: {
-      url: "https://rpc.ftm.tools/",
-      chainId: 250,
-      accounts: accounts,
-    },
-    fantom_testnet: {
-      url: "https://rpc.testnet.fantom.network/",
-      chainId: 4002,
-      accounts: accounts,
-    },
-    polygon_mainnet: {
-      url: "https://polygon-rpc.com/",
-      chainId: 137,
-      accounts: accounts,
-    },
-    polygon_testnet: {
-      url: "https://matic-mumbai.chainstacklabs.com/",
-      chainId: 80001,
-      accounts: accounts,
-    },
-    arbitrum_mainnet: {
-      url: "https://arb1.arbitrum.io/rpc/",
-      chainId: 42161,
-      accounts: accounts,
-    },
-    arbitrum_testnet: {
-      url: "https://rinkeby.arbitrum.io/rpc/",
-      chainId: 421611,
-      accounts: accounts,
-    },
-    optimism_mainnet: {
-      url: "https://mainnet.optimism.io/",
-      chainId: 10,
-      accounts: accounts,
-    },
-    optimism_testnet: {
-      url: "https://goerli.optimism.io/",
-      chainId: 420,
-      accounts: accounts,
-    },
-  },
-  etherscan: {
-    apiKey: {
-      mainnet: process.env.ETHERSCAN_KEY,
-      // binance smart chain
-      bsc: process.env.BSCSCAN_KEY,
-      bscTestnet: process.env.BSCSCAN_KEY,
-      // avalanche
-      avalanche: process.env.SNOWTRACE_KEY,
-      avalancheFujiTestnet: process.env.SNOWTRACE_KEY,
-      // fantom mainnet
-      opera: process.env.FTMSCAN_KEY,
-      ftmTestnet: process.env.FTMSCAN_KEY,
-      // polygon
-      polygon: process.env.POLYGONSCAN_KEY,
-      polygonMumbai: process.env.POLYGONSCAN_KEY,
-      // arbitrum
-      arbitrumOne: process.env.ARBISCAN_KEY,
-      arbitrumTestnet: process.env.ARBISCAN_KEY,
-      // optimism
-      optimisticEthereum: process.env.OPTIMISTIC_ETHERSCAN_KEY,
+    zksync_testnet: {
+      url: "https://zksync2-testnet.zksync.dev",
+      ethNetwork: "goerli",
+      zksync: true,
+      verifyURL: "https://zksync2-testnet-explorer.zksync.dev/contract_verification",
     },
   },
   solidity: {
