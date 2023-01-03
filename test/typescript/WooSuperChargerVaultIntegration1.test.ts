@@ -41,19 +41,20 @@ import {
   WooracleV2,
   WooPPV2,
   WooAccessManager,
-  WooSuperChargerVault,
+  WooSuperChargerVaultV2,
   WooLendingManager,
-  WooWithdrawManager,
+  WooWithdrawManagerV2,
   WOOFiVaultV2,
 } from "../../typechain";
 import WooracleV2Artifact from "../../artifacts/contracts/WooracleV2.sol/WooracleV2.json";
 import WooPPV2Artifact from "../../artifacts/contracts/WooPPV2.sol/WooPPV2.json";
 
 import TestERC20TokenArtifact from "../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json";
+import WFTMArtifact from "../../artifacts/contracts/test/WFTM.sol/WFTM.json";
 import WooAccessManagerArtifact from "../../artifacts/contracts/WooAccessManager.sol/WooAccessManager.json";
-import WooSuperChargerVaultArtifact from "../../artifacts/contracts/earn/WooSuperChargerVault.sol/WooSuperChargerVault.json";
+import WooSuperChargerVaultArtifact from "../../artifacts/contracts/earn/WooSuperChargerVaultV2.sol/WooSuperChargerVaultV2.json";
 import WooLendingManagerArtifact from "../../artifacts/contracts/earn/WooLendingManager.sol/WooLendingManager.json";
-import WooWithdrawManagerArtifact from "../../artifacts/contracts/earn/WooWithdrawManager.sol/WooWithdrawManager.json";
+import WooWithdrawManagerArtifact from "../../artifacts/contracts/earn/WooWithdrawManagerV2.sol/WooWithdrawManagerV2.json";
 
 import WOOFiVaultV2Artifact from "../../artifacts/contracts/earn/VaultV2.sol/WOOFiVaultV2.json";
 
@@ -86,7 +87,7 @@ describe("WooSuperChargerVault USDC", () => {
   before("Tests Init", async () => {
     [owner, user1, treasury] = await ethers.getSigners();
     usdcToken = await deployContract(owner, TestERC20TokenArtifact, []);
-    wftm = await deployContract(owner, TestERC20TokenArtifact, []);
+    wftm = await deployContract(owner, WFTMArtifact, []);
     want = usdcToken;
     quote = usdcToken;
 
