@@ -2,11 +2,11 @@
 import { ethers, run } from "hardhat";
 
 // eslint-disable-next-line prefer-const
-let wscvContractName = "WooSuperChargerVault";
+let wscvContractName = "WooSuperChargerVaultV2";
 // eslint-disable-next-line prefer-const
 let wlmContractName = "WooLendingManager";
 // eslint-disable-next-line prefer-const
-let wwmContractName = "WooWithdrawManager";
+let wwmContractName = "WooWithdrawManagerV2";
 
 // Specify need before deploying contract
 const weth = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
