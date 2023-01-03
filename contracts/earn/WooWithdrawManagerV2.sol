@@ -93,7 +93,7 @@ contract WooWithdrawManagerV2 is Ownable, ReentrancyGuard {
     }
 
     function addWithdrawAmount(address user, uint256 amount) external onlySuperChargerVault {
-        // NOTE: in V2, granular token transfer is avoided to save the save consumption;
+        // NOTE: in V2, granular token transfer is avoided to save the gas consumption;
         // Do remember batch transfer the total amount of `want` tokens after calling this method.
 
         // TransferHelper.safeTransferFrom(want, msg.sender, address(this), amount);
