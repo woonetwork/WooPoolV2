@@ -35,7 +35,7 @@ pragma solidity =0.8.14;
 * SOFTWARE.
 */
 
-import "./WooSuperChargerVault.sol";
+import "./WooSuperChargerVaultV2.sol";
 import "../interfaces/IWETH.sol";
 import "../interfaces/IWooAccessManager.sol";
 import "../interfaces/IWooPPV2.sol";
@@ -55,7 +55,7 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
     address public want;
     address public accessManager;
     address public wooPP;
-    WooSuperChargerVault public superChargerVault;
+    WooSuperChargerVaultV2 public superChargerVault;
 
     uint256 public borrowedPrincipal;
     uint256 public borrowedInterest;
@@ -83,7 +83,7 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
         want = _want;
         accessManager = _accessManager;
         wooPP = _wooPP;
-        superChargerVault = WooSuperChargerVault(_superChargerVault);
+        superChargerVault = WooSuperChargerVaultV2(_superChargerVault);
         lastAccuredTs = block.timestamp;
         treasury = 0x4094D7A17a387795838c7aba4687387B0d32BCf3;
     }
@@ -107,7 +107,7 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
     }
 
     function setSuperChargerVault(address payable _wooSuperCharger) external onlyOwner {
-        superChargerVault = WooSuperChargerVault(_wooSuperCharger);
+        superChargerVault = WooSuperChargerVaultV2(_wooSuperCharger);
     }
 
     function setWooPP(address _wooPP) external onlyOwner {
