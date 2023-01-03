@@ -45,7 +45,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-contract WooWithdrawManager is Ownable, ReentrancyGuard {
+contract WooWithdrawManagerV2 is Ownable, ReentrancyGuard {
     // addedAmount: added withdrawal amount for this user
     // totalAmount: total withdrawal amount for this user
     event WithdrawAdded(address indexed user, uint256 addedAmount, uint256 totalAmount);
@@ -93,7 +93,10 @@ contract WooWithdrawManager is Ownable, ReentrancyGuard {
     }
 
     function addWithdrawAmount(address user, uint256 amount) external onlySuperChargerVault {
-        TransferHelper.safeTransferFrom(want, msg.sender, address(this), amount);
+        // NOTE: in V2, granular token transfer is avoided to save the save consumption;
+        // Do remember batch transfer the total amount of tokens after adding all the withdraw amount.
+
+        // TransferHelper.safeTransferFrom(want, msg.sender, address(this), amount);
         withdrawAmount[user] = withdrawAmount[user] + amount;
         emit WithdrawAdded(user, amount, withdrawAmount[user]);
     }

@@ -40,7 +40,7 @@ import "../interfaces/IWooAccessManager.sol";
 import "../interfaces/IVaultV2.sol";
 import "../interfaces/IMasterChefWoo.sol";
 
-import "./WooWithdrawManager.sol";
+import "./WooWithdrawManagerV2.sol";
 import "./WooLendingManager.sol";
 
 import "../libraries/TransferHelper.sol";
@@ -85,7 +85,7 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     IVaultV2 public reserveVault;
     address public migrationVault;
     WooLendingManager public lendingManager;
-    WooWithdrawManager public withdrawManager;
+    WooWithdrawManagerV2 public withdrawManager;
 
     address public immutable want;
     address public immutable weth;
@@ -103,6 +103,7 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
 
     address public treasury = 0x815D4517427Fc940A90A5653cdCEA1544c6283c9;
     uint256 public instantWithdrawFeeRate = 30; // 1 in 10000th. default: 30 -> 0.3%
+    uint256 public maxWithdrawCount = 300;
 
     address public masterChef;
     uint256 public pid;
@@ -138,7 +139,7 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         reserveVault = IVaultV2(_reserveVault);
         require(reserveVault.want() == want);
         lendingManager = WooLendingManager(_lendingManager);
-        withdrawManager = WooWithdrawManager(_withdrawManager);
+        withdrawManager = WooWithdrawManagerV2(_withdrawManager);
     }
 
     modifier onlyAdmin() {
@@ -310,6 +311,7 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     function _requestWithdrawShares(uint256 shares) private {
         require(shares > 0, "WooSuperChargerVault: !amount");
         require(!isSettling, "WooSuperChargerVault: CANNOT_WITHDRAW_IN_SETTLING");
+        require(requestUsers.length() <= maxWithdrawCount, "WooSuperChargerVault: MAX_WITHDRAW_COUNT");
 
         address owner = msg.sender;
 
@@ -407,18 +409,18 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         uint256 sharePrice = getPricePerFullShare();
 
         isSettling = false;
-        uint256 amount = requestedTotalAmount();
+        uint256 totalWithdrawAmount = requestedTotalAmount();
 
-        if (amount != 0) {
-            uint256 shares = _sharesUp(amount, reserveVault.getPricePerFullShare());
+        if (totalWithdrawAmount != 0) {
+            uint256 shares = _sharesUp(totalWithdrawAmount, reserveVault.getPricePerFullShare());
             reserveVault.withdraw(shares);
 
             if (want == weth) {
-                IWETH(weth).deposit{value: amount}();
+                IWETH(weth).deposit{value: totalWithdrawAmount}();
             }
-            require(available() >= amount);
+            require(available() >= totalWithdrawAmount);
 
-            TransferHelper.safeApprove(want, address(withdrawManager), amount);
+            // TransferHelper.safeApprove(want, address(withdrawManager), amount);
             uint256 length = requestUsers.length();
             for (uint256 i = 0; i < length; i++) {
                 address user = requestUsers.at(0);
@@ -431,6 +433,8 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
 
             _burn(address(this), requestedTotalShares);
             requestedTotalShares = 0;
+
+            TransferHelper.safeTransfer(want, address(withdrawManager), totalWithdrawAmount);
         }
 
         instantWithdrawnAmount = 0;
@@ -480,12 +484,16 @@ contract WooSuperChargerVault is ERC20, Ownable, Pausable, ReentrancyGuard {
 
     function setWithdrawManager(address payable _withdrawManager) external onlyOwner {
         address formerManager = address(withdrawManager);
-        withdrawManager = WooWithdrawManager(_withdrawManager);
+        withdrawManager = WooWithdrawManagerV2(_withdrawManager);
         emit WithdrawManagerUpdated(formerManager, _withdrawManager);
     }
 
     function setTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;
+    }
+
+    function setMaxWithdrawCount(uint256 _maxWithdrawCount) external onlyOwner {
+        maxWithdrawCount = _maxWithdrawCount;
     }
 
     function setInstantWithdrawFeeRate(uint256 _feeRate) external onlyOwner {

@@ -55,7 +55,7 @@ import WFTMArtifact from "../../artifacts/contracts/test/WFTM.sol/WFTM.json";
 import WooAccessManagerArtifact from "../../artifacts/contracts/WooAccessManager.sol/WooAccessManager.json";
 import WooSuperChargerVaultArtifact from "../../artifacts/contracts/earn/WooSuperChargerVault.sol/WooSuperChargerVault.json";
 import WooLendingManagerArtifact from "../../artifacts/contracts/earn/WooLendingManager.sol/WooLendingManager.json";
-import WooWithdrawManagerArtifact from "../../artifacts/contracts/earn/WooWithdrawManager.sol/WooWithdrawManager.json";
+import WooWithdrawManagerArtifact from "../../artifacts/contracts/earn/WooWithdrawManagerV2.sol/WooWithdrawManagerV2.json";
 
 import WOOFiVaultV2Artifact from "../../artifacts/contracts/earn/VaultV2.sol/WOOFiVaultV2.json";
 
