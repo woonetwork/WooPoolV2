@@ -57,6 +57,8 @@ contract WooWithdrawManagerV2 is Ownable, ReentrancyGuard {
     address public accessManager;
     address public superChargerVault;
 
+    uint256 public totalWithdrawAmount;
+
     mapping(address => uint256) public withdrawAmount;
 
     address constant ETH_PLACEHOLDER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -96,8 +98,8 @@ contract WooWithdrawManagerV2 is Ownable, ReentrancyGuard {
         // NOTE: in V2, granular token transfer is avoided to save the gas consumption;
         // Do remember batch transfer the total amount of `want` tokens after calling this method.
 
-        // TransferHelper.safeTransferFrom(want, msg.sender, address(this), amount);
         withdrawAmount[user] = withdrawAmount[user] + amount;
+        totalWithdrawAmount += amount;
         emit WithdrawAdded(user, amount, withdrawAmount[user]);
     }
 
@@ -107,6 +109,7 @@ contract WooWithdrawManagerV2 is Ownable, ReentrancyGuard {
             return;
         }
         withdrawAmount[msg.sender] = 0;
+        totalWithdrawAmount -= amount;
         if (want == weth) {
             IWETH(weth).withdraw(amount);
             TransferHelper.safeTransferETH(msg.sender, amount);
