@@ -407,13 +407,12 @@ describe("WooSuperChargerVault USDC", () => {
       expect(await lendingManager.borrowedPrincipal()).to.eq(borrowAmount);
       expect(await lendingManager.borrowedInterest()).to.gt(0);
 
-      const inst = await lendingManager.borrowedInterest();
+      const interest = await lendingManager.borrowedInterest();
       const rate = await lendingManager.perfRate();
-      const instAfterFee = inst.sub(inst.mul(rate).div(10000));
 
-      expect(await superChargerVault.balance()).to.eq(amount.add(instAfterFee));
+      expect(await superChargerVault.balance()).to.eq(amount.add(interest));
       expect(await superChargerVault.reserveBalance()).to.eq(amount.sub(borrowAmount));
-      expect(await superChargerVault.lendingBalance()).to.eq(borrowAmount.add(instAfterFee));
+      expect(await superChargerVault.lendingBalance()).to.eq(borrowAmount.add(interest));
 
       // Repay
       const repaidAmount = utils.parseEther("15");
@@ -557,6 +556,13 @@ describe("WooSuperChargerVault USDC", () => {
 
       expect(await superChargerVault.isSettling()).to.eq(false);
       expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
+
+      console.log("Borrowed principal and interest: ",
+        utils.formatEther(await lendingManager.borrowedPrincipal()),
+        utils.formatEther(await lendingManager.borrowedInterest())
+      );
+
+      console.log("lending balance", utils.formatEther(await superChargerVault.lendingBalance()));
 
       expect((await superChargerVault.lendingBalance()).div(ONE)).to.eq(50 - 23);
       expect((await superChargerVault.requestedTotalAmount()).div(ONE)).to.eq(0);

@@ -253,7 +253,7 @@ describe("WooSuperChargerVault WFTM", () => {
       expect(await superChargerVault.instantWithdrawnAmount()).to.eq(instantWithdrawAmount2.add(instantWithdrawAmount));
     });
 
-    it("Integration Test2: request withdraw, borrow, weekly settle, withdraw", async () => {
+    it("usdc Integration Test2: request withdraw, borrow, weekly settle, withdraw", async () => {
       // Steps:
       // 1. user deposits 100 usdc
       // 2. request withdraw 40 usdc
@@ -294,7 +294,10 @@ describe("WooSuperChargerVault WFTM", () => {
       console.log("superCharger balance: ", utils.formatEther(await superChargerVault.balance()));
       console.log("superCharger reserveBalance: ", utils.formatEther(await superChargerVault.reserveBalance()));
 
-      console.log("lendingManager debt: ", utils.formatEther(await lendingManager.debt()));
+      console.log("Borrowed principal and interest: ",
+        utils.formatEther(await lendingManager.borrowedPrincipal()),
+        utils.formatEther(await lendingManager.borrowedInterest())
+      )
       console.log(
         "superChargerVault weeklyNeededAmountForWithdraw: ",
         utils.formatEther(await superChargerVault.weeklyNeededAmountForWithdraw())
@@ -327,6 +330,11 @@ describe("WooSuperChargerVault WFTM", () => {
       console.log("share_price: ", utils.formatEther(await superChargerVault.getPricePerFullShare()));
       console.log("balance: ", utils.formatEther(await superChargerVault.balance()));
 
+      console.log("Borrowed principal and interest: ",
+        utils.formatEther(await lendingManager.borrowedPrincipal()),
+        utils.formatEther(await lendingManager.borrowedInterest())
+      )
+
       // Request 30 again
 
       rwAmount = utils.parseEther("30");
@@ -358,6 +366,11 @@ describe("WooSuperChargerVault WFTM", () => {
 
       expect((await withdrawManager.withdrawAmount(owner.address)).div(ONE)).to.eq(40 + 30);
       expect(await want.balanceOf(await lendingManager.treasury())).to.gt(0);
+
+      console.log("Borrowed principal and interest: ",
+        utils.formatEther(await lendingManager.borrowedPrincipal()),
+        utils.formatEther(await lendingManager.borrowedInterest())
+      )
 
       // Withdraw
 
