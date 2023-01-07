@@ -51,4 +51,14 @@ interface IWooLendingManager {
     function accureInterest() external;
 
     function weeklyRepayment() external view returns (uint256 repayAmount);
+
+    function weeklyRepaymentBreakdown()
+        external
+        view
+        returns (
+            uint256 repayAmount,
+            uint256 principal,
+            uint256 interest,
+            uint256 perfFee
+        );
 }
