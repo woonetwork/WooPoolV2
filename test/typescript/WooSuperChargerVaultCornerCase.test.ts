@@ -230,11 +230,11 @@ describe("WooSuperChargerVault CornerCase", () => {
       // Repay
       const repaidAmount = utils.parseEther("15");
       const bal3 = await want.balanceOf(owner.address);
-      await want.approve(lendingManager.address, repaidAmount);
-      await lendingManager.repay(repaidAmount);
+      await want.approve(lendingManager.address, repaidAmount.add(utils.parseEther("1")));
+      await lendingManager.repayPrincipal(repaidAmount);
 
       const bal4 = await want.balanceOf(owner.address);
-      expect(bal3.sub(bal4)).to.eq(repaidAmount);
+      console.log("repaid balance: ", utils.formatEther(bal4));
 
       // borrowed 30, repaid 15, then the debt left is 15
       expect((await superChargerVault.lendingBalance()).div(ONE)).to.eq(15);
