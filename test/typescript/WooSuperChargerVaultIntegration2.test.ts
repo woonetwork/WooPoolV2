@@ -359,7 +359,8 @@ describe("WooSuperChargerVault WFTM", () => {
       await superChargerVault.endWeeklySettle();
 
       expect(await superChargerVault.isSettling()).to.eq(false);
-      expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
+      expect((await superChargerVault.weeklyNeededAmountForWithdraw()).div(ONE)).to.eq(0);
+      expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.gt(0);
 
       expect((await superChargerVault.lendingBalance()).div(ONE)).to.eq(50 - 23);
       expect((await superChargerVault.requestedTotalAmount()).div(ONE)).to.eq(0);
@@ -468,6 +469,86 @@ describe("WooSuperChargerVault WFTM", () => {
       await withdrawManager.connect(user1).withdraw();
       bal2 = await ethers.provider.getBalance(user1.address);
       expect(bal2.sub(bal1).add(gas).div(ONE)).to.eq(10);
+    });
+
+    it("Integration Test5: multiple deposits and request all", async () => {
+      // Steps:
+      // multiple deposits and multiple withdrawals; verify the result.
+
+      const amount1 = utils.parseEther("100");
+      await want.approve(superChargerVault.address, amount1);
+      await superChargerVault["deposit(uint256)"](amount1, { value: amount1 });
+
+      const amount2 = utils.parseEther("20");
+      await want.connect(user1).approve(superChargerVault.address, amount2);
+      await superChargerVault.connect(user1)["deposit(uint256)"](amount2, { value: amount2 });
+
+      // Check lending manager status
+      await lendingManager.setBorrower(owner.address, true);
+      await lendingManager.setInterestRate(1000); // APR - 10%
+
+      // Borrow - 100 in total
+      await lendingManager.borrow(utils.parseEther("20")); // borrow 20 want token
+      await lendingManager.borrow(utils.parseEther("80")); // borrow 80 want token
+
+      expect((await superChargerVault.lendingBalance()).div(ONE)).to.eq(100);
+      expect((await superChargerVault.balance()).div(ONE)).to.eq(120);
+      expect((await superChargerVault.requestedTotalAmount()).div(ONE)).to.eq(0);
+
+      console.log("superCharger balance: ", utils.formatEther(await superChargerVault.balance()));
+      console.log("superCharger reserveBalance: ", utils.formatEther(await superChargerVault.reserveBalance()));
+      console.log("lendingManager debt: ", utils.formatEther(await lendingManager.debt()));
+      console.log(
+        "superChargerVault weeklyNeededAmountForWithdraw: ",
+        utils.formatEther(await superChargerVault.weeklyNeededAmountForWithdraw())
+      );
+
+      // Request - 120 in total
+      const rwAmount1 = utils.parseEther("100");
+      await superChargerVault.approve(superChargerVault.address, rwAmount1);
+      await superChargerVault.requestWithdrawAll();
+
+      const rwAmount2 = utils.parseEther("20");
+      await superChargerVault.connect(user1).approve(superChargerVault.address, rwAmount2);
+      await superChargerVault.connect(user1).requestWithdrawAll();
+
+      // Settle
+
+      await superChargerVault.startWeeklySettle();
+
+      expect(await superChargerVault.isSettling()).to.eq(true);
+      expect((await superChargerVault.requestedTotalAmount()).div(ONE)).to.eq(120);
+
+      // Repay
+
+      const repayAmount = await superChargerVault.weeklyNeededAmountForWithdraw();
+      await want.approve(lendingManager.address, repayAmount.mul(2));
+      await lendingManager.repayWeekly();
+
+      await superChargerVault.endWeeklySettle();
+
+      expect(await superChargerVault.isSettling()).to.eq(false);
+      expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
+
+      expect((await superChargerVault.lendingBalance()).div(ONE)).to.eq(0);
+      expect((await superChargerVault.requestedTotalAmount()).div(ONE)).to.eq(0);
+
+      expect((await withdrawManager.withdrawAmount(owner.address)).div(ONE)).to.eq(100);
+      expect((await withdrawManager.withdrawAmount(user1.address)).div(ONE)).to.eq(20);
+
+      expect(await want.balanceOf(await lendingManager.treasury())).to.gt(0);
+
+      console.log("share_price: ", utils.formatEther(await superChargerVault.getPricePerFullShare()));
+      console.log("superCharger balance raw: ", await superChargerVault.balance());
+      console.log("superCharger balance: ", utils.formatEther(await superChargerVault.balance()));
+      console.log("superCharger reserveBalance: ", utils.formatEther(await superChargerVault.reserveBalance()));
+      console.log("lendingManager debt: ", utils.formatEther(await lendingManager.debt()));
+      console.log("lendingManager borrowed principal: ", utils.formatEther(await lendingManager.borrowedPrincipal()));
+      console.log("lendingManager borrowed interest: ", utils.formatEther(await lendingManager.borrowedInterest()));
+      console.log(
+        "superChargerVault weeklyNeededAmountForWithdraw: ",
+        utils.formatEther(await superChargerVault.weeklyNeededAmountForWithdraw())
+      );
     });
 
     it("Integration Test: migrate reserve vault", async () => {

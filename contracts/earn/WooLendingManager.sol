@@ -237,7 +237,7 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
         uint256 _principal;
         uint256 _interest;
         (, _principal, _interest, ) = weeklyRepaymentBreakdown();
-        return _repay(borrowedPrincipal, borrowedInterest);
+        return _repay(_principal, _interest);
     }
 
     function repayAll() external onlyBorrower returns (uint256 repaidAmount) {
@@ -250,6 +250,7 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
         return _repay(_principal, borrowedInterest);
     }
 
+    // TODO: repay from msg.sender , or from WooPP ?
     function _repay(uint256 _principal, uint256 _interest) private returns (uint256 repaidAmount) {
         if (_principal == 0 && _interest == 0) {
             emit Repay(msg.sender, 0, 0);
