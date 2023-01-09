@@ -42,6 +42,8 @@ import "../interfaces/IWooPPV2.sol";
 
 import "../libraries/TransferHelper.sol";
 
+import "hardhat/console.sol";
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -228,7 +230,7 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
             interest = borrowedInterest;
             principal = neededAmount - borrowedInterest;
         }
-        perfFee = (interest * 10000) / perfRate;
+        perfFee = (interest * perfRate) / 10000;
         repayAmount = principal + interest + perfFee;
     }
 
@@ -237,6 +239,8 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
         uint256 _principal;
         uint256 _interest;
         (, _principal, _interest, ) = weeklyRepaymentBreakdown();
+        console.log("repayWeekly principal", _principal, borrowedPrincipal);
+        console.log("repayWeekly interest", _interest, borrowedInterest);
         return _repay(_principal, _interest);
     }
 
@@ -245,25 +249,26 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
         return _repay(borrowedPrincipal, borrowedInterest);
     }
 
+    // NOTE: repay the specified principal amount with all the borrowed interest
     function repayPrincipal(uint256 _principal) external onlyBorrower returns (uint256 repaidAmount) {
         accureInterest();
         return _repay(_principal, borrowedInterest);
     }
 
-    // TODO: repay from msg.sender , or from WooPP ?
     function _repay(uint256 _principal, uint256 _interest) private returns (uint256 repaidAmount) {
         if (_principal == 0 && _interest == 0) {
             emit Repay(msg.sender, 0, 0);
             return 0;
         }
 
-        uint256 _perfFee = (_interest * 10000) / perfRate;
+        uint256 _perfFee = (_interest * perfRate) / 10000;
         uint256 _totalAmount = _principal + _interest + _perfFee;
 
         TransferHelper.safeTransferFrom(want, msg.sender, address(this), _totalAmount);
 
         borrowedInterest -= _interest;
         borrowedPrincipal -= _principal;
+
         TransferHelper.safeTransfer(want, treasury, _perfFee);
 
         TransferHelper.safeApprove(want, address(superChargerVault), _principal + _interest);

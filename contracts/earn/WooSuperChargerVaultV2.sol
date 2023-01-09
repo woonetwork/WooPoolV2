@@ -45,6 +45,8 @@ import "./WooLendingManager.sol";
 
 import "../libraries/TransferHelper.sol";
 
+import "hardhat/console.sol";
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -383,6 +385,14 @@ contract WooSuperChargerVaultV2 is ERC20, Ownable, Pausable, ReentrancyGuard {
         uint256 reserveBal = reserveBalance();
         uint256 requestedAmount = requestedTotalAmount();
         uint256 afterBal = balance() - requestedAmount;
+
+        console.log("weeklyNeededAmountForWithdraw", reserveBal, requestedAmount, afterBal);
+        console.log("requested shares & total shares: ", requestedTotalShares, totalSupply());
+        console.log("requested amount & total amount: ", requestedAmount, balance());
+        console.log(
+            "ret value: ",
+            reserveBal >= requestedAmount + afterBal / 10 ? 0 : requestedAmount + afterBal / 10 - reserveBal
+        );
 
         return reserveBal >= requestedAmount + afterBal / 10 ? 0 : requestedAmount + afterBal / 10 - reserveBal;
     }

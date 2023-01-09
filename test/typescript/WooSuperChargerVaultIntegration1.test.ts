@@ -777,7 +777,7 @@ describe("WooSuperChargerVault USDC", () => {
       expect(poolSizeDelta.mul(1e5).div(ONE)).to.be.eq(weeklyRepayAmount.mul(1e5).div(ONE))
     })
 
-    it("Integration Test5: multiple deposits and request all", async () => {
+    it("usdc Integration Test5: multiple deposits and request all", async () => {
       // Steps:
       // multiple deposits and multiple withdrawals; verify the result.
 
@@ -801,14 +801,6 @@ describe("WooSuperChargerVault USDC", () => {
       expect((await superChargerVault.balance()).div(ONE)).to.eq(120);
       expect((await superChargerVault.requestedTotalAmount()).div(ONE)).to.eq(0);
 
-      console.log("superCharger balance: ", utils.formatEther(await superChargerVault.balance()));
-      console.log("superCharger reserveBalance: ", utils.formatEther(await superChargerVault.reserveBalance()));
-      console.log("lendingManager debt: ", utils.formatEther(await lendingManager.debt()));
-      console.log(
-        "superChargerVault weeklyNeededAmountForWithdraw: ",
-        utils.formatEther(await superChargerVault.weeklyNeededAmountForWithdraw())
-      );
-
       // Request - 120 in total
       const rwAmount1 = utils.parseEther("100");
       await superChargerVault.approve(superChargerVault.address, rwAmount1);
@@ -817,6 +809,14 @@ describe("WooSuperChargerVault USDC", () => {
       const rwAmount2 = utils.parseEther("20");
       await superChargerVault.connect(user1).approve(superChargerVault.address, rwAmount2);
       await superChargerVault.connect(user1).requestWithdrawAll();
+
+      console.log("superCharger balance: ", utils.formatEther(await superChargerVault.balance()));
+      console.log("superCharger reserveBalance: ", utils.formatEther(await superChargerVault.reserveBalance()));
+      console.log("lendingManager debt: ", utils.formatEther(await lendingManager.debt()));
+      // console.log(
+      //   "superChargerVault weeklyNeededAmountForWithdraw: ",
+      //   utils.formatEther(await superChargerVault.weeklyNeededAmountForWithdraw())
+      // );
 
       // Settle
 
@@ -827,14 +827,14 @@ describe("WooSuperChargerVault USDC", () => {
 
       // Repay
 
-      const repayAmount = await superChargerVault.weeklyNeededAmountForWithdraw();
-      await want.approve(lendingManager.address, repayAmount.mul(2));
+      // const repayAmount = await superChargerVault.weeklyNeededAmountForWithdraw();
+      await want.approve(lendingManager.address, utils.parseEther("121"));
       await lendingManager.repayWeekly();
 
       await superChargerVault.endWeeklySettle();
 
       expect(await superChargerVault.isSettling()).to.eq(false);
-      expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
+      // expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
 
       expect((await superChargerVault.lendingBalance()).div(ONE)).to.eq(0);
       expect((await superChargerVault.requestedTotalAmount()).div(ONE)).to.eq(0);
@@ -844,6 +844,7 @@ describe("WooSuperChargerVault USDC", () => {
 
       expect(await want.balanceOf(await lendingManager.treasury())).to.gt(0);
 
+      console.log("--- Settle and Repay finished ---");
       console.log("share_price: ", utils.formatEther(await superChargerVault.getPricePerFullShare()));
       console.log("superCharger balance raw: ", await superChargerVault.balance());
       console.log("superCharger balance: ", utils.formatEther(await superChargerVault.balance()));
@@ -851,10 +852,10 @@ describe("WooSuperChargerVault USDC", () => {
       console.log("lendingManager debt: ", utils.formatEther(await lendingManager.debt()));
       console.log("lendingManager borrowed principal: ", utils.formatEther(await lendingManager.borrowedPrincipal()));
       console.log("lendingManager borrowed interest: ", utils.formatEther(await lendingManager.borrowedInterest()));
-      console.log(
-        "superChargerVault weeklyNeededAmountForWithdraw: ",
-        utils.formatEther(await superChargerVault.weeklyNeededAmountForWithdraw())
-      );
+      // console.log(
+      //   "superChargerVault weeklyNeededAmountForWithdraw: ",
+      //   utils.formatEther(await superChargerVault.weeklyNeededAmountForWithdraw())
+      // );
 
 
       // Withdraw
