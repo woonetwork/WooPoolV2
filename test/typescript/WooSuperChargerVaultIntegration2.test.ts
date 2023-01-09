@@ -471,7 +471,7 @@ describe("WooSuperChargerVault WFTM", () => {
       expect(bal2.sub(bal1).add(gas).div(ONE)).to.eq(10);
     });
 
-    it("Integration Test5: multiple deposits and request all", async () => {
+    it("WFTM Integration Test5: multiple deposits and request all", async () => {
       // Steps:
       // multiple deposits and multiple withdrawals; verify the result.
 
