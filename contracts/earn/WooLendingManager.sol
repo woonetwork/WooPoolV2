@@ -42,8 +42,6 @@ import "../interfaces/IWooPPV2.sol";
 
 import "../libraries/TransferHelper.sol";
 
-import "hardhat/console.sol";
-
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -203,7 +201,7 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
         emit Borrow(msg.sender, amount);
     }
 
-    // NOTE: this is the view functiono;
+    // NOTE: this is the view function;
     // Remember to call the accureInterest to ensure the latest repayment state.
     function weeklyRepayment() public view returns (uint256 repayAmount) {
         (repayAmount, , , ) = weeklyRepaymentBreakdown();
@@ -239,8 +237,6 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
         uint256 _principal;
         uint256 _interest;
         (, _principal, _interest, ) = weeklyRepaymentBreakdown();
-        console.log("repayWeekly principal", _principal, borrowedPrincipal);
-        console.log("repayWeekly interest", _interest, borrowedInterest);
         return _repay(_principal, _interest);
     }
 
