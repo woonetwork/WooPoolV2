@@ -28,6 +28,8 @@ async function main() {
   await new Promise((resolve) => setTimeout(resolve, 10000));
   await contract.setVaultAdmin(marketMaker, true);
 
+  // await contract.setRebateAdmin(wooFeeManager, true); // Set WooFeeManager as rebateAdmin manually
+
   await new Promise((resolve) => setTimeout(resolve, 10000));
   await contract.transferOwnership(owner);
 

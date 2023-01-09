@@ -5,11 +5,12 @@ import { ethers, run } from "hardhat";
 let contractName = "WooFeeManager";
 
 // Specify need before deploying contract
-const quoteToken = "0x7F5c764cBc14f9669B88837ca1490cCa17c31607";
-const wooRebateManager = "0x36b680fB76Dad86bcB2Cefc83fAE05e3Fe147706";
-const wooVaultManager = "0x31d37b4Ec170D89376E614266b6E229342c1029e";
-const wooAccessManager = "0x8A68849c8a61225964d2caE170fDD19eC46bf246";
-const treasury = "0xf0a9E1e6c85E99bc29A68eB9D750Dd7389feb886";
+const quoteToken = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
+const wooRebateManager = "0x913E116cD0E279763B0419798c0bA18F9311B390";
+const wooVaultManager = "0x88748243DE01c4F3C103F2De2833f39F6807db17";
+const wooAccessManager = "0x925AFA2318825FCAC673Ef4eF551208b125dd965";
+const treasury = "0xBD9D33926Da514586201995cf20FEc9f21133166";
+const vaultRewardRate = ethers.utils.parseEther("0.8");
 const owner = "0x7C8A5d20b22Ce9b369C043A3E0091b5575B732d9";
 
 async function main() {
@@ -18,6 +19,9 @@ async function main() {
   const contract = await factory.deploy(...args);
   await contract.deployed();
   console.log(`${contractName} deployed to: ${contract.address}`);
+
+  await new Promise((resolve) => setTimeout(resolve, 10000));
+  await contract.setVaultRewardRate(vaultRewardRate);
 
   await new Promise((resolve) => setTimeout(resolve, 10000));
   await contract.transferOwnership(owner);

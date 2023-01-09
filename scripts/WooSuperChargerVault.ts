@@ -2,35 +2,31 @@
 import { ethers, run } from "hardhat";
 
 // eslint-disable-next-line prefer-const
-let wscvContractName = "WooSuperChargerVault";
+let wscvContractName = "WooSuperChargerVaultV2";
 // eslint-disable-next-line prefer-const
 let wlmContractName = "WooLendingManager";
 // eslint-disable-next-line prefer-const
-let wwmContractName = "WooWithdrawManager";
+let wwmContractName = "WooWithdrawManagerV2";
 
 // Specify need before deploying contract
-const weth = "0x4200000000000000000000000000000000000006";
-const usdc = "0x7F5c764cBc14f9669B88837ca1490cCa17c31607";
-const op = "0x4200000000000000000000000000000000000042";
-const wethReserveVault = "0x7e1996945eA8866DE873179DC1677E93A4380107";
-const usdcReserveVault = "0x64EDb6450F5a1C6158D76C1E30900fD7D8493636";
-const opReserveVault = "0xCEC7E58CF02749b2592Bb3C0c392737Eec3f9636";
+const weth = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
+const eth = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619";
+const usdc = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
 
-const masterChefWoo = "0xc0f8C29e3a9A7650a3F642e467d70087819926d6";
-const weWETHPid = 0;
-const weUSDCPid = 1;
+const wethReserveVault = "0xD5BEfE3Fecdf1C941c58119a4e395806Eea0C343";
+const ethReserveVault = "0x99Ad6e3c00DFBcd80b7593B1Cd8Fb8a9F1a2d230";
+const usdcReserveVault = "0xB54e1d90d845d888d39dcaCBd54a3EEc0d8853B2";
 
 const want = weth;
 const reserveVault = wethReserveVault;
 
-const wooAccessManager = "0x8A68849c8a61225964d2caE170fDD19eC46bf246";
-const wooPP = "0xd1778F9DF3eee5473A9640f13682e3846f61fEbC";
-const treasury = "0xf0a9E1e6c85E99bc29A68eB9D750Dd7389feb886";
+const wooAccessManager = "0x925AFA2318825FCAC673Ef4eF551208b125dd965";
+const wooPP = "0x7081A38158BD050Ae4a86e38E0225Bc281887d7E";
+const treasury = "0xBD9D33926Da514586201995cf20FEc9f21133166";
 
 const testBorrower = "0xea02DCC6fe3eC1F2a433fF8718677556a3bb3618";
 const prodBorrower = "0x4c298512e78C1FA8fc36c8f9c0a8B9522e5fB48c";
 const owner = testBorrower;
-
 
 async function main() {
   // Deploy WooSuperChargerVault
@@ -98,6 +94,8 @@ async function main() {
   await new Promise((resolve) => setTimeout(resolve, 10000));
   await wlmContract.transferOwnership(owner);
   console.log(`${wlmContractName} transferOwnership`);
+
+  // await wscvContract.setMasterChef(masterChef, pid); // Set MasterChef and pid manually
 
   // Verify contracts
   await new Promise((resolve) => setTimeout(resolve, 10000));

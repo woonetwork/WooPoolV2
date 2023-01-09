@@ -5,15 +5,17 @@ import { ethers, run } from "hardhat";
 let contractName = "WooPPV2";
 
 // Specify need before deploying contract
-const quoteToken = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8";
-const wooracle = "0x37a9dE70b6734dFCA54395D8061d9411D9910739";
-const feeAddr = "0x36dbF060dDDEDB1AaeBd9553Cf27dF03A5746603";
+const quoteToken = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
+const wooracle = "0xeFF23B4bE1091b53205E35f3AfCD9C7182bf3062";
+const feeAddr = "0x938021351425dbfa606Ed2B81Fc66952283e0Dd5";
+const admin = "0xDe95557D3c243e116E40dD8e933c4c7A3939d515";
 const owner = "0x7C8A5d20b22Ce9b369C043A3E0091b5575B732d9";
 const baseFeeRate = 25;
 const baseTokens = [
-  "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", // WBTC
-  "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", // WETH
-  "0xcAFcD85D8ca7Ad1e1C6F82F651fA15E33AEfD07b", // WOO
+  "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", // WMATIC
+  "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", // WETH
+  "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6", // WBTC
+  "0x1B815d120B3eF02039Ee11dC2d33DE7aA4a8C603", // WOO
 ];
 
 async function main() {
@@ -24,9 +26,12 @@ async function main() {
   console.log(`${contractName} deployed to: ${contract.address}`);
 
   await new Promise((resolve) => setTimeout(resolve, 10000));
-
   await contract.init(wooracle, feeAddr); // Set wooracle and feeAddr
+
+  // await contract.setLendManager(wooLendingManager); // Set WooLendingManager for each underlying token manually
+
   await new Promise((resolve) => setTimeout(resolve, 10000));
+  await contract.setAdmin(admin, true);
 
   // eslint-disable-next-line prefer-const
   for (let i in baseTokens) {
