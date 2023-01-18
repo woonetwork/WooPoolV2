@@ -43,7 +43,6 @@ contract DataProvider is IDataProvider {
 
         superChargerRelatedInfos.requestedWithdrawAmounts = requestedWithdrawAmounts(user, superChargerVaults);
         superChargerRelatedInfos.withdrawAmounts = withdrawAmounts(user, withdrawManagers);
-        return (vaultInfos, tokenInfos, masterChefWooInfos, superChargerRelatedInfos);
     }
 
     function balancesOf(address user, address[] memory tokens) public view override returns (uint256[] memory results) {
@@ -52,7 +51,6 @@ contract DataProvider is IDataProvider {
         for (uint256 i = 0; i < length; i++) {
             results[i] = IERC20(tokens[i]).balanceOf(user);
         }
-        return results;
     }
 
     function sharePrices(address[] memory vaults) public view override returns (uint256[] memory results) {
@@ -61,7 +59,6 @@ contract DataProvider is IDataProvider {
         for (uint256 i = 0; i < length; i++) {
             results[i] = IVaultInfo(vaults[i]).getPricePerFullShare();
         }
-        return results;
     }
 
     function costSharePrices(address user, address[] memory vaults)
@@ -75,7 +72,6 @@ contract DataProvider is IDataProvider {
         for (uint256 i = 0; i < length; i++) {
             results[i] = IVaultInfo(vaults[i]).costSharePrice(user);
         }
-        return results;
     }
 
     function userInfos(
@@ -89,7 +85,6 @@ contract DataProvider is IDataProvider {
         for (uint256 i = 0; i < length; i++) {
             (amounts[i], rewardDebts[i]) = IMasterChefWooInfo(masterChefWoo).userInfo(pids[i], user);
         }
-        return (amounts, rewardDebts);
     }
 
     function pendingXWoos(
@@ -117,7 +112,6 @@ contract DataProvider is IDataProvider {
                 );
             }
         }
-        return (pendingXWooAmounts, pendingWooAmounts);
     }
 
     function requestedWithdrawAmounts(address user, address[] memory superChargerVaults)
@@ -131,7 +125,6 @@ contract DataProvider is IDataProvider {
         for (uint256 i = 0; i < length; i++) {
             results[i] = ISuperChargerVaultInfo(superChargerVaults[i]).requestedWithdrawAmount(user);
         }
-        return results;
     }
 
     function withdrawAmounts(address user, address[] memory withdrawManagers)
@@ -145,6 +138,5 @@ contract DataProvider is IDataProvider {
         for (uint256 i = 0; i < length; i++) {
             results[i] = IWithdrawManagerInfo(withdrawManagers[i]).withdrawAmount(user);
         }
-        return results;
     }
 }
