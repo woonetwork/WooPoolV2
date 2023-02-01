@@ -1,131 +1,368 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.14;
 
+// OpenZeppelin Contracts
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+
+// Local Contracts
+import "./interfaces/IWooCrossChainRouterV2.sol";
 import "./interfaces/IWooRouterV2.sol";
 import "./interfaces/IWETH.sol";
-
 import "./interfaces/Stargate/IStargateRouter.sol";
-import "./interfaces/Stargate/IStargateReceiver.sol";
 
 import "./libraries/TransferHelper.sol";
 
-// OpenZeppelin contracts
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+/// @title WOOFi cross chain router implementation.
+/// @notice Router for stateless execution of cross chain swap against WOOFi private pool.
+/// @custom:stargate-contracts https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
+contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGuard {
+    using EnumerableSet for EnumerableSet.AddressSet;
 
-/// @title Woo Router implementation.
-/// @notice Router for stateless execution of swaps against Woo private pool.
-/// Ref links:
-/// chain id: https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
-/// poold id: https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
-contract WooCrossChainRouter is IStargateReceiver, Ownable, ReentrancyGuard {
-    using SafeERC20 for IERC20;
+    /* ----- Constants ----- */
 
-    event WooCrossSwapOnSrcChain(
-        uint256 indexed refId,
-        address indexed sender,
-        address indexed to,
-        address fromToken,
-        uint256 fromAmount,
-        uint256 minQuoteAmount,
-        uint256 realQuoteAmount
-    );
+    address public constant ETH_PLACEHOLDER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    event WooCrossSwapOnDstChain(
-        uint256 indexed refId,
-        address indexed sender,
-        address indexed to,
-        address bridgedToken,
-        uint256 bridgedAmount,
-        address toToken,
-        address realToToken,
-        uint256 minToAmount,
-        uint256 realToAmount
-    );
+    /* ----- Variables ----- */
 
-    address constant ETH_PLACEHOLDER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
-    IStargateRouter public stargateRouter;
     IWooRouterV2 public wooRouter;
-    address public quoteToken;
-    address public WETH;
-    uint256 public bridgeSlippage; // 1 in 10000th: default 1%
-    uint256 public dstGasForSwapCall;
-    uint256 public dstGasForNoSwapCall;
+    IStargateRouter public stargateRouter;
 
-    mapping(uint16 => address) public wooCrossRouters; // dstChainId => woo router
-    mapping(uint16 => uint256) public quotePoolIds; // chainId => woofi_quote_token_pool_id
-    mapping(uint16 => address) public wooppQuoteTokens; // dstChainId => wooPP quote token
+    address public override weth;
+    uint256 public override bridgeSlippage; // 1 in 10000th: default 1%
+    uint256 public override dstGasForSwapCall;
+    uint256 public override dstGasForNoSwapCall;
+
+    uint16 public override sglChainId; // Stargate Local ChainId
+
+    mapping(uint16 => address) public override wooCrossChainRouters; // chainId => WooCrossChainRouter address
+    mapping(uint16 => address) public override sgETHs; // chainId => SGETH token address
+
+    EnumerableSet.AddressSet private directBridgeTokens;
 
     receive() external payable {}
 
     constructor(
         address _weth,
         address _wooRouter,
-        address _stargateRouter
+        address _stargateRouter,
+        uint16 _sglChainId
     ) {
-        WETH = _weth;
         wooRouter = IWooRouterV2(_wooRouter);
-        quoteToken = wooRouter.wooPool().quoteToken();
         stargateRouter = IStargateRouter(_stargateRouter);
 
+        weth = _weth;
         bridgeSlippage = 100;
-
         dstGasForSwapCall = 360000;
         dstGasForNoSwapCall = 80000;
 
-        // usdc: 1, usdt: 2, busd: 5
-        quotePoolIds[101] = 1; // ethereum: usdc
-        quotePoolIds[102] = 2; // BSC: usdt
-        quotePoolIds[106] = 1; // Avalanche: usdc
-        quotePoolIds[109] = 1; // Polygon: usdc
-        quotePoolIds[110] = 1; // Arbitrum: usdc
-        quotePoolIds[111] = 1; // Optimism: usdc
-        quotePoolIds[112] = 1; // Fantom: usdc
+        sglChainId = _sglChainId;
 
-        wooppQuoteTokens[101] = address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // ETH_main: usdc
-        wooppQuoteTokens[102] = address(0x55d398326f99059fF775485246999027B3197955); // bsc_wooPP: usdt
-        wooppQuoteTokens[106] = address(0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E); // avax_wooPP: usdc
-        wooppQuoteTokens[109] = address(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174); // Polygon: usdc
-        wooppQuoteTokens[110] = address(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8); // Arbitrum: usdc
-        wooppQuoteTokens[111] = address(0x7F5c764cBc14f9669B88837ca1490cCa17c31607); // Optimism: usdc
-        wooppQuoteTokens[112] = address(0x04068DA6C83AFCFA0e13ba15A6696662335D5B75); // ftm_wooPP: usdc
+        _initSGETHs();
     }
 
-    function setWooppQuoteTokens(uint16 _chainId, address _token) public onlyOwner {
-        wooppQuoteTokens[_chainId] = _token;
-    }
+    /* ----- Functions ----- */
 
-    /*
-    https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
-        - Chain ID : Chain -
-        1: Ether
-        2: BSC (BNB Chain)
-        6: Avalanche
-        9: Polygon
-        10: Arbitrum
-        11: Optimism
-        12: Fantom
+    /** 
+        Example Params:
+        OP(Optimism) -> ETH(Optimism) -> ETH(Arbitrum)
+        srcInfos.chainId = 111
+        srcInfos.poolId = 13
+        srcInfos.fromToken = OP(Optimism)
+        srcInfos.bridgeToken = ETH(Optimism)
+
+        dstInfos.chainId = 110
+        dstInfos.poolId = 13
+        dstInfos.toToken = ETH(Arbitrum)
+        dstInfos.bridgeToken = ETH(Arbitrum)
     */
-    function setWooCrossChainRouter(uint16 _chainId, address _wooCrossRouter) external onlyOwner {
-        require(_wooCrossRouter != address(0), "WooCrossChainRouter: !wooCrossRouter");
-        wooCrossRouters[_chainId] = _wooCrossRouter;
+    function crossSwap(
+        uint256 refId,
+        address payable to,
+        SrcInfos memory srcInfos,
+        DstInfos memory dstInfos
+    ) external payable override {
+        require(srcInfos.fromToken != address(0), "WooCrossChainRouterV2: !srcInfos.fromToken");
+        require(dstInfos.toToken != address(0), "WooCrossChainRouterV2: !dstInfos.toToken");
+        require(to != address(0), "WooCrossChainRouterV2: !to");
+
+        address msgSender = _msgSender();
+        uint256 msgValue = msg.value;
+        uint256 bridgeAmount;
+
+        {
+            // Step 1: transfer
+            if (srcInfos.fromToken == ETH_PLACEHOLDER_ADDR) {
+                require(srcInfos.fromAmount <= msgValue, "WooCrossChainRouterV2: !srcInfos.fromAmount");
+                srcInfos.fromToken = weth; // TODO discuss: when bridgeToken == ETH_PLACEHOLDER_ADDR, Step 2 will run wooRouter.swap logic
+                IWETH(srcInfos.fromToken).deposit{value: srcInfos.fromAmount}();
+                msgValue -= srcInfos.fromAmount;
+            } else {
+                TransferHelper.safeTransferFrom(srcInfos.fromToken, msg.sender, address(this), srcInfos.fromAmount);
+            }
+
+            // Step 2: local swap by WooRouter or not
+            // 1.WOO is directBridgeToken, path(always) WOO(Arbitrum) => WOO(BSC)
+            // 2.WOO not the directBridgeToken, path(maybe): WOO(Arbitrum) -> ETH(Arbitrum) => ETH(BSC) -> WOO(BSC)
+            // 3.Ethereum no WOOFi liquidity, tokens(WOO, ETH, USDC) always will be bridged directly without swap
+            if (!directBridgeTokens.contains(srcInfos.fromToken) && srcInfos.fromToken != srcInfos.bridgeToken) {
+                TransferHelper.safeApprove(srcInfos.fromToken, address(wooRouter), srcInfos.fromAmount);
+                bridgeAmount = wooRouter.swap(
+                    srcInfos.fromToken,
+                    srcInfos.bridgeToken,
+                    srcInfos.fromAmount,
+                    srcInfos.minBridgeAmount,
+                    payable(address(this)),
+                    to
+                );
+            } else {
+                require(
+                    srcInfos.fromAmount == srcInfos.minBridgeAmount,
+                    "WooCrossChainRouterV2: !srcInfos.minBridgeAmount"
+                );
+                bridgeAmount = srcInfos.fromAmount;
+            }
+            require(
+                bridgeAmount <= IERC20(srcInfos.bridgeToken).balanceOf(address(this)),
+                "WooCrossChainRouterV2: !bridgeAmount"
+            );
+        }
+
+        {
+            // Step 3: cross chain swap by StargateRouter
+            bytes memory payload = _encodePayload(refId, to, dstInfos);
+
+            uint256 dstMinBridgeAmount = (bridgeAmount * (10000 - bridgeSlippage)) / 10000;
+            bytes memory dstWooCrossChainRouter = abi.encodePacked(wooCrossChainRouters[dstInfos.chainId]);
+
+            IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
+
+            TransferHelper.safeApprove(srcInfos.bridgeToken, address(stargateRouter), bridgeAmount);
+            stargateRouter.swap{value: msgValue}(
+                dstInfos.chainId, // dst chain id
+                srcInfos.poolId, // bridge token's pool id on src chain
+                dstInfos.poolId, // bridge token's pool id on dst chain
+                payable(msgSender), // rebate address
+                bridgeAmount, // swap amount on src chain
+                dstMinBridgeAmount, // min received amount on dst chain
+                obj, // config: dstGasForCall, dstAirdropNativeAmount, dstReceiveAirdropNativeTokenAddr
+                dstWooCrossChainRouter, // smart contract to call on dst chain
+                payload // payload to piggyback
+            );
+        }
+
+        emit WooCrossSwapOnSrcChain(
+            refId,
+            msgSender,
+            to,
+            srcInfos.fromToken,
+            srcInfos.fromAmount,
+            srcInfos.minBridgeAmount,
+            bridgeAmount
+        );
     }
 
-    function setStargateRouter(address _stargateRouter) external onlyOwner {
-        require(_stargateRouter != address(0), "WooCrossChainRouter: !stargateRouter");
-        stargateRouter = IStargateRouter(_stargateRouter);
+    function sgReceive(
+        uint16, // srcChainId
+        bytes memory, // srcAddress
+        uint256, // nonce
+        address bridgedToken,
+        uint256 amountLD,
+        bytes memory payload
+    ) external override {
+        require(msg.sender == address(stargateRouter), "WooCrossChainRouterV2: INVALID_CALLER");
+
+        (uint256 refId, address to, address toToken, uint256 minToAmount) = _decodePayload(payload);
+
+        // When bridged by ETH, the bridgedToken will be SGETH ERC20 address and send native token to address(this)
+        if (toToken == ETH_PLACEHOLDER_ADDR && bridgedToken == sgETHs[sglChainId]) {
+            TransferHelper.safeTransferETH(to, amountLD);
+            emit WooCrossSwapOnDstChain(
+                refId,
+                msg.sender,
+                to,
+                ETH_PLACEHOLDER_ADDR,
+                amountLD,
+                toToken,
+                ETH_PLACEHOLDER_ADDR,
+                minToAmount,
+                amountLD
+            );
+            return;
+        }
+
+        if (toToken == bridgedToken) {
+            TransferHelper.safeTransfer(bridgedToken, to, amountLD);
+            emit WooCrossSwapOnDstChain(
+                refId,
+                msg.sender,
+                to,
+                bridgedToken,
+                amountLD,
+                toToken,
+                bridgedToken,
+                minToAmount,
+                amountLD
+            );
+            return;
+        }
+
+        if (bridgedToken == sgETHs[sglChainId]) {
+            // Bridged by ETH, and toToken is not ETH, holding ETH assets, require swap to toToken
+            try
+                wooRouter.swap{value: amountLD}(ETH_PLACEHOLDER_ADDR, toToken, amountLD, minToAmount, payable(to), to)
+            returns (uint256 realToAmount) {
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msg.sender,
+                    to,
+                    ETH_PLACEHOLDER_ADDR,
+                    amountLD,
+                    toToken,
+                    toToken,
+                    minToAmount,
+                    realToAmount
+                );
+            } catch {
+                TransferHelper.safeTransferETH(to, amountLD);
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msg.sender,
+                    to,
+                    ETH_PLACEHOLDER_ADDR,
+                    amountLD,
+                    toToken,
+                    ETH_PLACEHOLDER_ADDR,
+                    minToAmount,
+                    amountLD
+                );
+            }
+        } else {
+            // Bridged by ERC20 token, holding ERC20 token assets, require swap to toToken(can be ETH)
+            // TODO: Discuss this situation: bridgedToken(BUSD), toToken(USDT), not support stable coin swap now on WooRouter
+            // Waste gas by code below?
+            TransferHelper.safeApprove(bridgedToken, address(wooRouter), amountLD);
+            try wooRouter.swap(bridgedToken, toToken, amountLD, minToAmount, payable(to), to) returns (
+                uint256 realToAmount
+            ) {
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msg.sender,
+                    to,
+                    bridgedToken,
+                    amountLD,
+                    toToken,
+                    toToken,
+                    minToAmount,
+                    realToAmount
+                );
+            } catch {
+                TransferHelper.safeTransfer(bridgedToken, to, amountLD);
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msg.sender,
+                    to,
+                    bridgedToken,
+                    amountLD,
+                    toToken,
+                    bridgedToken,
+                    minToAmount,
+                    amountLD
+                );
+            }
+        }
     }
+
+    function quoteLayerZeroFee(
+        uint256 refId,
+        address to,
+        DstInfos memory dstInfos
+    ) external view override returns (uint256, uint256) {
+        bytes memory payload = _encodePayload(refId, to, dstInfos);
+
+        IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
+
+        return
+            stargateRouter.quoteLayerZeroFee(
+                dstInfos.chainId,
+                1, // https://stargateprotocol.gitbook.io/stargate/developers/function-types
+                obj.dstNativeAddr,
+                payload,
+                obj
+            );
+    }
+
+    function allDirectBridgeTokens() external view override returns (address[] memory) {
+        uint256 length = directBridgeTokens.length();
+        address[] memory tokens = new address[](length);
+        unchecked {
+            for (uint256 i = 0; i < length; ++i) {
+                tokens[i] = directBridgeTokens.at(i);
+            }
+        }
+        return tokens;
+    }
+
+    function allDirectBridgeTokensLength() external view override returns (uint256) {
+        return directBridgeTokens.length();
+    }
+
+    function _initSGETHs() internal {
+        sgETHs[101] = 0x72E2F4830b9E45d52F80aC08CB2bEC0FeF72eD9c;
+        sgETHs[110] = 0x82CbeCF39bEe528B5476FE6d1550af59a9dB6Fc0;
+        sgETHs[111] = 0xb69c8CBCD90A39D8D3d3ccf0a3E968511C3856A0;
+    }
+
+    function _getLzTxObj(address to, DstInfos memory dstInfos) internal view returns (IStargateRouter.lzTxObj memory) {
+        uint256 dstGasForCall = (dstInfos.toToken == dstInfos.bridgeToken) ? dstGasForNoSwapCall : dstGasForSwapCall;
+
+        return IStargateRouter.lzTxObj(dstGasForCall, dstInfos.airdropNativeAmount, abi.encodePacked(to));
+    }
+
+    function _encodePayload(
+        uint256 refId,
+        address to,
+        DstInfos memory dstInfos
+    ) internal pure returns (bytes memory) {
+        return
+            abi.encode(
+                refId, // reference id
+                to, // address for receive tokens
+                dstInfos.toToken, // to token on dst chain
+                dstInfos.minToAmount // minToAmount on dst chain
+            );
+    }
+
+    function _decodePayload(bytes memory payload)
+        internal
+        pure
+        returns (
+            uint256,
+            address,
+            address,
+            uint256
+        )
+    {
+        return abi.decode(payload, (uint256, address, address, uint256));
+    }
+
+    /* ----- Owner & Admin Functions ----- */
 
     function setWooRouter(address _wooRouter) external onlyOwner {
+        require(_wooRouter != address(0), "WooCrossChainRouterV2: !_wooRouter");
         wooRouter = IWooRouterV2(_wooRouter);
     }
 
+    function setStargateRouter(address _stargateRouter) external onlyOwner {
+        require(_stargateRouter != address(0), "WooCrossChainRouterV2: !_stargateRouter");
+        stargateRouter = IStargateRouter(_stargateRouter);
+    }
+
     function setBridgeSlippage(uint256 _bridgeSlippage) external onlyOwner {
-        require(_bridgeSlippage <= 10000, "WooCrossChainRouter: !_bridgeSlippage");
+        require(_bridgeSlippage <= 10000, "WooCrossChainRouterV2: !_bridgeSlippage");
         bridgeSlippage = _bridgeSlippage;
     }
 
@@ -137,234 +374,27 @@ contract WooCrossChainRouter is IStargateReceiver, Ownable, ReentrancyGuard {
         dstGasForNoSwapCall = _dstGasForNoSwapCall;
     }
 
-    function setQuotePoolId(uint16 _chainId, uint256 _quotePoolId) external onlyOwner {
-        quotePoolIds[_chainId] = _quotePoolId;
+    function setSGLChainId(uint16 _sglChainId) external onlyOwner {
+        sglChainId = _sglChainId;
     }
 
-    function crossSwap(
-        uint256 refId_,
-        address fromToken,
-        address toToken,
-        uint256 fromAmount,
-        uint256 srcMinQuoteAmount,
-        uint256 dstMinToAmount,
-        uint16 srcChainId,
-        uint16 dstChainId,
-        address payable to
-    ) external payable {
-        require(fromToken != address(0), "WooCrossChainRouter: !fromToken");
-        require(toToken != address(0), "WooCrossChainRouter: !toToken");
-        require(to != address(0), "WooCrossChainRouter: !to");
-
-        uint256 gasValue = msg.value;
-        uint256 refId = refId_; // NOTE: to avoid stack too deep issue
-
-        // Step 1: transfer
-        {
-            bool isFromETH = fromToken == ETH_PLACEHOLDER_ADDR;
-            fromToken = isFromETH ? WETH : fromToken;
-            if (isFromETH) {
-                require(fromAmount <= msg.value, "WooCrossChainRouter: !fromAmount");
-                IWETH(WETH).deposit{value: fromAmount}();
-                gasValue -= fromAmount;
-            } else {
-                TransferHelper.safeTransferFrom(fromToken, msg.sender, address(this), fromAmount);
-            }
-        }
-
-        // Step 2: local transfer
-        uint256 bridgeAmount;
-        if (fromToken != quoteToken) {
-            TransferHelper.safeApprove(fromToken, address(wooRouter), fromAmount);
-            bridgeAmount = wooRouter.swap(
-                fromToken,
-                quoteToken,
-                fromAmount,
-                srcMinQuoteAmount,
-                payable(address(this)),
-                to
-            );
-        } else {
-            bridgeAmount = fromAmount;
-        }
-
-        // Step 3: send to stargate
-        require(bridgeAmount <= IERC20(quoteToken).balanceOf(address(this)), "!bridgeAmount");
-        TransferHelper.safeApprove(quoteToken, address(stargateRouter), bridgeAmount);
-
-        require(to != address(0), "WooCrossChainRouter: to_ZERO_ADDR"); // NOTE: double check it
-        {
-            bytes memory payloadData;
-            payloadData = abi.encode(
-                toToken, // to token
-                refId, // reference id
-                dstMinToAmount, // minToAmount on destination chain
-                to // to address
-            );
-
-            bytes memory dstWooCrossRouter = abi.encodePacked(wooCrossRouters[dstChainId]);
-            uint256 minBridgeAmount = (bridgeAmount * (uint256(10000) - bridgeSlippage)) / 10000;
-            uint256 dstGas = (toToken == wooppQuoteTokens[dstChainId]) ? dstGasForNoSwapCall : dstGasForSwapCall;
-
-            stargateRouter.swap{value: gasValue}(
-                dstChainId, // dst chain id
-                quotePoolIds[srcChainId], // quote token's pool id on dst chain
-                quotePoolIds[dstChainId], // quote token's pool id on src chain
-                payable(msg.sender), // rebate address
-                bridgeAmount, // swap amount on src chain
-                minBridgeAmount, // min received amount on dst chain
-                IStargateRouter.lzTxObj(dstGas, 0, "0x"), // config: dstGas, dstNativeToken, dstNativeTokenToAddress
-                dstWooCrossRouter, // smart contract to call on dst chain
-                payloadData // payload to piggyback
-            );
-        }
-
-        emit WooCrossSwapOnSrcChain(refId, msg.sender, to, fromToken, fromAmount, srcMinQuoteAmount, bridgeAmount);
+    function setWooCrossChainRouter(uint16 chainId, address wooCrossChainRouter) external onlyOwner {
+        require(wooCrossChainRouter != address(0), "WooCrossChainRouterV2: !wooCrossChainRouter");
+        wooCrossChainRouters[chainId] = wooCrossChainRouter;
     }
 
-    function quoteLayerZeroFee(
-        uint16 dstChainId,
-        address toToken,
-        uint256 refId,
-        uint256 dstMinToAmount,
-        address to
-    ) external view returns (uint256, uint256) {
-        bytes memory toAddress = abi.encodePacked(to);
-        bytes memory payloadData = abi.encode(
-            toToken, // to token
-            refId, // reference id
-            dstMinToAmount, // minToAmount on destination chain
-            to // to address
-        );
-        uint256 dstGas = (toToken == wooppQuoteTokens[dstChainId]) ? dstGasForNoSwapCall : dstGasForSwapCall;
-        return
-            stargateRouter.quoteLayerZeroFee(
-                dstChainId,
-                1, // https://stargateprotocol.gitbook.io/stargate/developers/function-types
-                toAddress,
-                payloadData,
-                IStargateRouter.lzTxObj(dstGas, 0, "0x")
-            );
+    function setSGETH(uint16 chainId, address token) external onlyOwner {
+        sgETHs[chainId] = token;
     }
 
-    function sgReceive(
-        uint16, /*_chainId*/
-        bytes memory, /*_srcAddress*/
-        uint256, /*_nonce*/
-        address _token,
-        uint256 amountLD,
-        bytes memory payload
-    ) external override {
-        require(msg.sender == address(stargateRouter), "WooCrossChainRouter: INVALID_CALLER");
+    function addDirectBridgeToken(address token) external onlyOwner {
+        bool success = directBridgeTokens.add(token);
+        require(success, "WooCrossChainRouterV2: token exist");
+    }
 
-        (address toToken, uint256 refId, uint256 minToAmount, address to) = abi.decode(
-            payload,
-            (address, uint256, uint256, address)
-        );
-
-        if (wooRouter.wooPool().quoteToken() != _token) {
-            // NOTE: The bridged token is not WooPP's quote token.
-            // So Cannot do the swap; just return it to users.
-            TransferHelper.safeTransfer(_token, to, amountLD);
-            emit WooCrossSwapOnDstChain(
-                refId,
-                msg.sender,
-                to,
-                _token,
-                amountLD,
-                toToken,
-                _token,
-                minToAmount,
-                amountLD
-            );
-            return;
-        }
-
-        uint256 quoteAmount = amountLD;
-
-        if (toToken == ETH_PLACEHOLDER_ADDR) {
-            // quoteToken -> WETH -> ETH
-            TransferHelper.safeApprove(_token, address(wooRouter), quoteAmount);
-            try wooRouter.swap(_token, WETH, quoteAmount, minToAmount, payable(address(this)), to) returns (
-                uint256 realToAmount
-            ) {
-                IWETH(WETH).withdraw(realToAmount);
-                TransferHelper.safeTransferETH(to, realToAmount);
-                emit WooCrossSwapOnDstChain(
-                    refId,
-                    msg.sender,
-                    to,
-                    _token,
-                    amountLD,
-                    toToken,
-                    ETH_PLACEHOLDER_ADDR,
-                    minToAmount,
-                    realToAmount
-                );
-            } catch {
-                // transfer _token/amountLD to msg.sender because the swap failed for some reason.
-                // this is not the ideal scenario, but the contract needs to deliver them eth or USDC.
-                TransferHelper.safeTransfer(_token, to, amountLD);
-                emit WooCrossSwapOnDstChain(
-                    refId,
-                    msg.sender,
-                    to,
-                    _token,
-                    amountLD,
-                    toToken,
-                    _token,
-                    minToAmount,
-                    amountLD
-                );
-            }
-        } else {
-            if (_token == toToken) {
-                // Stargate bridged token == toToken: NO swap is needed!
-                TransferHelper.safeTransfer(toToken, to, amountLD);
-                emit WooCrossSwapOnDstChain(
-                    refId,
-                    msg.sender,
-                    to,
-                    _token,
-                    amountLD,
-                    toToken,
-                    toToken,
-                    minToAmount,
-                    amountLD
-                );
-            } else {
-                // swap to the ERC20 token
-                TransferHelper.safeApprove(_token, address(wooRouter), quoteAmount);
-                try wooRouter.swap(_token, toToken, quoteAmount, minToAmount, payable(to), to) returns (
-                    uint256 realToAmount
-                ) {
-                    emit WooCrossSwapOnDstChain(
-                        refId,
-                        msg.sender,
-                        to,
-                        _token,
-                        amountLD,
-                        toToken,
-                        toToken,
-                        minToAmount,
-                        realToAmount
-                    );
-                } catch {
-                    TransferHelper.safeTransfer(_token, to, amountLD);
-                    emit WooCrossSwapOnDstChain(
-                        refId,
-                        msg.sender,
-                        to,
-                        _token,
-                        amountLD,
-                        toToken,
-                        _token,
-                        minToAmount,
-                        amountLD
-                    );
-                }
-            }
-        }
+    function removeDirectBridgeToken(address token) external onlyOwner {
+        bool success = directBridgeTokens.remove(token);
+        require(success, "WooCrossChainRouterV2: token not exist");
     }
 
     function inCaseTokenGotStuck(address stuckToken) external onlyOwner {
