@@ -13,12 +13,11 @@ import "./interfaces/IWooCrossChainRouterV2.sol";
 import "./interfaces/IWooRouterV2.sol";
 import "./interfaces/IWETH.sol";
 import "./interfaces/Stargate/IStargateRouter.sol";
-import "./interfaces/Stargate/IStargateReceiver.sol";
 
 import "./libraries/TransferHelper.sol";
 
 /// @title WOOFi cross chain router implementation.
-/// @notice Router for stateless execution of swap against WOOFi private pool.
+/// @notice Router for stateless execution of cross chain swap against WOOFi private pool.
 /// @custom:stargate-contracts https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
 contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -33,7 +32,6 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     IStargateRouter public stargateRouter;
 
     address public override weth;
-    // address public quoteToken;
     uint256 public override bridgeSlippage; // 1 in 10000th: default 1%
     uint256 public override dstGasForSwapCall;
     uint256 public override dstGasForNoSwapCall;
@@ -41,8 +39,6 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     uint16 public override sglChainId; // Stargate Local ChainId
 
     mapping(uint16 => address) public override wooCrossChainRouters; // chainId => WooCrossChainRouter address
-    // mapping(uint16 => uint256) public quotePoolIds; // chainId => WooPP quote token pool id
-    // mapping(uint16 => address) public wooPPQuoteTokens; // chainId => wooPP quote token address
     mapping(uint16 => address) public override sgETHs; // chainId => SGETH token address
 
     EnumerableSet.AddressSet private directBridgeTokens;
@@ -59,14 +55,12 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         stargateRouter = IStargateRouter(_stargateRouter);
 
         weth = _weth;
-        // quoteToken = wooRouter.wooPool().quoteToken();
         bridgeSlippage = 100;
         dstGasForSwapCall = 360000;
         dstGasForNoSwapCall = 80000;
 
         sglChainId = _sglChainId;
 
-        // _initWooPPQuoteTokens();
         _initSGETHs();
     }
 
@@ -113,7 +107,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
             // Step 2: local swap by WooRouter or not
             // 1.WOO is directBridgeToken, path(always) WOO(Arbitrum) => WOO(BSC)
             // 2.WOO not the directBridgeToken, path(maybe): WOO(Arbitrum) -> ETH(Arbitrum) => ETH(BSC) -> WOO(BSC)
-            // 3.Ethereum no WOOFi liquidity, tokens(WOO, ETH, USDC) always will be direct bridged without swap
+            // 3.Ethereum no WOOFi liquidity, tokens(WOO, ETH, USDC) always will be bridged directly without swap
             if (!directBridgeTokens.contains(srcInfos.fromToken) && srcInfos.fromToken != srcInfos.bridgeToken) {
                 TransferHelper.safeApprove(srcInfos.fromToken, address(wooRouter), srcInfos.fromAmount);
                 bridgeAmount = wooRouter.swap(
@@ -172,9 +166,9 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     }
 
     function sgReceive(
-        uint16, /*_chainId*/
-        bytes memory, /*_srcAddress*/
-        uint256, /*_nonce*/
+        uint16, // srcChainId
+        bytes memory, // srcAddress
+        uint256, // nonce
         address bridgedToken,
         uint256 amountLD,
         bytes memory payload
@@ -316,27 +310,6 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         return directBridgeTokens.length();
     }
 
-    /// @custom:stargate-pool-id https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
-    // function _initQuotePoolIds() internal {
-    //     quotePoolIds[101] = 1; // Ethereum: USDC
-    //     quotePoolIds[102] = 5; // BSC: BUSD
-    //     quotePoolIds[106] = 1; // Avalanche: USDC
-    //     quotePoolIds[109] = 1; // Polygon: USDC
-    //     quotePoolIds[110] = 1; // Arbitrum: USDC
-    //     quotePoolIds[111] = 1; // Optimism: USDC
-    //     quotePoolIds[112] = 1; // Fantom: USDC
-    // }
-
-    // function _initWooPPQuoteTokens() internal {
-    //     wooPPQuoteTokens[101] = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // Ethereum: USDC
-    //     wooPPQuoteTokens[102] = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56; // BSC: BUSD
-    //     wooPPQuoteTokens[106] = 0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E; // Avalanche: USDC
-    //     wooPPQuoteTokens[109] = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174; // Polygon: USDC
-    //     wooPPQuoteTokens[110] = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8; // Arbitrum: USDC
-    //     wooPPQuoteTokens[111] = 0x7F5c764cBc14f9669B88837ca1490cCa17c31607; // Optimism: USDC
-    //     wooPPQuoteTokens[112] = 0x04068DA6C83AFCFA0e13ba15A6696662335D5B75; // Fantom: USDC
-    // }
-
     function _initSGETHs() internal {
         sgETHs[101] = 0x72E2F4830b9E45d52F80aC08CB2bEC0FeF72eD9c;
         sgETHs[110] = 0x82CbeCF39bEe528B5476FE6d1550af59a9dB6Fc0;
@@ -409,15 +382,6 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         require(wooCrossChainRouter != address(0), "WooCrossChainRouterV2: !wooCrossChainRouter");
         wooCrossChainRouters[chainId] = wooCrossChainRouter;
     }
-
-    // function setQuotePoolId(uint16 chainId, uint256 quotePoolId) external onlyOwner {
-    //     quotePoolIds[chainId] = quotePoolId;
-    // }
-
-    // function setWooPPQuoteToken(uint16 chainId, address token) external onlyOwner {
-    //     require(token != address(0), "WooCrossChainRouterV2: !token");
-    //     wooPPQuoteTokens[chainId] = token;
-    // }
 
     function setSGETH(uint16 chainId, address token) external onlyOwner {
         sgETHs[chainId] = token;

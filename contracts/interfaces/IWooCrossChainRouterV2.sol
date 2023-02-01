@@ -34,8 +34,6 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import "../interfaces/IWooPPV2.sol";
-
 /// @title WOOFi cross chain router interface (version 2).
 /// @notice functions to interface with WOOFi cross chain swap.
 interface IWooCrossChainRouterV2 {
@@ -109,10 +107,10 @@ interface IWooCrossChainRouterV2 {
     ) external payable;
 
     function sgReceive(
-        uint16 chainId,
+        uint16 srcChainId,
         bytes memory srcAddress,
         uint256 nonce,
-        address token,
+        address bridgedToken,
         uint256 amountLD,
         bytes memory payload
     ) external;
