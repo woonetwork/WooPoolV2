@@ -4,14 +4,14 @@ pragma solidity =0.8.14;
 // OpenZeppelin Contracts
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 // Local Contracts
+import "./interfaces/IWETH.sol";
 import "./interfaces/IWooCrossChainRouterV2.sol";
 import "./interfaces/IWooRouterV2.sol";
-import "./interfaces/IWETH.sol";
+import "./interfaces/Stargate/IStargateEthVault.sol";
 import "./interfaces/Stargate/IStargateRouter.sol";
 
 import "./libraries/TransferHelper.sol";
@@ -40,6 +40,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
 
     mapping(uint16 => address) public override wooCrossChainRouters; // chainId => WooCrossChainRouter address
     mapping(uint16 => address) public override sgETHs; // chainId => SGETH token address
+    mapping(uint16 => mapping(address => uint256)) public override sgPoolIds; // chainId => token address => Stargate poolId
 
     EnumerableSet.AddressSet private directBridgeTokens;
 
@@ -62,23 +63,11 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         sglChainId = _sglChainId;
 
         _initSGETHs();
+        _initSGPoolIds();
     }
 
     /* ----- Functions ----- */
 
-    /** 
-        Example Params:
-        OP(Optimism) -> ETH(Optimism) -> ETH(Arbitrum)
-        srcInfos.chainId = 111
-        srcInfos.poolId = 13
-        srcInfos.fromToken = OP(Optimism)
-        srcInfos.bridgeToken = ETH(Optimism)
-
-        dstInfos.chainId = 110
-        dstInfos.poolId = 13
-        dstInfos.toToken = ETH(Arbitrum)
-        dstInfos.bridgeToken = ETH(Arbitrum)
-    */
     function crossSwap(
         uint256 refId,
         address payable to,
@@ -89,15 +78,25 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         require(dstInfos.toToken != address(0), "WooCrossChainRouterV2: !dstInfos.toToken");
         require(to != address(0), "WooCrossChainRouterV2: !to");
 
+        uint256 srcPoolId = sgPoolIds[sglChainId][srcInfos.bridgeToken];
+        require(srcPoolId > 0, "WooCrossChainRouterV2: !srcInfos.bridgeToken");
+
+        uint256 dstPoolId = sgPoolIds[dstInfos.chainId][dstInfos.bridgeToken];
+        require(dstPoolId > 0, "WooCrossChainRouterV2: !dstInfos.bridgeToken");
+
         address msgSender = _msgSender();
         uint256 msgValue = msg.value;
         uint256 bridgeAmount;
 
         {
+            if (srcInfos.bridgeToken == ETH_PLACEHOLDER_ADDR) {
+                srcInfos.bridgeToken = weth;
+            }
+
             // Step 1: transfer
             if (srcInfos.fromToken == ETH_PLACEHOLDER_ADDR) {
                 require(srcInfos.fromAmount <= msgValue, "WooCrossChainRouterV2: !srcInfos.fromAmount");
-                srcInfos.fromToken = weth; // TODO discuss: when bridgeToken == ETH_PLACEHOLDER_ADDR, Step 2 will run wooRouter.swap logic
+                srcInfos.fromToken = weth;
                 IWETH(srcInfos.fromToken).deposit{value: srcInfos.fromAmount}();
                 msgValue -= srcInfos.fromAmount;
             } else {
@@ -125,6 +124,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
                 );
                 bridgeAmount = srcInfos.fromAmount;
             }
+
             require(
                 bridgeAmount <= IERC20(srcInfos.bridgeToken).balanceOf(address(this)),
                 "WooCrossChainRouterV2: !bridgeAmount"
@@ -140,11 +140,19 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
 
             IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
 
-            TransferHelper.safeApprove(srcInfos.bridgeToken, address(stargateRouter), bridgeAmount);
+            if (srcInfos.bridgeToken == weth) {
+                IWETH(weth).withdraw(bridgeAmount);
+                address sgETH = sgETHs[sglChainId];
+                IStargateEthVault(sgETH).deposit{value: bridgeAmount}(); // Logic from Stargate RouterETH.sol
+                TransferHelper.safeApprove(sgETH, address(stargateRouter), bridgeAmount);
+            } else {
+                TransferHelper.safeApprove(srcInfos.bridgeToken, address(stargateRouter), bridgeAmount);
+            }
+
             stargateRouter.swap{value: msgValue}(
                 dstInfos.chainId, // dst chain id
-                srcInfos.poolId, // bridge token's pool id on src chain
-                dstInfos.poolId, // bridge token's pool id on dst chain
+                srcPoolId, // bridge token's pool id on src chain
+                dstPoolId, // bridge token's pool id on dst chain
                 payable(msgSender), // rebate address
                 bridgeAmount, // swap amount on src chain
                 dstMinBridgeAmount, // min received amount on dst chain
@@ -311,9 +319,37 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     }
 
     function _initSGETHs() internal {
+        // Ethereum
         sgETHs[101] = 0x72E2F4830b9E45d52F80aC08CB2bEC0FeF72eD9c;
+        // Arbitrum
         sgETHs[110] = 0x82CbeCF39bEe528B5476FE6d1550af59a9dB6Fc0;
+        // Optimism
         sgETHs[111] = 0xb69c8CBCD90A39D8D3d3ccf0a3E968511C3856A0;
+    }
+
+    function _initSGPoolIds() internal {
+        // poolId > 0 means able to be bridge token
+        // Ethereum
+        sgPoolIds[101][0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 1; // USDC
+        sgPoolIds[101][ETH_PLACEHOLDER_ADDR] = 13; // ETH
+        // BNB Chain
+        sgPoolIds[102][0x55d398326f99059fF775485246999027B3197955] = 2; // USDT
+        sgPoolIds[102][0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56] = 5; // BUSD
+        // Avalanche
+        sgPoolIds[106][0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E] = 1; // USDC
+        sgPoolIds[106][0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7] = 2; // USDT
+        // Polygon
+        sgPoolIds[109][0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174] = 1; // USDC
+        sgPoolIds[109][0xc2132D05D31c914a87C6611C10748AEb04B58e8F] = 2; // USDT
+        // Arbitrum
+        sgPoolIds[110][0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8] = 1; // USDC
+        sgPoolIds[110][0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9] = 2; // USDT
+        sgPoolIds[110][ETH_PLACEHOLDER_ADDR] = 13; // ETH
+        // Optimism
+        sgPoolIds[111][0x7F5c764cBc14f9669B88837ca1490cCa17c31607] = 1; // USDC
+        sgPoolIds[111][ETH_PLACEHOLDER_ADDR] = 13; // ETH
+        // Fantom
+        sgPoolIds[112][0x04068DA6C83AFCFA0e13ba15A6696662335D5B75] = 1; // USDC
     }
 
     function _getLzTxObj(address to, DstInfos memory dstInfos) internal view returns (IStargateRouter.lzTxObj memory) {
@@ -385,6 +421,14 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
 
     function setSGETH(uint16 chainId, address token) external onlyOwner {
         sgETHs[chainId] = token;
+    }
+
+    function setSGPoolId(
+        uint16 chainId,
+        address token,
+        uint256 poolId
+    ) external onlyOwner {
+        sgPoolIds[chainId][token] = poolId;
     }
 
     function addDirectBridgeToken(address token) external onlyOwner {

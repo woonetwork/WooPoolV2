@@ -40,8 +40,6 @@ interface IWooCrossChainRouterV2 {
     /* ----- Structs ----- */
 
     struct SrcInfos {
-        uint16 chainId;
-        uint256 poolId;
         address fromToken;
         address bridgeToken;
         uint256 fromAmount;
@@ -50,7 +48,6 @@ interface IWooCrossChainRouterV2 {
 
     struct DstInfos {
         uint16 chainId;
-        uint256 poolId;
         address toToken;
         address bridgeToken;
         uint256 minToAmount;
@@ -96,6 +93,8 @@ interface IWooCrossChainRouterV2 {
     function wooCrossChainRouters(uint16 chainId) external view returns (address wooCrossChainRouter);
 
     function sgETHs(uint16 chainId) external view returns (address sgETH);
+
+    function sgPoolIds(uint16 chainId, address token) external view returns (uint256 poolId);
 
     /* ----- Functions ----- */
 
