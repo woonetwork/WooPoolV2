@@ -36,7 +36,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     uint256 public override dstGasForSwapCall;
     uint256 public override dstGasForNoSwapCall;
 
-    uint16 public override sglChainId; // Stargate local chainId
+    uint16 public override sgChainIdLocal; // Stargate chainId on local chain
 
     mapping(uint16 => address) public override wooCrossChainRouters; // chainId => WooCrossChainRouter address
     mapping(uint16 => address) public override sgETHs; // chainId => SGETH token address
@@ -50,7 +50,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         address _weth,
         address _wooRouter,
         address _stargateRouter,
-        uint16 _sglChainId
+        uint16 _sgChainIdLocal
     ) {
         wooRouter = IWooRouterV2(_wooRouter);
         stargateRouter = IStargateRouter(_stargateRouter);
@@ -60,10 +60,10 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         dstGasForSwapCall = 360000;
         dstGasForNoSwapCall = 80000;
 
-        sglChainId = _sglChainId;
+        sgChainIdLocal = _sgChainIdLocal;
 
-        _initSGETHs();
-        _initSGPoolIds();
+        _initSgETHs();
+        _initSgPoolIds();
     }
 
     /* ----- Functions ----- */
@@ -75,10 +75,13 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         DstInfos memory dstInfos
     ) external payable override {
         require(srcInfos.fromToken != address(0), "WooCrossChainRouterV2: !srcInfos.fromToken");
-        require(dstInfos.toToken != address(0), "WooCrossChainRouterV2: !dstInfos.toToken");
+        require(
+            dstInfos.toToken != address(0) && dstInfos.toToken != sgETHs[dstInfos.chainId],
+            "WooCrossChainRouterV2: !dstInfos.toToken"
+        );
         require(to != address(0), "WooCrossChainRouterV2: !to");
 
-        uint256 srcPoolId = sgPoolIds[sglChainId][srcInfos.bridgeToken];
+        uint256 srcPoolId = sgPoolIds[sgChainIdLocal][srcInfos.bridgeToken];
         require(srcPoolId > 0, "WooCrossChainRouterV2: !srcInfos.bridgeToken");
 
         uint256 dstPoolId = sgPoolIds[dstInfos.chainId][dstInfos.bridgeToken];
@@ -89,10 +92,6 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         uint256 bridgeAmount;
 
         {
-            if (srcInfos.bridgeToken == ETH_PLACEHOLDER_ADDR) {
-                srcInfos.bridgeToken = weth;
-            }
-
             // Step 1: transfer
             if (srcInfos.fromToken == ETH_PLACEHOLDER_ADDR) {
                 require(srcInfos.fromAmount <= msgValue, "WooCrossChainRouterV2: !srcInfos.fromAmount");
@@ -142,7 +141,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
 
             if (srcInfos.bridgeToken == weth) {
                 IWETH(weth).withdraw(bridgeAmount);
-                address sgETH = sgETHs[sglChainId];
+                address sgETH = sgETHs[sgChainIdLocal];
                 IStargateEthVault(sgETH).deposit{value: bridgeAmount}(); // logic from Stargate RouterETH.sol
                 TransferHelper.safeApprove(sgETH, address(stargateRouter), bridgeAmount);
             } else {
@@ -189,87 +188,62 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
             (uint256, address, address, uint256)
         );
 
-        // when bridged by ETH, the bridgedToken will be SGETH ERC20 address and send native token to address(this)
-        if (toToken == ETH_PLACEHOLDER_ADDR && bridgedToken == sgETHs[sglChainId]) {
-            TransferHelper.safeTransferETH(to, amountLD);
-            emit WooCrossSwapOnDstChain(
-                refId,
-                msg.sender,
-                to,
-                ETH_PLACEHOLDER_ADDR,
-                amountLD,
-                toToken,
-                ETH_PLACEHOLDER_ADDR,
-                minToAmount,
-                amountLD
-            );
-            return;
-        }
-
-        if (toToken == bridgedToken) {
-            TransferHelper.safeTransfer(bridgedToken, to, amountLD);
-            emit WooCrossSwapOnDstChain(
-                refId,
-                msg.sender,
-                to,
-                bridgedToken,
-                amountLD,
-                toToken,
-                bridgedToken,
-                minToAmount,
-                amountLD
-            );
-            return;
-        }
-
-        if (bridgedToken == sgETHs[sglChainId]) {
-            // bridged by ETH, and toToken is not ETH, holding ETH assets, require swap to toToken
-            try
-                wooRouter.swap{value: amountLD}(ETH_PLACEHOLDER_ADDR, toToken, amountLD, minToAmount, payable(to), to)
-            returns (uint256 realToAmount) {
-                emit WooCrossSwapOnDstChain(
-                    refId,
-                    msg.sender,
-                    to,
-                    ETH_PLACEHOLDER_ADDR,
-                    amountLD,
-                    toToken,
-                    toToken,
-                    minToAmount,
-                    realToAmount
-                );
-            } catch {
+        // toToken won't be SGETH, and bridgedToken won't be ETH_PLACEHOLDER_ADDR
+        if (bridgedToken == sgETHs[sgChainIdLocal]) {
+            // bridgedToken is SGETH, received native token
+            if (toToken == ETH_PLACEHOLDER_ADDR) {
                 TransferHelper.safeTransferETH(to, amountLD);
                 emit WooCrossSwapOnDstChain(
                     refId,
                     msg.sender,
                     to,
-                    ETH_PLACEHOLDER_ADDR,
+                    weth,
                     amountLD,
                     toToken,
                     ETH_PLACEHOLDER_ADDR,
                     minToAmount,
                     amountLD
                 );
+            } else {
+                try
+                    wooRouter.swap{value: amountLD}(
+                        ETH_PLACEHOLDER_ADDR,
+                        toToken,
+                        amountLD,
+                        minToAmount,
+                        payable(to),
+                        to
+                    )
+                returns (uint256 realToAmount) {
+                    emit WooCrossSwapOnDstChain(
+                        refId,
+                        msg.sender,
+                        to,
+                        weth,
+                        amountLD,
+                        toToken,
+                        toToken,
+                        minToAmount,
+                        realToAmount
+                    );
+                } catch {
+                    TransferHelper.safeTransferETH(to, amountLD);
+                    emit WooCrossSwapOnDstChain(
+                        refId,
+                        msg.sender,
+                        to,
+                        weth,
+                        amountLD,
+                        toToken,
+                        ETH_PLACEHOLDER_ADDR,
+                        minToAmount,
+                        amountLD
+                    );
+                }
             }
         } else {
-            // bridged by ERC20 token, holding ERC20 token assets, require swap to toToken(can be ETH)
-            TransferHelper.safeApprove(bridgedToken, address(wooRouter), amountLD);
-            try wooRouter.swap(bridgedToken, toToken, amountLD, minToAmount, payable(to), to) returns (
-                uint256 realToAmount
-            ) {
-                emit WooCrossSwapOnDstChain(
-                    refId,
-                    msg.sender,
-                    to,
-                    bridgedToken,
-                    amountLD,
-                    toToken,
-                    toToken,
-                    minToAmount,
-                    realToAmount
-                );
-            } catch {
+            // bridgedToken is not SGETH, received ERC20 token
+            if (toToken == bridgedToken) {
                 TransferHelper.safeTransfer(bridgedToken, to, amountLD);
                 emit WooCrossSwapOnDstChain(
                     refId,
@@ -278,10 +252,40 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
                     bridgedToken,
                     amountLD,
                     toToken,
-                    bridgedToken,
+                    toToken,
                     minToAmount,
                     amountLD
                 );
+            } else {
+                TransferHelper.safeApprove(bridgedToken, address(wooRouter), amountLD);
+                try wooRouter.swap(bridgedToken, toToken, amountLD, minToAmount, payable(to), to) returns (
+                    uint256 realToAmount
+                ) {
+                    emit WooCrossSwapOnDstChain(
+                        refId,
+                        msg.sender,
+                        to,
+                        bridgedToken,
+                        amountLD,
+                        toToken,
+                        toToken,
+                        minToAmount,
+                        realToAmount
+                    );
+                } catch {
+                    TransferHelper.safeTransfer(bridgedToken, to, amountLD);
+                    emit WooCrossSwapOnDstChain(
+                        refId,
+                        msg.sender,
+                        to,
+                        bridgedToken,
+                        amountLD,
+                        toToken,
+                        bridgedToken,
+                        minToAmount,
+                        amountLD
+                    );
+                }
             }
         }
     }
@@ -320,7 +324,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         return directBridgeTokens.length();
     }
 
-    function _initSGETHs() internal {
+    function _initSgETHs() internal {
         // Ethereum
         sgETHs[101] = 0x72E2F4830b9E45d52F80aC08CB2bEC0FeF72eD9c;
         // Arbitrum
@@ -329,11 +333,11 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         sgETHs[111] = 0xb69c8CBCD90A39D8D3d3ccf0a3E968511C3856A0;
     }
 
-    function _initSGPoolIds() internal {
+    function _initSgPoolIds() internal {
         // poolId > 0 means able to be bridge token
         // Ethereum
         sgPoolIds[101][0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 1; // USDC
-        sgPoolIds[101][ETH_PLACEHOLDER_ADDR] = 13; // ETH
+        sgPoolIds[101][0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = 13; // WETH
         // BNB Chain
         sgPoolIds[102][0x55d398326f99059fF775485246999027B3197955] = 2; // USDT
         sgPoolIds[102][0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56] = 5; // BUSD
@@ -346,10 +350,10 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         // Arbitrum
         sgPoolIds[110][0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8] = 1; // USDC
         sgPoolIds[110][0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9] = 2; // USDT
-        sgPoolIds[110][ETH_PLACEHOLDER_ADDR] = 13; // ETH
+        sgPoolIds[110][0x82aF49447D8a07e3bd95BD0d56f35241523fBab1] = 13; // WETH
         // Optimism
         sgPoolIds[111][0x7F5c764cBc14f9669B88837ca1490cCa17c31607] = 1; // USDC
-        sgPoolIds[111][ETH_PLACEHOLDER_ADDR] = 13; // ETH
+        sgPoolIds[111][0x4200000000000000000000000000000000000006] = 13; // WETH
         // Fantom
         sgPoolIds[112][0x04068DA6C83AFCFA0e13ba15A6696662335D5B75] = 1; // USDC
     }
@@ -399,8 +403,8 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         dstGasForNoSwapCall = _dstGasForNoSwapCall;
     }
 
-    function setSGLChainId(uint16 _sglChainId) external onlyOwner {
-        sglChainId = _sglChainId;
+    function setSgChainIdLocal(uint16 _sgChainIdLocal) external onlyOwner {
+        sgChainIdLocal = _sgChainIdLocal;
     }
 
     function setWooCrossChainRouter(uint16 chainId, address wooCrossChainRouter) external onlyOwner {
@@ -408,11 +412,12 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         wooCrossChainRouters[chainId] = wooCrossChainRouter;
     }
 
-    function setSGETH(uint16 chainId, address token) external onlyOwner {
+    function setSgETH(uint16 chainId, address token) external onlyOwner {
+        require(token != address(0), "WooCrossChainRouterV2: !token");
         sgETHs[chainId] = token;
     }
 
-    function setSGPoolId(
+    function setSgPoolId(
         uint16 chainId,
         address token,
         uint256 poolId

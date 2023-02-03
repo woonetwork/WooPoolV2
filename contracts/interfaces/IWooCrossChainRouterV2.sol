@@ -88,7 +88,7 @@ interface IWooCrossChainRouterV2 {
 
     function dstGasForNoSwapCall() external view returns (uint256);
 
-    function sglChainId() external view returns (uint16);
+    function sgChainIdLocal() external view returns (uint16);
 
     function wooCrossChainRouters(uint16 chainId) external view returns (address wooCrossChainRouter);
 
