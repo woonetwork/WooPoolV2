@@ -36,7 +36,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     uint256 public override dstGasForSwapCall;
     uint256 public override dstGasForNoSwapCall;
 
-    uint16 public override sglChainId; // Stargate Local ChainId
+    uint16 public override sglChainId; // Stargate local chainId
 
     mapping(uint16 => address) public override wooCrossChainRouters; // chainId => WooCrossChainRouter address
     mapping(uint16 => address) public override sgETHs; // chainId => SGETH token address
@@ -105,7 +105,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
 
             // Step 2: local swap by WooRouter or not
             // 1.WOO is directBridgeToken, path(always) WOO(Arbitrum) => WOO(BSC)
-            // 2.WOO not the directBridgeToken, path(maybe): WOO(Arbitrum) -> ETH(Arbitrum) => ETH(BSC) -> WOO(BSC)
+            // 2.WOO not the directBridgeToken, path(maybe): WOO(Arbitrum) -> USDC(Arbitrum) => BUSD(BSC) -> WOO(BSC)
             // 3.Ethereum no WOOFi liquidity, tokens(WOO, ETH, USDC) always will be bridged directly without swap
             if (!directBridgeTokens.contains(srcInfos.fromToken) && srcInfos.fromToken != srcInfos.bridgeToken) {
                 TransferHelper.safeApprove(srcInfos.fromToken, address(wooRouter), srcInfos.fromAmount);
@@ -143,7 +143,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
             if (srcInfos.bridgeToken == weth) {
                 IWETH(weth).withdraw(bridgeAmount);
                 address sgETH = sgETHs[sglChainId];
-                IStargateEthVault(sgETH).deposit{value: bridgeAmount}(); // Logic from Stargate RouterETH.sol
+                IStargateEthVault(sgETH).deposit{value: bridgeAmount}(); // logic from Stargate RouterETH.sol
                 TransferHelper.safeApprove(sgETH, address(stargateRouter), bridgeAmount);
             } else {
                 TransferHelper.safeApprove(srcInfos.bridgeToken, address(stargateRouter), bridgeAmount);
@@ -183,9 +183,13 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     ) external override {
         require(msg.sender == address(stargateRouter), "WooCrossChainRouterV2: INVALID_CALLER");
 
-        (uint256 refId, address to, address toToken, uint256 minToAmount) = _decodePayload(payload);
+        // make sure the same order to _encodePayload() when decode payload
+        (uint256 refId, address to, address toToken, uint256 minToAmount) = abi.decode(
+            payload,
+            (uint256, address, address, uint256)
+        );
 
-        // When bridged by ETH, the bridgedToken will be SGETH ERC20 address and send native token to address(this)
+        // when bridged by ETH, the bridgedToken will be SGETH ERC20 address and send native token to address(this)
         if (toToken == ETH_PLACEHOLDER_ADDR && bridgedToken == sgETHs[sglChainId]) {
             TransferHelper.safeTransferETH(to, amountLD);
             emit WooCrossSwapOnDstChain(
@@ -219,7 +223,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         }
 
         if (bridgedToken == sgETHs[sglChainId]) {
-            // Bridged by ETH, and toToken is not ETH, holding ETH assets, require swap to toToken
+            // bridged by ETH, and toToken is not ETH, holding ETH assets, require swap to toToken
             try
                 wooRouter.swap{value: amountLD}(ETH_PLACEHOLDER_ADDR, toToken, amountLD, minToAmount, payable(to), to)
             returns (uint256 realToAmount) {
@@ -249,9 +253,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
                 );
             }
         } else {
-            // Bridged by ERC20 token, holding ERC20 token assets, require swap to toToken(can be ETH)
-            // TODO: Discuss this situation: bridgedToken(BUSD), toToken(USDT), not support stable coin swap now on WooRouter
-            // Waste gas by code below?
+            // bridged by ERC20 token, holding ERC20 token assets, require swap to toToken(can be ETH)
             TransferHelper.safeApprove(bridgedToken, address(wooRouter), amountLD);
             try wooRouter.swap(bridgedToken, toToken, amountLD, minToAmount, payable(to), to) returns (
                 uint256 realToAmount
@@ -370,19 +372,6 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
                 dstInfos.toToken, // to token on dst chain
                 dstInfos.minToAmount // minToAmount on dst chain
             );
-    }
-
-    function _decodePayload(bytes memory payload)
-        internal
-        pure
-        returns (
-            uint256,
-            address,
-            address,
-            uint256
-        )
-    {
-        return abi.decode(payload, (uint256, address, address, uint256));
     }
 
     /* ----- Owner & Admin Functions ----- */
