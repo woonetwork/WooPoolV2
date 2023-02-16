@@ -31,16 +31,16 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     IWooRouterV2 public wooRouter;
     IStargateRouter public stargateRouter;
 
-    address public override weth;
-    uint256 public override bridgeSlippage; // 1 in 10000th: default 1%
-    uint256 public override dstGasForSwapCall;
-    uint256 public override dstGasForNoSwapCall;
+    address public immutable weth;
+    uint256 public bridgeSlippage; // 1 in 10000th: default 1%
+    uint256 public dstGasForSwapCall;
+    uint256 public dstGasForNoSwapCall;
 
-    uint16 public override sgChainIdLocal; // Stargate chainId on local chain
+    uint16 public sgChainIdLocal; // Stargate chainId on local chain
 
-    mapping(uint16 => address) public override wooCrossChainRouters; // chainId => WooCrossChainRouter address
-    mapping(uint16 => address) public override sgETHs; // chainId => SGETH token address
-    mapping(uint16 => mapping(address => uint256)) public override sgPoolIds; // chainId => token address => Stargate poolId
+    mapping(uint16 => address) public wooCrossChainRouters; // chainId => WooCrossChainRouter address
+    mapping(uint16 => address) public sgETHs; // chainId => SGETH token address
+    mapping(uint16 => mapping(address => uint256)) public sgPoolIds; // chainId => token address => Stargate poolId
 
     EnumerableSet.AddressSet private directBridgeTokens;
 
@@ -73,7 +73,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         address payable to,
         SrcInfos memory srcInfos,
         DstInfos memory dstInfos
-    ) external payable override {
+    ) external payable nonReentrant {
         require(srcInfos.fromToken != address(0), "WooCrossChainRouterV2: !srcInfos.fromToken");
         require(
             dstInfos.toToken != address(0) && dstInfos.toToken != sgETHs[dstInfos.chainId],
@@ -96,7 +96,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
             if (srcInfos.fromToken == ETH_PLACEHOLDER_ADDR) {
                 require(srcInfos.fromAmount <= msgValue, "WooCrossChainRouterV2: !srcInfos.fromAmount");
                 srcInfos.fromToken = weth;
-                IWETH(srcInfos.fromToken).deposit{value: srcInfos.fromAmount}();
+                IWETH(weth).deposit{value: srcInfos.fromAmount}();
                 msgValue -= srcInfos.fromAmount;
             } else {
                 TransferHelper.safeTransferFrom(srcInfos.fromToken, msg.sender, address(this), srcInfos.fromAmount);
@@ -179,7 +179,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         address bridgedToken,
         uint256 amountLD,
         bytes memory payload
-    ) external override {
+    ) external {
         require(msg.sender == address(stargateRouter), "WooCrossChainRouterV2: INVALID_CALLER");
 
         // make sure the same order to _encodePayload() when decode payload
@@ -294,7 +294,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         uint256 refId,
         address to,
         DstInfos memory dstInfos
-    ) external view override returns (uint256, uint256) {
+    ) external view returns (uint256, uint256) {
         bytes memory payload = _encodePayload(refId, to, dstInfos);
 
         IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
@@ -309,7 +309,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
             );
     }
 
-    function allDirectBridgeTokens() external view override returns (address[] memory) {
+    function allDirectBridgeTokens() external view returns (address[] memory) {
         uint256 length = directBridgeTokens.length();
         address[] memory tokens = new address[](length);
         unchecked {
@@ -320,7 +320,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         return tokens;
     }
 
-    function allDirectBridgeTokensLength() external view override returns (uint256) {
+    function allDirectBridgeTokensLength() external view returns (uint256) {
         return directBridgeTokens.length();
     }
 
