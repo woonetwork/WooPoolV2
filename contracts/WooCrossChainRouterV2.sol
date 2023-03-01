@@ -8,13 +8,14 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 // Local Contracts
-import "./interfaces/IWETH.sol";
-import "./interfaces/IWooCrossChainRouterV2.sol";
-import "./interfaces/IWooRouterV2.sol";
-import "./interfaces/Stargate/IStargateEthVault.sol";
-import "./interfaces/Stargate/IStargateRouter.sol";
+import {IWETH} from "./interfaces/IWETH.sol";
+import {IWooCrossChainRouterV2} from "./interfaces/IWooCrossChainRouterV2.sol";
+import {IWooRouterV2} from "./interfaces/IWooRouterV2.sol";
+import {IStargateEthVault} from "./interfaces/Stargate/IStargateEthVault.sol";
+import {IStargateRouter} from "./interfaces/Stargate/IStargateRouter.sol";
+import {ICommonOFT, IOFTWithFee} from "./interfaces/LayerZero/IOFTWithFee.sol";
 
-import "./libraries/TransferHelper.sol";
+import {TransferHelper} from "./libraries/TransferHelper.sol";
 
 /// @title WOOFi cross chain router implementation.
 /// @notice Router for stateless execution of cross chain swap against WOOFi private pool.
@@ -42,6 +43,10 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     mapping(uint16 => address) public sgETHs; // chainId => SGETH token address
     mapping(uint16 => mapping(address => uint256)) public sgPoolIds; // chainId => token address => Stargate poolId
 
+    mapping(uint16 => mapping(address => bool)) public allowBridgeOFTs; // chainId => oft address => true/false
+    mapping(uint16 => mapping(address => address)) public tokenToOFTs; // chainId => oft.token() => oft address
+    mapping(uint16 => mapping(address => bool)) public isProxyOFTs; // chainId => oft address => true/false
+
     EnumerableSet.AddressSet private directBridgeTokens;
 
     receive() external payable {}
@@ -64,6 +69,9 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
 
         _initSgETHs();
         _initSgPoolIds();
+        _initAllowBridgeOFTs();
+        _initTokenToOFTs();
+        _initIsProxyOFT();
     }
 
     /* ----- Functions ----- */
@@ -81,13 +89,6 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         );
         require(to != address(0), "WooCrossChainRouterV2: !to");
 
-        uint256 srcPoolId = sgPoolIds[sgChainIdLocal][srcInfos.bridgeToken];
-        require(srcPoolId > 0, "WooCrossChainRouterV2: !srcInfos.bridgeToken");
-
-        uint256 dstPoolId = sgPoolIds[dstInfos.chainId][dstInfos.bridgeToken];
-        require(dstPoolId > 0, "WooCrossChainRouterV2: !dstInfos.bridgeToken");
-
-        address msgSender = _msgSender();
         uint256 msgValue = msg.value;
         uint256 bridgeAmount;
 
@@ -130,46 +131,57 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
             );
         }
 
-        {
-            // Step 3: cross chain swap by StargateRouter
-            bytes memory payload = _encodePayload(refId, to, dstInfos);
-
-            uint256 dstMinBridgeAmount = (bridgeAmount * (10000 - bridgeSlippage)) / 10000;
-            bytes memory dstWooCrossChainRouter = abi.encodePacked(wooCrossChainRouters[dstInfos.chainId]);
-
-            IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
-
-            if (srcInfos.bridgeToken == weth) {
-                IWETH(weth).withdraw(bridgeAmount);
-                address sgETH = sgETHs[sgChainIdLocal];
-                IStargateEthVault(sgETH).deposit{value: bridgeAmount}(); // logic from Stargate RouterETH.sol
-                TransferHelper.safeApprove(sgETH, address(stargateRouter), bridgeAmount);
-            } else {
-                TransferHelper.safeApprove(srcInfos.bridgeToken, address(stargateRouter), bridgeAmount);
-            }
-
-            stargateRouter.swap{value: msgValue}(
-                dstInfos.chainId, // dst chain id
-                srcPoolId, // bridge token's pool id on src chain
-                dstPoolId, // bridge token's pool id on dst chain
-                payable(msgSender), // rebate address
-                bridgeAmount, // swap amount on src chain
-                dstMinBridgeAmount, // min received amount on dst chain
-                obj, // config: dstGasForCall, dstAirdropNativeAmount, dstReceiveAirdropNativeTokenAddr
-                dstWooCrossChainRouter, // smart contract to call on dst chain
-                payload // payload to piggyback
-            );
+        address oft = tokenToOFTs[sgChainIdLocal][srcInfos.bridgeToken];
+        // Step 3: cross chain swap by [OFT / StargateRouter]
+        if (allowBridgeOFTs[sgChainIdLocal][oft]) {
+            _bridgedByOFT(refId, to, msgValue, bridgeAmount, IOFTWithFee(oft), srcInfos, dstInfos);
+        } else {
+            _bridgedByStargate(refId, to, msgValue, bridgeAmount, srcInfos, dstInfos);
         }
 
         emit WooCrossSwapOnSrcChain(
             refId,
-            msgSender,
+            _msgSender(),
             to,
             srcInfos.fromToken,
             srcInfos.fromAmount,
             srcInfos.minBridgeAmount,
             bridgeAmount
         );
+    }
+
+    function onOFTReceived(
+        uint16 srcChainId,
+        bytes memory, // srcAddress
+        uint64, // nonce
+        bytes32 from,
+        uint256 amountLD,
+        bytes memory payload
+    ) external {
+        address oft = _msgSender();
+        require(allowBridgeOFTs[sgChainIdLocal][oft], "WooCrossChainRouterV2: INVALID_CALLER");
+        require(
+            wooCrossChainRouters[srcChainId] == address(uint160(uint256(from))),
+            "WooCrossChainRouterV2: INVALID_FROM"
+        );
+        // msgSender should be OFT address if requires above are passed
+
+        // make sure the same order to _encodePayload() when decode payload
+        (uint256 refId, address to, address toToken, uint256 minToAmount) = abi.decode(
+            payload,
+            (uint256, address, address, uint256)
+        );
+
+        address bridgedToken;
+        if (isProxyOFTs[sgChainIdLocal][oft]) {
+            bridgedToken = IOFTWithFee(oft).token();
+        } else {
+            bridgedToken = oft;
+        }
+
+        uint256 bridgedAmount = amountLD;
+
+        _handleERC20Received(refId, to, toToken, bridgedToken, bridgedAmount, minToAmount);
     }
 
     function sgReceive(
@@ -188,105 +200,15 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
             (uint256, address, address, uint256)
         );
 
+        uint256 bridgedAmount = amountLD;
+
         // toToken won't be SGETH, and bridgedToken won't be ETH_PLACEHOLDER_ADDR
         if (bridgedToken == sgETHs[sgChainIdLocal]) {
             // bridgedToken is SGETH, received native token
-            if (toToken == ETH_PLACEHOLDER_ADDR) {
-                TransferHelper.safeTransferETH(to, amountLD);
-                emit WooCrossSwapOnDstChain(
-                    refId,
-                    msg.sender,
-                    to,
-                    weth,
-                    amountLD,
-                    toToken,
-                    ETH_PLACEHOLDER_ADDR,
-                    minToAmount,
-                    amountLD
-                );
-            } else {
-                try
-                    wooRouter.swap{value: amountLD}(
-                        ETH_PLACEHOLDER_ADDR,
-                        toToken,
-                        amountLD,
-                        minToAmount,
-                        payable(to),
-                        to
-                    )
-                returns (uint256 realToAmount) {
-                    emit WooCrossSwapOnDstChain(
-                        refId,
-                        msg.sender,
-                        to,
-                        weth,
-                        amountLD,
-                        toToken,
-                        toToken,
-                        minToAmount,
-                        realToAmount
-                    );
-                } catch {
-                    TransferHelper.safeTransferETH(to, amountLD);
-                    emit WooCrossSwapOnDstChain(
-                        refId,
-                        msg.sender,
-                        to,
-                        weth,
-                        amountLD,
-                        toToken,
-                        ETH_PLACEHOLDER_ADDR,
-                        minToAmount,
-                        amountLD
-                    );
-                }
-            }
+            _handleNativeReceived(refId, to, toToken, bridgedAmount, minToAmount);
         } else {
             // bridgedToken is not SGETH, received ERC20 token
-            if (toToken == bridgedToken) {
-                TransferHelper.safeTransfer(bridgedToken, to, amountLD);
-                emit WooCrossSwapOnDstChain(
-                    refId,
-                    msg.sender,
-                    to,
-                    bridgedToken,
-                    amountLD,
-                    toToken,
-                    toToken,
-                    minToAmount,
-                    amountLD
-                );
-            } else {
-                TransferHelper.safeApprove(bridgedToken, address(wooRouter), amountLD);
-                try wooRouter.swap(bridgedToken, toToken, amountLD, minToAmount, payable(to), to) returns (
-                    uint256 realToAmount
-                ) {
-                    emit WooCrossSwapOnDstChain(
-                        refId,
-                        msg.sender,
-                        to,
-                        bridgedToken,
-                        amountLD,
-                        toToken,
-                        toToken,
-                        minToAmount,
-                        realToAmount
-                    );
-                } catch {
-                    TransferHelper.safeTransfer(bridgedToken, to, amountLD);
-                    emit WooCrossSwapOnDstChain(
-                        refId,
-                        msg.sender,
-                        to,
-                        bridgedToken,
-                        amountLD,
-                        toToken,
-                        bridgedToken,
-                        minToAmount,
-                        amountLD
-                    );
-                }
-            }
+            _handleERC20Received(refId, to, toToken, bridgedToken, bridgedAmount, minToAmount);
         }
     }
 
@@ -358,8 +280,46 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         sgPoolIds[112][0x04068DA6C83AFCFA0e13ba15A6696662335D5B75] = 1; // USDC
     }
 
+    function _initAllowBridgeOFTs() internal {
+        address btcbOFT = 0x2297aEbD383787A160DD0d9F71508148769342E3; // BTCbOFT && BTCbProxyOFT
+
+        // Ethereum: BTC.b(BTCbOFT)
+        allowBridgeOFTs[101][btcbOFT] = true;
+        // BNB Chain: BTC.b(BTCbOFT)
+        allowBridgeOFTs[102][btcbOFT] = true;
+        // Avalanche: NotERC20(BTCbProxyOFT)
+        allowBridgeOFTs[106][btcbOFT] = true;
+        // Polygon: BTC.b(BTCbOFT)
+        allowBridgeOFTs[109][btcbOFT] = true;
+        // Arbitrum: BTC.b(BTCbOFT)
+        allowBridgeOFTs[110][btcbOFT] = true;
+        // Optimism: BTC.b(BTCbOFT)
+        allowBridgeOFTs[111][btcbOFT] = true;
+    }
+
+    function _initTokenToOFTs() internal {
+        address btcbOFT = 0x2297aEbD383787A160DD0d9F71508148769342E3; // BTCbOFT && BTCbProxyOFT
+
+        tokenToOFTs[101][btcbOFT] = btcbOFT;
+        tokenToOFTs[102][btcbOFT] = btcbOFT;
+        tokenToOFTs[106][0x152b9d0FdC40C096757F570A51E494bd4b943E50] = btcbOFT;
+        tokenToOFTs[109][btcbOFT] = btcbOFT;
+        tokenToOFTs[110][btcbOFT] = btcbOFT;
+        tokenToOFTs[111][btcbOFT] = btcbOFT;
+    }
+
+    function _initIsProxyOFT() internal {
+        address btcbOFT = 0x2297aEbD383787A160DD0d9F71508148769342E3; // BTCbOFT && BTCbProxyOFT
+
+        isProxyOFTs[106][btcbOFT] = true;
+    }
+
+    function _getDstGasForCall(DstInfos memory dstInfos) internal view returns (uint256) {
+        return (dstInfos.toToken == dstInfos.bridgeToken) ? dstGasForNoSwapCall : dstGasForSwapCall;
+    }
+
     function _getLzTxObj(address to, DstInfos memory dstInfos) internal view returns (IStargateRouter.lzTxObj memory) {
-        uint256 dstGasForCall = (dstInfos.toToken == dstInfos.bridgeToken) ? dstGasForNoSwapCall : dstGasForSwapCall;
+        uint256 dstGasForCall = _getDstGasForCall(dstInfos);
 
         return IStargateRouter.lzTxObj(dstGasForCall, dstInfos.airdropNativeAmount, abi.encodePacked(to));
     }
@@ -376,6 +336,222 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
                 dstInfos.toToken, // to token on dst chain
                 dstInfos.minToAmount // minToAmount on dst chain
             );
+    }
+
+    function _bridgedByOFT(
+        uint256 refId,
+        address payable to,
+        uint256 msgValue,
+        uint256 bridgeAmount,
+        IOFTWithFee oft,
+        SrcInfos memory srcInfos,
+        DstInfos memory dstInfos
+    ) internal {
+        {
+            if (isProxyOFTs[sgChainIdLocal][address(oft)]) {
+                // for example: BTC.b on Avalanche is ERC20, need BTCbProxyOFT to lock up BTC.b
+                TransferHelper.safeApprove(srcInfos.bridgeToken, address(oft), bridgeAmount);
+            }
+            address token = oft.token();
+            require(token == srcInfos.bridgeToken, "WooCrossChainRouterV2: !token");
+        }
+
+        // OFT src logic: require(_removeDust(srcInfos.fromAmount) >= minAmount)
+        uint256 minAmount = (srcInfos.fromAmount * (10000 - bridgeSlippage)) / 10000;
+
+        bytes memory payload = _encodePayload(refId, to, dstInfos);
+
+        uint256 dstGasForCall = _getDstGasForCall(dstInfos);
+        ICommonOFT.LzCallParams memory callParams;
+        {
+            // OFT src logic: require(providedGasLimit >= minGasLimit)
+            // uint256 minGasLimit = minDstGasLookup[_dstChainId][_type] + dstGasForCall;
+            uint256 providedGasLimit = oft.minDstGasLookup(dstInfos.chainId, 1) + dstGasForCall;
+            bytes memory adapterParams = abi.encodePacked(
+                uint16(2),
+                providedGasLimit,
+                dstInfos.airdropNativeAmount,
+                to
+            );
+            callParams = ICommonOFT.LzCallParams(
+                payable(msg.sender), // refundAddress
+                address(0), // zroPaymentAddress
+                adapterParams //adapterParams
+            );
+        }
+
+        bytes32 dstWooCrossChainRouter = bytes32(uint256(uint160(wooCrossChainRouters[dstInfos.chainId])));
+
+        oft.sendAndCall{value: msgValue}(
+            address(this),
+            dstInfos.chainId,
+            dstWooCrossChainRouter,
+            bridgeAmount,
+            minAmount,
+            payload,
+            uint64(dstGasForCall),
+            callParams
+        );
+    }
+
+    function _bridgedByStargate(
+        uint256 refId,
+        address payable to,
+        uint256 msgValue,
+        uint256 bridgeAmount,
+        SrcInfos memory srcInfos,
+        DstInfos memory dstInfos
+    ) internal {
+        uint256 srcPoolId = sgPoolIds[sgChainIdLocal][srcInfos.bridgeToken];
+        require(srcPoolId > 0, "WooCrossChainRouterV2: !srcInfos.bridgeToken");
+
+        uint256 dstPoolId = sgPoolIds[dstInfos.chainId][dstInfos.bridgeToken];
+        require(dstPoolId > 0, "WooCrossChainRouterV2: !dstInfos.bridgeToken");
+
+        bytes memory payload = _encodePayload(refId, to, dstInfos);
+
+        uint256 dstMinBridgeAmount = (bridgeAmount * (10000 - bridgeSlippage)) / 10000;
+        bytes memory dstWooCrossChainRouter = abi.encodePacked(wooCrossChainRouters[dstInfos.chainId]);
+
+        IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
+
+        if (srcInfos.bridgeToken == weth) {
+            IWETH(weth).withdraw(bridgeAmount);
+            address sgETH = sgETHs[sgChainIdLocal];
+            IStargateEthVault(sgETH).deposit{value: bridgeAmount}(); // logic from Stargate RouterETH.sol
+            TransferHelper.safeApprove(sgETH, address(stargateRouter), bridgeAmount);
+        } else {
+            TransferHelper.safeApprove(srcInfos.bridgeToken, address(stargateRouter), bridgeAmount);
+        }
+
+        stargateRouter.swap{value: msgValue}(
+            dstInfos.chainId, // dst chain id
+            srcPoolId, // bridge token's pool id on src chain
+            dstPoolId, // bridge token's pool id on dst chain
+            payable(_msgSender()), // rebate address
+            bridgeAmount, // swap amount on src chain
+            dstMinBridgeAmount, // min received amount on dst chain
+            obj, // config: dstGasForCall, dstAirdropNativeAmount, dstReceiveAirdropNativeTokenAddr
+            dstWooCrossChainRouter, // smart contract to call on dst chain
+            payload // payload to piggyback
+        );
+    }
+
+    function _handleNativeReceived(
+        uint256 refId,
+        address to,
+        address toToken,
+        uint256 bridgedAmount,
+        uint256 minToAmount
+    ) internal {
+        address msgSender = _msgSender();
+
+        if (toToken == ETH_PLACEHOLDER_ADDR) {
+            TransferHelper.safeTransferETH(to, bridgedAmount);
+            emit WooCrossSwapOnDstChain(
+                refId,
+                msgSender,
+                to,
+                weth,
+                bridgedAmount,
+                toToken,
+                ETH_PLACEHOLDER_ADDR,
+                minToAmount,
+                bridgedAmount
+            );
+        } else {
+            try
+                wooRouter.swap{value: bridgedAmount}(
+                    ETH_PLACEHOLDER_ADDR,
+                    toToken,
+                    bridgedAmount,
+                    minToAmount,
+                    payable(to),
+                    to
+                )
+            returns (uint256 realToAmount) {
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msgSender,
+                    to,
+                    weth,
+                    bridgedAmount,
+                    toToken,
+                    toToken,
+                    minToAmount,
+                    realToAmount
+                );
+            } catch {
+                TransferHelper.safeTransferETH(to, bridgedAmount);
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msgSender,
+                    to,
+                    weth,
+                    bridgedAmount,
+                    toToken,
+                    ETH_PLACEHOLDER_ADDR,
+                    minToAmount,
+                    bridgedAmount
+                );
+            }
+        }
+    }
+
+    function _handleERC20Received(
+        uint256 refId,
+        address to,
+        address toToken,
+        address bridgedToken,
+        uint256 bridgedAmount,
+        uint256 minToAmount
+    ) internal {
+        address msgSender = _msgSender();
+
+        if (toToken == bridgedToken) {
+            TransferHelper.safeTransfer(bridgedToken, to, bridgedAmount);
+            emit WooCrossSwapOnDstChain(
+                refId,
+                msgSender,
+                to,
+                bridgedToken,
+                bridgedAmount,
+                toToken,
+                toToken,
+                minToAmount,
+                bridgedAmount
+            );
+        } else {
+            TransferHelper.safeApprove(bridgedToken, address(wooRouter), bridgedAmount);
+            try wooRouter.swap(bridgedToken, toToken, bridgedAmount, minToAmount, payable(to), to) returns (
+                uint256 realToAmount
+            ) {
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msgSender,
+                    to,
+                    bridgedToken,
+                    bridgedAmount,
+                    toToken,
+                    toToken,
+                    minToAmount,
+                    realToAmount
+                );
+            } catch {
+                TransferHelper.safeTransfer(bridgedToken, to, bridgedAmount);
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msgSender,
+                    to,
+                    bridgedToken,
+                    bridgedAmount,
+                    toToken,
+                    bridgedToken,
+                    minToAmount,
+                    bridgedAmount
+                );
+            }
+        }
     }
 
     /* ----- Owner & Admin Functions ----- */
@@ -423,6 +599,17 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         uint256 poolId
     ) external onlyOwner {
         sgPoolIds[chainId][token] = poolId;
+    }
+
+    function setOFTInfos(
+        address oft,
+        address token,
+        bool isAllowBridgeOFT,
+        bool isProxyOFT
+    ) external onlyOwner {
+        allowBridgeOFTs[sgChainIdLocal][oft] = isAllowBridgeOFT;
+        tokenToOFTs[sgChainIdLocal][token] = oft;
+        isProxyOFTs[sgChainIdLocal][oft] = isProxyOFT;
     }
 
     function addDirectBridgeToken(address token) external onlyOwner {
