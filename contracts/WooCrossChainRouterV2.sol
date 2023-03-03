@@ -5,7 +5,9 @@ pragma solidity =0.8.14;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {ICommonOFT, IOFTWithFee} from "@layerzerolabs/solidity-examples/contracts/token/oft/v2/fee/IOFTWithFee.sol";
 
 // Local Contracts
 import {IWETH} from "./interfaces/IWETH.sol";
@@ -13,7 +15,7 @@ import {IWooCrossChainRouterV2} from "./interfaces/IWooCrossChainRouterV2.sol";
 import {IWooRouterV2} from "./interfaces/IWooRouterV2.sol";
 import {IStargateEthVault} from "./interfaces/Stargate/IStargateEthVault.sol";
 import {IStargateRouter} from "./interfaces/Stargate/IStargateRouter.sol";
-import {ICommonOFT, IOFTWithFee} from "./interfaces/LayerZero/IOFTWithFee.sol";
+import {ILzApp} from "./interfaces/LayerZero/ILzApp.sol";
 
 import {TransferHelper} from "./libraries/TransferHelper.sol";
 
@@ -44,8 +46,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     mapping(uint16 => mapping(address => uint256)) public sgPoolIds; // chainId => token address => Stargate poolId
 
     mapping(uint16 => mapping(address => bool)) public allowBridgeOFTs; // chainId => oft address => true/false
-    mapping(uint16 => mapping(address => address)) public tokenToOFTs; // chainId => oft.token() => oft address
-    mapping(uint16 => mapping(address => bool)) public isProxyOFTs; // chainId => oft address => true/false
+    mapping(uint16 => mapping(address => address)) public tokenToProxyOFTs; // chainId => token address => ProxyOFT address
 
     EnumerableSet.AddressSet private directBridgeTokens;
 
@@ -70,8 +71,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         _initSgETHs();
         _initSgPoolIds();
         _initAllowBridgeOFTs();
-        _initTokenToOFTs();
-        _initIsProxyOFT();
+        _initTokenToProxyOFTs();
     }
 
     /* ----- Functions ----- */
@@ -131,9 +131,9 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
             );
         }
 
-        address oft = tokenToOFTs[sgChainIdLocal][srcInfos.bridgeToken];
+        (bool isOFT, address oft) = _getOFTInfos(srcInfos.bridgeToken);
         // Step 3: cross chain swap by [OFT / StargateRouter]
-        if (allowBridgeOFTs[sgChainIdLocal][oft]) {
+        if (isOFT) {
             _bridgedByOFT(refId, to, msgValue, bridgeAmount, IOFTWithFee(oft), srcInfos, dstInfos);
         } else {
             _bridgedByStargate(refId, to, msgValue, bridgeAmount, srcInfos, dstInfos);
@@ -164,7 +164,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
             wooCrossChainRouters[srcChainId] == address(uint160(uint256(from))),
             "WooCrossChainRouterV2: INVALID_FROM"
         );
-        // msgSender should be OFT address if requires above are passed
+        // _msgSender() should be OFT address if requires above are passed
 
         // make sure the same order to _encodePayload() when decode payload
         (uint256 refId, address to, address toToken, uint256 minToAmount) = abi.decode(
@@ -172,12 +172,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
             (uint256, address, address, uint256)
         );
 
-        address bridgedToken;
-        if (isProxyOFTs[sgChainIdLocal][oft]) {
-            bridgedToken = IOFTWithFee(oft).token();
-        } else {
-            bridgedToken = oft;
-        }
+        address bridgedToken = IOFTWithFee(oft).token();
 
         uint256 bridgedAmount = amountLD;
 
@@ -215,20 +210,41 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     function quoteLayerZeroFee(
         uint256 refId,
         address to,
+        SrcInfos memory srcInfos,
         DstInfos memory dstInfos
     ) external view returns (uint256, uint256) {
         bytes memory payload = _encodePayload(refId, to, dstInfos);
 
-        IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
+        (bool isOFT, address oft) = _getOFTInfos(srcInfos.bridgeToken);
+        if (isOFT) {
+            uint256 dstGasForCall = _getDstGasForCall(dstInfos);
+            bytes memory adapterParams = _getAdapterParams(to, oft, dstGasForCall, dstInfos);
 
-        return
-            stargateRouter.quoteLayerZeroFee(
-                dstInfos.chainId,
-                1, // https://stargateprotocol.gitbook.io/stargate/developers/function-types
-                obj.dstNativeAddr,
-                payload,
-                obj
-            );
+            bool useZro = false;
+            bytes32 dstWooCrossChainRouter = bytes32(uint256(uint160(wooCrossChainRouters[dstInfos.chainId])));
+
+            return
+                IOFTWithFee(oft).estimateSendAndCallFee(
+                    dstInfos.chainId,
+                    dstWooCrossChainRouter,
+                    srcInfos.minBridgeAmount,
+                    payload,
+                    uint64(dstGasForCall),
+                    useZro,
+                    adapterParams
+                );
+        } else {
+            IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
+
+            return
+                stargateRouter.quoteLayerZeroFee(
+                    dstInfos.chainId,
+                    1, // https://stargateprotocol.gitbook.io/stargate/developers/function-types
+                    obj.dstNativeAddr,
+                    payload,
+                    obj
+                );
+        }
     }
 
     function allDirectBridgeTokens() external view returns (address[] memory) {
@@ -260,24 +276,31 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         // Ethereum
         sgPoolIds[101][0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 1; // USDC
         sgPoolIds[101][0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = 13; // WETH
+        sgPoolIds[101][0x4691937a7508860F876c9c0a2a617E7d9E945D4B] = 20; // WOO
         // BNB Chain
         sgPoolIds[102][0x55d398326f99059fF775485246999027B3197955] = 2; // USDT
         sgPoolIds[102][0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56] = 5; // BUSD
+        sgPoolIds[102][0x4691937a7508860F876c9c0a2a617E7d9E945D4B] = 20; // WOO
         // Avalanche
         sgPoolIds[106][0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E] = 1; // USDC
         sgPoolIds[106][0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7] = 2; // USDT
+        sgPoolIds[106][0xaBC9547B534519fF73921b1FBA6E672b5f58D083] = 20; // WOO
         // Polygon
         sgPoolIds[109][0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174] = 1; // USDC
         sgPoolIds[109][0xc2132D05D31c914a87C6611C10748AEb04B58e8F] = 2; // USDT
+        sgPoolIds[109][0x1B815d120B3eF02039Ee11dC2d33DE7aA4a8C603] = 20; // WOO
         // Arbitrum
         sgPoolIds[110][0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8] = 1; // USDC
         sgPoolIds[110][0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9] = 2; // USDT
         sgPoolIds[110][0x82aF49447D8a07e3bd95BD0d56f35241523fBab1] = 13; // WETH
+        sgPoolIds[110][0xcAFcD85D8ca7Ad1e1C6F82F651fA15E33AEfD07b] = 20; // WOO
         // Optimism
         sgPoolIds[111][0x7F5c764cBc14f9669B88837ca1490cCa17c31607] = 1; // USDC
         sgPoolIds[111][0x4200000000000000000000000000000000000006] = 13; // WETH
+        sgPoolIds[111][0x871f2F2ff935FD1eD867842FF2a7bfD051A5E527] = 20; // WOO
         // Fantom
         sgPoolIds[112][0x04068DA6C83AFCFA0e13ba15A6696662335D5B75] = 1; // USDC
+        sgPoolIds[112][0x6626c47c00F1D87902fc13EECfaC3ed06D5E8D8a] = 20; // WOO
     }
 
     function _initAllowBridgeOFTs() internal {
@@ -297,25 +320,35 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         allowBridgeOFTs[111][btcbOFT] = true;
     }
 
-    function _initTokenToOFTs() internal {
+    function _initTokenToProxyOFTs() internal {
         address btcbOFT = 0x2297aEbD383787A160DD0d9F71508148769342E3; // BTCbOFT && BTCbProxyOFT
 
-        tokenToOFTs[101][btcbOFT] = btcbOFT;
-        tokenToOFTs[102][btcbOFT] = btcbOFT;
-        tokenToOFTs[106][0x152b9d0FdC40C096757F570A51E494bd4b943E50] = btcbOFT;
-        tokenToOFTs[109][btcbOFT] = btcbOFT;
-        tokenToOFTs[110][btcbOFT] = btcbOFT;
-        tokenToOFTs[111][btcbOFT] = btcbOFT;
-    }
-
-    function _initIsProxyOFT() internal {
-        address btcbOFT = 0x2297aEbD383787A160DD0d9F71508148769342E3; // BTCbOFT && BTCbProxyOFT
-
-        isProxyOFTs[106][btcbOFT] = true;
+        tokenToProxyOFTs[106][0x152b9d0FdC40C096757F570A51E494bd4b943E50] = btcbOFT;
     }
 
     function _getDstGasForCall(DstInfos memory dstInfos) internal view returns (uint256) {
         return (dstInfos.toToken == dstInfos.bridgeToken) ? dstGasForNoSwapCall : dstGasForSwapCall;
+    }
+
+    function _getAdapterParams(
+        address to,
+        address oft,
+        uint256 dstGasForCall,
+        DstInfos memory dstInfos
+    ) internal view returns (bytes memory) {
+        // OFT src logic: require(providedGasLimit >= minGasLimit)
+        // uint256 minGasLimit = minDstGasLookup[_dstChainId][_type] + dstGasForCall;
+        // _type: 0(send), 1(send_and_call)
+        uint256 providedGasLimit = ILzApp(oft).minDstGasLookup(dstInfos.chainId, 1) + dstGasForCall;
+
+        // https://layerzero.gitbook.io/docs/evm-guides/advanced/relayer-adapter-parameters#airdrop
+        return
+            abi.encodePacked(
+                uint16(2), // version: 2 is able to airdrop native token on destination but 1 is not
+                providedGasLimit, // gasAmount: destination transaction gas for LayerZero to delivers
+                dstInfos.airdropNativeAmount, // nativeForDst: airdrop native token amount
+                to // addressOnDst: address to receive airdrop native token on destination
+            );
     }
 
     function _getLzTxObj(address to, DstInfos memory dstInfos) internal view returns (IStargateRouter.lzTxObj memory) {
@@ -338,6 +371,21 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
             );
     }
 
+    function _getOFTInfos(address bridgeToken) internal view returns (bool, address) {
+        // is OFT if bridge token has ProxyOFT contract
+        address proxyOFT = tokenToProxyOFTs[sgChainIdLocal][bridgeToken];
+        if (proxyOFT != address(0)) {
+            return (true, proxyOFT);
+        }
+        // else check the interfaceId by ERC165Checker
+        bytes4 interfaceId = type(IOFTWithFee).interfaceId;
+        if (ERC165Checker.supportsInterface(bridgeToken, interfaceId)) {
+            return (true, bridgeToken);
+        } else {
+            return (false, address(0));
+        }
+    }
+
     function _bridgedByOFT(
         uint256 refId,
         address payable to,
@@ -348,31 +396,24 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         DstInfos memory dstInfos
     ) internal {
         {
-            if (isProxyOFTs[sgChainIdLocal][address(oft)]) {
+            address token = oft.token();
+            if (token != address(oft)) {
+                // oft.token() != address(oft) means is a ProxyOFT
                 // for example: BTC.b on Avalanche is ERC20, need BTCbProxyOFT to lock up BTC.b
                 TransferHelper.safeApprove(srcInfos.bridgeToken, address(oft), bridgeAmount);
             }
-            address token = oft.token();
             require(token == srcInfos.bridgeToken, "WooCrossChainRouterV2: !token");
         }
 
-        // OFT src logic: require(_removeDust(srcInfos.fromAmount) >= minAmount)
-        uint256 minAmount = (srcInfos.fromAmount * (10000 - bridgeSlippage)) / 10000;
+        // OFT src logic: require(_removeDust(bridgeAmount) >= minAmount)
+        uint256 minAmount = (bridgeAmount * (10000 - bridgeSlippage)) / 10000;
 
         bytes memory payload = _encodePayload(refId, to, dstInfos);
 
         uint256 dstGasForCall = _getDstGasForCall(dstInfos);
         ICommonOFT.LzCallParams memory callParams;
         {
-            // OFT src logic: require(providedGasLimit >= minGasLimit)
-            // uint256 minGasLimit = minDstGasLookup[_dstChainId][_type] + dstGasForCall;
-            uint256 providedGasLimit = oft.minDstGasLookup(dstInfos.chainId, 1) + dstGasForCall;
-            bytes memory adapterParams = abi.encodePacked(
-                uint16(2),
-                providedGasLimit,
-                dstInfos.airdropNativeAmount,
-                to
-            );
+            bytes memory adapterParams = _getAdapterParams(to, address(oft), dstGasForCall, dstInfos);
             callParams = ICommonOFT.LzCallParams(
                 payable(msg.sender), // refundAddress
                 address(0), // zroPaymentAddress
@@ -601,15 +642,12 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         sgPoolIds[chainId][token] = poolId;
     }
 
-    function setOFTInfos(
-        address oft,
-        address token,
-        bool isAllowBridgeOFT,
-        bool isProxyOFT
-    ) external onlyOwner {
-        allowBridgeOFTs[sgChainIdLocal][oft] = isAllowBridgeOFT;
-        tokenToOFTs[sgChainIdLocal][token] = oft;
-        isProxyOFTs[sgChainIdLocal][oft] = isProxyOFT;
+    function setAllowBridgeOFT(address oft, bool allowBridgeOFT) external onlyOwner {
+        allowBridgeOFTs[sgChainIdLocal][oft] = allowBridgeOFT;
+    }
+
+    function setTokenToProxyOFT(address token, address proxyOFT) external onlyOwner {
+        tokenToProxyOFTs[sgChainIdLocal][token] = proxyOFT;
     }
 
     function addDirectBridgeToken(address token) external onlyOwner {
