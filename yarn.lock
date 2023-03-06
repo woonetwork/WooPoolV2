@@ -1014,10 +1014,10 @@
   resolved "https://registry.npmmirror.com/@iarna/toml/-/toml-2.2.5.tgz"
   integrity sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg==
 
-"@layerzerolabs/solidity-examples@^0.0.7":
-  version "0.0.7"
-  resolved "https://registry.yarnpkg.com/@layerzerolabs/solidity-examples/-/solidity-examples-0.0.7.tgz#f527791a4a007369b4eadfed0718a7a1d836eb01"
-  integrity sha512-q1C2b7zZuwbzesUHFJJJ2guEtQqL2N+Lyb7p6AQ6IeIa7iTp6C3/6pd0SIdAAkS4VmTzqKkt8O0Urc034cQ3Lg==
+"@layerzerolabs/solidity-examples@^0.0.8":
+  version "0.0.8"
+  resolved "https://registry.yarnpkg.com/@layerzerolabs/solidity-examples/-/solidity-examples-0.0.8.tgz#a0f76a5f92fea88b0ef4430b25ac3999372e871d"
+  integrity sha512-1OTHEWoS4le2IWFtP0qJo1scQ1DIKLYMwHMEDGw2KGWJaYussVanQsqYBNFYnmm0+sHt0izjsdzOlj5G3slx+w==
   dependencies:
     "@openzeppelin/contracts" "^4.4.1"
     "@openzeppelin/contracts-upgradeable" "^4.6.0"
