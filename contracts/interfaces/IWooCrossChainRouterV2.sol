@@ -117,6 +117,7 @@ interface IWooCrossChainRouterV2 {
     function quoteLayerZeroFee(
         uint256 refId,
         address to,
+        SrcInfos memory srcInfos,
         DstInfos memory dstInfos
     ) external view returns (uint256 nativeAmount, uint256 zroAmount);
 
