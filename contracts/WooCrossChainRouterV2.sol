@@ -162,8 +162,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         );
 
         // _msgSender() should be OFT address if requires above are passed
-        address oft = _msgSender();
-        address bridgedToken = IOFTWithFee(oft).token();
+        address bridgedToken = IOFTWithFee(_msgSender()).token();
 
         // make sure the same order to abi.encode when decode payload
         (uint256 refId, address to, address toToken, uint256 minToAmount) = abi.decode(
