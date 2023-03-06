@@ -88,6 +88,11 @@ const config: HardhatUserConfig = {
       chainId: 420,
       accounts: accounts,
     },
+    base_testnet: {
+      url: "https://goerli.base.org/",
+      chainId: 84531,
+      accounts: accounts,
+    }
   },
   etherscan: {
     apiKey: {
@@ -110,7 +115,18 @@ const config: HardhatUserConfig = {
       // optimism
       optimisticEthereum: process.env.OPTIMISTIC_ETHERSCAN_KEY !== undefined ? process.env.OPTIMISTIC_ETHERSCAN_KEY : "",
       optimisticGoerli: process.env.OPTIMISTIC_ETHERSCAN_KEY !== undefined ? process.env.OPTIMISTIC_ETHERSCAN_KEY : "",
+      base_testnet: "no-api-key-needed",
     },
+    customChains: [
+      {
+        network: "base_testnet",
+        chainId: 84531,
+        urls: {
+          apiURL: "https://api-goerli.basescan.org/api",
+          browserURL: "https://goerli.basescan.org",
+        }
+      }
+    ]
   },
   solidity: {
     compilers: [
