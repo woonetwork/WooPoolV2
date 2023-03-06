@@ -5,7 +5,6 @@ pragma solidity =0.8.14;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {ICommonOFT, IOFTWithFee} from "@layerzerolabs/solidity-examples/contracts/token/oft/v2/fee/IOFTWithFee.sol";
 
@@ -46,7 +45,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     mapping(uint16 => mapping(address => uint256)) public sgPoolIds; // chainId => token address => Stargate poolId
 
     mapping(uint16 => mapping(address => bool)) public allowBridgeOFTs; // chainId => oft address => true/false
-    mapping(uint16 => mapping(address => address)) public tokenToProxyOFTs; // chainId => token address => ProxyOFT address
+    mapping(uint16 => mapping(address => address)) public tokenToOFTs; // chainId => token address => OFT address
 
     EnumerableSet.AddressSet private directBridgeTokens;
 
@@ -71,7 +70,7 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         _initSgETHs();
         _initSgPoolIds();
         _initAllowBridgeOFTs();
-        _initTokenToProxyOFTs();
+        _initTokenToOFTs();
     }
 
     /* ----- Functions ----- */
@@ -320,10 +319,15 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         allowBridgeOFTs[111][btcbOFT] = true;
     }
 
-    function _initTokenToProxyOFTs() internal {
+    function _initTokenToOFTs() internal {
         address btcbOFT = 0x2297aEbD383787A160DD0d9F71508148769342E3; // BTCbOFT && BTCbProxyOFT
 
-        tokenToProxyOFTs[106][0x152b9d0FdC40C096757F570A51E494bd4b943E50] = btcbOFT;
+        tokenToOFTs[101][btcbOFT] = btcbOFT;
+        tokenToOFTs[102][btcbOFT] = btcbOFT;
+        tokenToOFTs[106][0x152b9d0FdC40C096757F570A51E494bd4b943E50] = btcbOFT;
+        tokenToOFTs[109][btcbOFT] = btcbOFT;
+        tokenToOFTs[110][btcbOFT] = btcbOFT;
+        tokenToOFTs[111][btcbOFT] = btcbOFT;
     }
 
     function _getDstGasForCall(DstInfos memory dstInfos) internal view returns (uint256) {
@@ -372,18 +376,12 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
     }
 
     function _getOFTInfos(address bridgeToken) internal view returns (bool, address) {
-        // is OFT if bridge token has ProxyOFT contract
-        address proxyOFT = tokenToProxyOFTs[sgChainIdLocal][bridgeToken];
-        if (proxyOFT != address(0)) {
-            return (true, proxyOFT);
+        // is OFT if bridge token has OFT contract
+        address oft = tokenToOFTs[sgChainIdLocal][bridgeToken];
+        if (oft != address(0)) {
+            return (true, oft);
         }
-        // else check the interfaceId by ERC165Checker
-        bytes4 interfaceId = type(IOFTWithFee).interfaceId;
-        if (ERC165Checker.supportsInterface(bridgeToken, interfaceId)) {
-            return (true, bridgeToken);
-        } else {
-            return (false, address(0));
-        }
+        return (false, address(0));
     }
 
     function _bridgedByOFT(
@@ -646,8 +644,8 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         allowBridgeOFTs[sgChainIdLocal][oft] = allowBridgeOFT;
     }
 
-    function setTokenToProxyOFT(address token, address proxyOFT) external onlyOwner {
-        tokenToProxyOFTs[sgChainIdLocal][token] = proxyOFT;
+    function setTokenToOFT(address token, address oft) external onlyOwner {
+        tokenToOFTs[sgChainIdLocal][token] = oft;
     }
 
     function addDirectBridgeToken(address token) external onlyOwner {
