@@ -303,9 +303,8 @@ contract WooCrossChainRouterV2 is IWooCrossChainRouterV2, Ownable, ReentrancyGua
         if (_sgChainIdLocal == 106) {
             // BTC.b(ERC20) on Avalanche address
             tokenToOFTs[0x152b9d0FdC40C096757F570A51E494bd4b943E50] = btcbOFT;
-        } else {
-            tokenToOFTs[btcbOFT] = btcbOFT;
         }
+        tokenToOFTs[btcbOFT] = btcbOFT;
     }
 
     function _getDstGasForCall(DstInfos memory dstInfos) internal view returns (uint256) {
