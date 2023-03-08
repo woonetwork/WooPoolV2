@@ -29,7 +29,7 @@ const config: HardhatUserConfig = {
       gasPrice: "auto",
     },
     bsc_mainnet: {
-      url: "https://bsc-dataseed.binance.org/",
+      url: "https://rpc.ankr.com/bsc/",
       chainId: 56,
       accounts: accounts,
     },
@@ -79,13 +79,18 @@ const config: HardhatUserConfig = {
       accounts: accounts,
     },
     optimism_mainnet: {
-      url: "https://mainnet.optimism.io/",
+      url: "https://rpc.ankr.com/optimism/",
       chainId: 10,
       accounts: accounts,
     },
     optimism_testnet: {
       url: "https://goerli.optimism.io/",
       chainId: 420,
+      accounts: accounts,
+    },
+    ethereum_mainnet: {
+      url: "https://rpc.ankr.com/eth/",
+      chainId: 1,
       accounts: accounts,
     },
     base_testnet: {
