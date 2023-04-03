@@ -37,7 +37,11 @@ pragma solidity 0.8.14;
 
 import "./BaseStrategy.sol";
 
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+
 contract VoidStrategy is BaseStrategy {
+    using Address for address;
+
     constructor(address _vault, address _accessManager) BaseStrategy(_vault, _accessManager) {
         _giveAllowances();
     }
@@ -57,7 +61,7 @@ contract VoidStrategy is BaseStrategy {
     }
 
     function harvest() public override whenNotPaused {
-        require(msg.sender == tx.origin || msg.sender == vault, "VoidStrategy: EOA_OR_VAULT");
+        require(!msg.sender.isContract() || msg.sender == vault, "VoidStrategy: EOA_OR_VAULT");
         deposit();
     }
 
