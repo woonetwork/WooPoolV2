@@ -10,6 +10,8 @@ typechain
 cache
 artifacts
 abis/
+artifacts-zk/
+cache-zk/
 
 package-lock.json
 

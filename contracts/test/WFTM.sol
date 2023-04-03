@@ -29,7 +29,8 @@ contract WFTM is Ownable {
     function withdraw(uint256 wad) public {
         require(balanceOf[msg.sender] >= wad);
         balanceOf[msg.sender] -= wad;
-        payable(msg.sender).transfer(wad);
+        (bool success, ) = payable(msg.sender).call{value: wad}(new bytes(0));
+        require(success);
         emit Withdrawal(msg.sender, wad);
     }
 
