@@ -102,12 +102,18 @@ const config: HardhatUserConfig = {
       chainId: 84531,
       accounts: accounts,
     },
+    zksync_mainnet: {
+      url: "https://mainnet.era.zksync.io",
+      ethNetwork: "mainnet",
+      zksync: true,
+      verifyURL: "https://zksync2-mainnet-explorer.zksync.io/contract_verification",
+    },
     zksync_testnet: {
       url: "https://zksync2-testnet.zksync.dev",
       ethNetwork: "goerli",
       zksync: true,
-      verifyURL: "https://goerli.explorer.zksync.io/contracts/verify/",
-    }
+      verifyURL: "https://zksync2-testnet-explorer.zksync.dev/contract_verification",
+    },
   },
   etherscan: {
     apiKey: {
