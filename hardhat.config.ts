@@ -114,6 +114,16 @@ const config: HardhatUserConfig = {
       zksync: true,
       verifyURL: "https://zksync2-testnet-explorer.zksync.dev/contract_verification",
     },
+    polygon_zkevm_mainnet: {
+      url: "https://zkevm-rpc.com/",
+      chainId: 1101,
+      accounts: accounts,
+    },
+    polygon_zkevm_testnet: {
+      url: "https://rpc.public.zkevm-test.net/",
+      chainId: 1442,
+      accounts: accounts,
+    },
   },
   etherscan: {
     apiKey: {
@@ -137,6 +147,8 @@ const config: HardhatUserConfig = {
       optimisticEthereum: process.env.OPTIMISTIC_ETHERSCAN_KEY !== undefined ? process.env.OPTIMISTIC_ETHERSCAN_KEY : "",
       optimisticGoerli: process.env.OPTIMISTIC_ETHERSCAN_KEY !== undefined ? process.env.OPTIMISTIC_ETHERSCAN_KEY : "",
       base_testnet: "no-api-key-needed",
+      polygon_zkevm_mainnet: process.env.ZKEVM_POLYGONSCAN_KEY !== undefined ? process.env.ZKEVM_POLYGONSCAN_KEY : "",
+      polygon_zkevm_testnet: process.env.ZKEVM_POLYGONSCAN_KEY !== undefined ? process.env.ZKEVM_POLYGONSCAN_KEY : "",
     },
     customChains: [
       {
@@ -146,7 +158,23 @@ const config: HardhatUserConfig = {
           apiURL: "https://api-goerli.basescan.org/api",
           browserURL: "https://goerli.basescan.org",
         }
-      }
+      },
+      {
+        network: "polygon_zkevm_mainnet",
+        chainId: 1101,
+        urls: {
+          apiURL: "https://api-zkevm.polygonscan.com/api",
+          browserURL: "https://zkevm.polygonscan.com",
+        }
+      },
+      {
+        network: "polygon_zkevm_testnet",
+        chainId: 1442,
+        urls: {
+          apiURL: "https://api-testnet-zkevm.polygonscan.com/api",
+          browserURL: "https://testnet-zkevm.polygonscan.com",
+        }
+      },
     ]
   },
   solidity: {
