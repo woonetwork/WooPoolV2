@@ -288,13 +288,13 @@ contract WooracleV2 is Ownable, IWooracleV2 {
         clo = clOracles[base].oracle;
     }
 
-    /* ----- Private Functions ----- */
+    /* ----- Internal & Private Functions ----- */
     function _setState(
         address base,
         uint128 newPrice,
         uint64 newSpread,
         uint64 newCoeff
-    ) private {
+    ) internal {
         TokenInfo storage info = infos[base];
         info.price = newPrice;
         info.spread = newSpread;
