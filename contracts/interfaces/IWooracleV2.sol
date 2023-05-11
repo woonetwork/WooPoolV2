@@ -68,6 +68,13 @@ interface IWooracleV2 {
     /// @notice Updates the Wooracle price for the specified base token
     function postPrice(address base, uint128 newPrice) external;
 
+    function postState(
+        address base,
+        uint128 newPrice,
+        uint64 newSpread,
+        uint64 newCoeff
+    ) external;
+
     /// @notice State of the specified base token.
     function state(address base) external view returns (State memory);
 
@@ -82,4 +89,7 @@ interface IWooracleV2 {
 
     /// @notice Flag for Wooracle price feasible
     function isWoFeasible(address base) external view returns (bool);
+
+    /// @notice Flag for account admin
+    function isAdmin(address account) external view returns (bool);
 }
