@@ -3,8 +3,8 @@ import { BigNumber, utils } from "ethers";
 import { ethers } from "hardhat";
 import { deployContract } from "ethereum-waffle";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { WooracleV2Zip, WooracleV2, TestChainLink, TestQuoteChainLink } from "../../typechain";
-import WooracleV2ZipArtifact from "../../artifacts/contracts/WooracleV2Zip.sol/WooracleV2Zip.json";
+import { WooracleV2ZipInherit, WooracleV2, TestChainLink, TestQuoteChainLink } from "../../typechain";
+import WooracleV2ZipArtifact from "../../artifacts/contracts/WooracleV2ZipInherit.sol/WooracleV2ZipInherit.json";
 import TestChainLinkArtifact from "../../artifacts/contracts/test/TestChainLink.sol/TestChainLink.json";
 import TestQuoteChainLinkArtifact from "../../artifacts/contracts/test/TestChainLink.sol/TestQuoteChainLink.json";
 import TestERC20TokenArtifact from "../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json";
@@ -29,14 +29,13 @@ async function checkWooracleTimestamp(wooracleV2Zip: WooracleV2) {
     expect(await wooracleV2Zip.timestamp()).to.gte(currentBlockTimestamp);
 }
 
-describe("WooracleV2Zip", () => {
+describe("WooracleV2ZipInherit", () => {
     let owner: SignerWithAddress;
 
     let wethToken: Contract;
     let wooToken: Contract;
 
-
-    let wooracleV2Zip: WooracleV2Zip;
+    let wooracleV2Zip: WooracleV2ZipInherit;
     let chainlinkOne: TestChainLink;
     let chainlinkTwo: TestQuoteChainLink;
 
@@ -47,7 +46,7 @@ describe("WooracleV2Zip", () => {
         wethToken = await deployContract(owner, TestERC20TokenArtifact, []);
         wooToken = await deployContract(owner, TestERC20TokenArtifact, []);
 
-        wooracleV2Zip = (await deployContract(owner, WooracleV2ZipArtifact, [])) as WooracleV2Zip;
+        wooracleV2Zip = (await deployContract(owner, WooracleV2ZipArtifact, [])) as WooracleV2ZipInherit;
 
         chainlinkOne = (await deployContract(owner, TestChainLinkArtifact, [])) as TestChainLink;
         chainlinkTwo = (await deployContract(owner, TestQuoteChainLinkArtifact, [])) as TestQuoteChainLink;
