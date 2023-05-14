@@ -34,28 +34,14 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-// OpenZeppelin contracts
-// import {WooracleV2} from "./WooracleV2.sol";
-import "./interfaces/IWooracleV2.sol";
+import {WooracleV2} from "./WooracleV2.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
+import "./libraries/TransferHelper.sol";
 
 /// @title Wooracle V2 contract for ZKSync
-contract WooracleV2ZipComp {
+contract WooracleV2ZipInherit is WooracleV2 {
     mapping(uint8 => address) public bases;
-
-    IWooracleV2 public wooracle;
-
-    modifier onlyAdmin() {
-        require(wooracle.isAdmin(msg.sender), "WooracleV2Zip: !Admin");
-        _;
-    }
-
-    constructor(address _wooracle) {
-        wooracle = IWooracleV2(_wooracle);
-    }
-
-    function setWooracle(address _wooracle) external onlyAdmin {
-        wooracle = IWooracleV2(_wooracle);
-    }
 
     function setBase(uint8 _id, address _base) external onlyAdmin {
         require(getBase(_id) == address(0), "WooracleV2Zip: !id_SET_ALREADY");
@@ -79,6 +65,7 @@ contract WooracleV2ZipComp {
     /* ----- External Functions ----- */
 
     // https://docs.soliditylang.org/en/v0.8.12/contracts.html#fallback-function
+    // prettier-ignore
     fallback (bytes calldata _input) external onlyAdmin returns (bytes memory _output) {
         /*
             2 bit: 0: post prices, 1: post states, 2,3: TBD
@@ -111,11 +98,10 @@ contract WooracleV2ZipComp {
             for (uint256 i = 0; i < len; ++i) {
                 base = getBase(uint8(bytes1(_input[1 + i * 5:1 + i * 5 + 1])));
                 p = _price(uint32(bytes4(_input[1 + i * 5 + 1:1 + i * 5 + 5])));
-                // infos[base].price = p;
-                wooracle.postPrice(base, p);
+                infos[base].price = p;
             }
 
-            // timestamp = block.timestamp;
+            timestamp = block.timestamp;
         } else if (op == 1) {
             // post states list
             address base;
@@ -128,11 +114,10 @@ contract WooracleV2ZipComp {
                 p = _price(uint32(bytes4(_input[1 + i * 9 + 1:1 + i * 9 + 5])));
                 s = _ks(uint16(bytes2(_input[1 + i * 9 + 5:1 + i * 9 + 7])));
                 k = _ks(uint16(bytes2(_input[1 + i * 9 + 7:1 + i * 9 + 9])));
-                // _setState(base, p, s, k);
-                wooracle.postState(base, p, s, k);
+                _setState(base, p, s, k);
             }
 
-            // timestamp = block.timestamp;
+            timestamp = block.timestamp;
         } else {
             // not supported
         }
@@ -144,5 +129,14 @@ contract WooracleV2ZipComp {
 
     function _ks(uint16 b) internal pure returns (uint64) {
         return uint64((b >> 5) * (10**(b & 0x1F)));
+    }
+
+    function inCaseTokenGotStuck(address stuckToken) external onlyAdmin {
+        if (stuckToken == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
+            TransferHelper.safeTransferETH(msg.sender, address(this).balance);
+        } else {
+            uint256 amount = IERC20(stuckToken).balanceOf(address(this));
+            TransferHelper.safeTransfer(stuckToken, msg.sender, amount);
+        }
     }
 }
