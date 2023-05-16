@@ -4,7 +4,7 @@ import { ethers } from "hardhat";
 import { deployContract } from "ethereum-waffle";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { WooracleV2ZipInherit, WooracleV2, TestChainLink, TestQuoteChainLink } from "../../typechain";
-import WooracleV2ZipArtifact from "../../artifacts/contracts/WooracleV2ZipInherit.sol/WooracleV2ZipInherit.json";
+import WooracleV2ZKSyncArtifact from "../../artifacts/contracts/WooracleV2ZKSync.sol/WooracleV2ZKSync.json";
 import TestChainLinkArtifact from "../../artifacts/contracts/test/TestChainLink.sol/TestChainLink.json";
 import TestQuoteChainLinkArtifact from "../../artifacts/contracts/test/TestChainLink.sol/TestQuoteChainLink.json";
 import TestERC20TokenArtifact from "../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json";
@@ -29,13 +29,13 @@ async function checkWooracleTimestamp(wooracleV2Zip: WooracleV2) {
     expect(await wooracleV2Zip.timestamp()).to.gte(currentBlockTimestamp);
 }
 
-describe("WooracleV2ZipInherit", () => {
+describe("WooracleV2ZkSync", () => {
     let owner: SignerWithAddress;
 
     let wethToken: Contract;
     let wooToken: Contract;
 
-    let wooracleV2Zip: WooracleV2ZipInherit;
+    let wooracleV2Zip: WooracleV2ZKSyncArtifact;
     let chainlinkOne: TestChainLink;
     let chainlinkTwo: TestQuoteChainLink;
 
@@ -46,7 +46,7 @@ describe("WooracleV2ZipInherit", () => {
         wethToken = await deployContract(owner, TestERC20TokenArtifact, []);
         wooToken = await deployContract(owner, TestERC20TokenArtifact, []);
 
-        wooracleV2Zip = (await deployContract(owner, WooracleV2ZipArtifact, [])) as WooracleV2ZipInherit;
+        wooracleV2Zip = (await deployContract(owner, WooracleV2ZKSyncArtifact, [])) as WooracleV2ZKSync;
 
         chainlinkOne = (await deployContract(owner, TestChainLinkArtifact, [])) as TestChainLink;
         chainlinkTwo = (await deployContract(owner, TestQuoteChainLinkArtifact, [])) as TestQuoteChainLink;
@@ -78,16 +78,49 @@ describe("WooracleV2ZipInherit", () => {
     it("Post prices", async () => {
         await owner.sendTransaction({
             to: wooracleV2Zip.address,
-            data: await _encode_woo_price()
+            data: _encode_woo_price_with_timestamp()
         })
 
         console.log(await wooracleV2Zip.state(wooToken.address));
         const p_ret = await wooracleV2Zip.price(wooToken.address)
-        console.log("price ", p_ret.priceOut.toNumber() / 1e8, p_ret.feasible);
+        console.log("price ", p_ret.priceOut.toString(), p_ret.feasible);
         console.log("timestamp ", (await wooracleV2Zip.timestamp()).toString(), p_ret.feasible);
     });
 
-    async function _encode_woo_price() {
+    function _encode_woo_price_with_timestamp() {
+        /*
+        op = 0
+        len = 1
+        (base, p)
+        */
+        let _calldata = new Uint8Array(1 + 5 + 4);
+
+        // 0xC0 : 11000000
+        // 0x3F : 00111111
+        _calldata[0] = (2 << 6) + (1 & 0x3F);
+        _calldata[1] = 6; // woo token
+
+        // price: 0.22970
+        // 22970000 (decimal = 8)
+        let price = BigNumber.from(2297).shl(5).add(4);
+        // console.log("woo price: ", price.toString());
+        _calldata[2] = price.shr(24).mod(256).toNumber();
+        _calldata[3] = price.shr(16).mod(256).toNumber();
+        _calldata[4] = price.shr(8).mod(256).toNumber();
+        _calldata[5] = price.shr(0).mod(256).toNumber();
+
+        console.log("test woo calldata: ", _calldata);
+
+        // 0x423A35C7 = 1111111111 (dec)
+        _calldata[6] = 0x42;
+        _calldata[7] = 0x3A;
+        _calldata[8] = 0x35;
+        _calldata[9] = 0xC7;
+
+        return _calldata;
+    }
+
+    function _encode_woo_price() {
         /*
         op = 0
         len = 1
@@ -100,9 +133,9 @@ describe("WooracleV2ZipInherit", () => {
         _calldata[0] = (0 << 6) + (1 & 0x3F);
         _calldata[1] = 6; // woo token
 
-        // price: 0.23020
-        // 23020000 (decimal = 8)
-        let price = BigNumber.from(2302).shl(5).add(4);
+        // price: 0.22970
+        // 22970000 (decimal = 8)
+        let price = BigNumber.from(2297).shl(5).add(4);
         // console.log("woo price: ", price.toString());
         _calldata[2] = price.shr(24).mod(256).toNumber();
         _calldata[3] = price.shr(16).mod(256).toNumber();
