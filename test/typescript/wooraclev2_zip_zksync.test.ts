@@ -3,7 +3,7 @@ import { BigNumber, utils } from "ethers";
 import { ethers } from "hardhat";
 import { deployContract } from "ethereum-waffle";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { WooracleV2ZipInherit, WooracleV2, TestChainLink, TestQuoteChainLink } from "../../typechain";
+import { WooracleV2ZKSync, WooracleV2, TestChainLink, TestQuoteChainLink } from "../../typechain";
 import WooracleV2ZKSyncArtifact from "../../artifacts/contracts/WooracleV2ZKSync.sol/WooracleV2ZKSync.json";
 import TestChainLinkArtifact from "../../artifacts/contracts/test/TestChainLink.sol/TestChainLink.json";
 import TestQuoteChainLinkArtifact from "../../artifacts/contracts/test/TestChainLink.sol/TestQuoteChainLink.json";
@@ -84,7 +84,17 @@ describe("WooracleV2ZkSync", () => {
         console.log(await wooracleV2Zip.state(wooToken.address));
         const p_ret = await wooracleV2Zip.price(wooToken.address)
         console.log("price ", p_ret.priceOut.toString(), p_ret.feasible);
-        console.log("timestamp ", (await wooracleV2Zip.timestamp()).toString(), p_ret.feasible);
+
+        const ts = await wooracleV2Zip.timestamp();
+        console.log("timestamp ", ts.toString(), p_ret.feasible);
+
+        expect(ts).to.be.eq(BigNumber.from("1111111111"));
+        expect(p_ret.priceOut).to.be.eq(0); // timestamp out of range
+        expect(p_ret.feasible).to.be.eq(false);
+
+        const wooInfo = await wooracleV2Zip.infos(wooToken.address);
+        console.log("TokenInfo price: ", wooInfo.price.toString());
+        expect(wooInfo.price).to.be.eq(BigNumber.from("22970000"));
     });
 
     function _encode_woo_price_with_timestamp() {
@@ -130,7 +140,7 @@ describe("WooracleV2ZkSync", () => {
 
         // 0xC0 : 11000000
         // 0x3F : 00111111
-        _calldata[0] = (0 << 6) + (1 & 0x3F);
+        _calldata[0] = (2 << 6) + (1 & 0x3F);
         _calldata[1] = 6; // woo token
 
         // price: 0.22970
