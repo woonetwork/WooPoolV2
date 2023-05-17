@@ -8,6 +8,7 @@ import WooracleV2ZipArtifact from "../../artifacts/contracts/WooracleV2ZipInheri
 import TestChainLinkArtifact from "../../artifacts/contracts/test/TestChainLink.sol/TestChainLink.json";
 import TestQuoteChainLinkArtifact from "../../artifacts/contracts/test/TestChainLink.sol/TestQuoteChainLink.json";
 import TestERC20TokenArtifact from "../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json";
+import exp from "constants";
 
 
 const BN_1E18 = BigNumber.from(10).pow(18);
@@ -78,16 +79,22 @@ describe("WooracleV2ZipInherit", () => {
     it("Post prices", async () => {
         await owner.sendTransaction({
             to: wooracleV2Zip.address,
-            data: await _encode_woo_price()
+            data: _encode_woo_price()
         })
 
         console.log(await wooracleV2Zip.state(wooToken.address));
         const p_ret = await wooracleV2Zip.price(wooToken.address)
         console.log("price ", p_ret.priceOut.toNumber() / 1e8, p_ret.feasible);
-        console.log("timestamp ", (await wooracleV2Zip.timestamp()).toString(), p_ret.feasible);
+
+        const ts = await wooracleV2Zip.timestamp();
+        console.log("timestamp ", ts.toString(), p_ret.feasible);
+
+        expect(p_ret.priceOut).to.be.eq(BigNumber.from("23020000"));
+        expect(p_ret.feasible).to.be.eq(true);
+        expect(ts).to.be.gt(0);
     });
 
-    async function _encode_woo_price() {
+    function _encode_woo_price() {
         /*
         op = 0
         len = 1
