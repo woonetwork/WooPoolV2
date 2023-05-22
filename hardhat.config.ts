@@ -78,8 +78,8 @@ const config: HardhatUserConfig = {
       accounts: accounts,
     },
     arbitrum_testnet: {
-      url: "https://rinkeby.arbitrum.io/rpc/",
-      chainId: 421611,
+      url: "https://goerli-rollup.arbitrum.io/rpc/",
+      chainId: 421613,
       accounts: accounts,
     },
     optimism_mainnet: {
@@ -142,7 +142,7 @@ const config: HardhatUserConfig = {
       polygonMumbai: process.env.POLYGONSCAN_KEY !== undefined ? process.env.POLYGONSCAN_KEY : "",
       // arbitrum
       arbitrumOne: process.env.ARBISCAN_KEY !== undefined ? process.env.ARBISCAN_KEY : "",
-      arbitrumTestnet: process.env.ARBISCAN_KEY !== undefined ? process.env.ARBISCAN_KEY : "",
+      arbitrumGoerli: process.env.ARBISCAN_KEY !== undefined ? process.env.ARBISCAN_KEY : "",
       // optimism
       optimisticEthereum: process.env.OPTIMISTIC_ETHERSCAN_KEY !== undefined ? process.env.OPTIMISTIC_ETHERSCAN_KEY : "",
       optimisticGoerli: process.env.OPTIMISTIC_ETHERSCAN_KEY !== undefined ? process.env.OPTIMISTIC_ETHERSCAN_KEY : "",
