@@ -39,7 +39,7 @@ import {IWooracleV2} from "./interfaces/IWooracleV2.sol";
 
 import "./libraries/TransferHelper.sol";
 
-/// @title Wooracle V2 contract for ZKSync
+/// @title Wooracle V2 contract for L2
 contract WooracleV2Zip {
     mapping(uint8 => address) public bases;
 
