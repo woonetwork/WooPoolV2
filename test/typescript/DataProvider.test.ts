@@ -9,6 +9,7 @@ import DataProviderArtifact from "../../artifacts/contracts/earn/DataProvider.so
 import WOOFiVaultV2Artifact from "../../artifacts/contracts/earn/VaultV2.sol/WOOFiVaultV2.json";
 import IERC20Artifact from "../../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json";
 import IMasterChefWooInfoArtifact from "../../artifacts/contracts/interfaces/IDataProvider.sol/IMasterChefWooInfo.json";
+import IWooSimpleRewarderInfoArtifact from "../../artifacts/contracts/interfaces/IDataProvider.sol/IWooSimpleRewarder.json";
 import ISuperChargerVaultInfoArtifact from "../../artifacts/contracts/interfaces/IDataProvider.sol/ISuperChargerVaultInfo.json";
 import IWithdrawManagerInfoArtifact from "../../artifacts/contracts/interfaces/IDataProvider.sol/IWithdrawManagerInfo.json";
 
@@ -28,6 +29,7 @@ describe("DataProvider.sol", () => {
   let user: SignerWithAddress;
   let dataProvider: DataProvider;
   let masterChefWoo: Contract;
+  let wooSimpleRewarder: Contract;
   let btcSuperChargerVault: Contract;
   let btcWithdrawManager: Contract;
   let ethSuperChargerVault: Contract;
@@ -50,6 +52,9 @@ describe("DataProvider.sol", () => {
     await masterChefWoo.mock.userInfo.withArgs(1, user.address).returns(...mockPid1UserInfo);
     await masterChefWoo.mock.pendingXWoo.withArgs(0, user.address).returns(...mockPid0PendingXWoo);
     await masterChefWoo.mock.pendingXWoo.withArgs(1, user.address).returns(...mockPid1PendingXWoo);
+
+    wooSimpleRewarder = await deployMockContract(owner, IWooSimpleRewarderInfoArtifact.abi);
+    await wooSimpleRewarder.mock.pendingTokens.returns(10000);
 
     // Deploy WooSuperChargerVault & WooWithdrawManager
     btcSuperChargerVault = await deployMockContract(owner, ISuperChargerVaultInfoArtifact.abi);
@@ -95,7 +100,7 @@ describe("DataProvider.sol", () => {
   })
 
   it("Get vaultInfos only", async () => {
-    let results = await dataProvider.infos(user.address, masterChefWoo.address, vaultAddresses, [], [], [], []);
+    let results = await dataProvider.infos(user.address, masterChefWoo.address, [wooSimpleRewarder.address], vaultAddresses, [], [], [], []);
 
     for (let key in results.vaultInfos) {
       let batchGet: Number[] = [];
@@ -111,7 +116,7 @@ describe("DataProvider.sol", () => {
   })
 
   it("Get tokenInfos only", async () => {
-    let results = await dataProvider.infos(user.address, masterChefWoo.address, [], tokenAddresses, [], [], []);
+    let results = await dataProvider.infos(user.address, masterChefWoo.address, [wooSimpleRewarder.address], [], tokenAddresses, [], [], []);
 
     for (let key in results.tokenInfos) {
       if (key == "nativeBalance") {
@@ -135,6 +140,7 @@ describe("DataProvider.sol", () => {
     let results = await dataProvider.infos(
       user.address,
       masterChefWoo.address,
+      [wooSimpleRewarder.address],
       vaultAddresses,
       tokenAddresses,
       [btcSuperChargerVault.address, ethSuperChargerVault.address],
