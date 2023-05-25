@@ -100,7 +100,7 @@ describe("DataProvider.sol", () => {
   })
 
   it("Get vaultInfos only", async () => {
-    let results = await dataProvider.infos(user.address, masterChefWoo.address, wooSimpleRewarder.address, vaultAddresses, [], [], [], []);
+    let results = await dataProvider.infos(user.address, masterChefWoo.address, [wooSimpleRewarder.address], vaultAddresses, [], [], [], []);
 
     for (let key in results.vaultInfos) {
       let batchGet: Number[] = [];
@@ -116,7 +116,7 @@ describe("DataProvider.sol", () => {
   })
 
   it("Get tokenInfos only", async () => {
-    let results = await dataProvider.infos(user.address, masterChefWoo.address, wooSimpleRewarder.address, [], tokenAddresses, [], [], []);
+    let results = await dataProvider.infos(user.address, masterChefWoo.address, [wooSimpleRewarder.address], [], tokenAddresses, [], [], []);
 
     for (let key in results.tokenInfos) {
       if (key == "nativeBalance") {
@@ -140,7 +140,7 @@ describe("DataProvider.sol", () => {
     let results = await dataProvider.infos(
       user.address,
       masterChefWoo.address,
-      wooSimpleRewarder.address,
+      [wooSimpleRewarder.address],
       vaultAddresses,
       tokenAddresses,
       [btcSuperChargerVault.address, ethSuperChargerVault.address],

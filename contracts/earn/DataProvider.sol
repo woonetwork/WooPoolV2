@@ -11,7 +11,7 @@ contract DataProvider is IDataProvider {
     function infos(
         address user,
         address masterChefWoo,
-        address wooSimpleRewarder,
+        address[] memory wooSimpleRewarders,
         address[] memory vaults,
         address[] memory tokens,
         address[] memory superChargerVaults,
@@ -40,7 +40,7 @@ contract DataProvider is IDataProvider {
             masterChefWoo,
             pids
         );
-        masterChefWooInfos.pendingTokens = pendingTokens(user, wooSimpleRewarder);
+        masterChefWooInfos.pendingTokens = pendingTokens(user, wooSimpleRewarders);
 
         superChargerRelatedInfos.requestedWithdrawAmounts = requestedWithdrawAmounts(user, superChargerVaults);
         superChargerRelatedInfos.withdrawAmounts = withdrawAmounts(user, withdrawManagers);
@@ -110,8 +110,16 @@ contract DataProvider is IDataProvider {
         }
     }
 
-    function pendingTokens(address user, address wooSimpleRewarder) public view returns (uint256 tokens) {
-        return IWooSimpleRewarder(wooSimpleRewarder).pendingTokens(user);
+    function pendingTokens(address user, address[] memory wooSimpleRewarders)
+        public
+        view
+        returns (uint256[] memory results)
+    {
+        uint256 length = wooSimpleRewarders.length;
+        results = new uint256[](length);
+        for (uint256 i = 0; i < length; i++) {
+            results[i] = IWooSimpleRewarder(wooSimpleRewarders[i]).pendingTokens(user);
+        }
     }
 
     function requestedWithdrawAmounts(address user, address[] memory superChargerVaults)
