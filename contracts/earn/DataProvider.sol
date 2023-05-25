@@ -11,6 +11,7 @@ contract DataProvider is IDataProvider {
     function infos(
         address user,
         address masterChefWoo,
+        address wooSimpleRewarder,
         address[] memory vaults,
         address[] memory tokens,
         address[] memory superChargerVaults,
@@ -19,7 +20,6 @@ contract DataProvider is IDataProvider {
     )
         public
         view
-        override
         returns (
             VaultInfos memory vaultInfos,
             TokenInfos memory tokenInfos,
@@ -40,12 +40,13 @@ contract DataProvider is IDataProvider {
             masterChefWoo,
             pids
         );
+        masterChefWooInfos.pendingTokens = pendingTokens(user, wooSimpleRewarder);
 
         superChargerRelatedInfos.requestedWithdrawAmounts = requestedWithdrawAmounts(user, superChargerVaults);
         superChargerRelatedInfos.withdrawAmounts = withdrawAmounts(user, withdrawManagers);
     }
 
-    function balancesOf(address user, address[] memory tokens) public view override returns (uint256[] memory results) {
+    function balancesOf(address user, address[] memory tokens) public view returns (uint256[] memory results) {
         uint256 length = tokens.length;
         results = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {
@@ -53,7 +54,7 @@ contract DataProvider is IDataProvider {
         }
     }
 
-    function sharePrices(address[] memory vaults) public view override returns (uint256[] memory results) {
+    function sharePrices(address[] memory vaults) public view returns (uint256[] memory results) {
         uint256 length = vaults.length;
         results = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {
@@ -64,7 +65,6 @@ contract DataProvider is IDataProvider {
     function costSharePrices(address user, address[] memory vaults)
         public
         view
-        override
         returns (uint256[] memory results)
     {
         uint256 length = vaults.length;
@@ -78,7 +78,7 @@ contract DataProvider is IDataProvider {
         address user,
         address masterChefWoo,
         uint256[] memory pids
-    ) public view override returns (uint256[] memory amounts, uint256[] memory rewardDebts) {
+    ) public view returns (uint256[] memory amounts, uint256[] memory rewardDebts) {
         uint256 length = pids.length;
         amounts = new uint256[](length);
         rewardDebts = new uint256[](length);
@@ -91,7 +91,7 @@ contract DataProvider is IDataProvider {
         address user,
         address masterChefWoo,
         uint256[] memory pids
-    ) public view override returns (uint256[] memory pendingXWooAmounts, uint256[] memory pendingWooAmounts) {
+    ) public view returns (uint256[] memory pendingXWooAmounts, uint256[] memory pendingWooAmounts) {
         uint256 length = pids.length;
         pendingXWooAmounts = new uint256[](length);
         pendingWooAmounts = new uint256[](length);
@@ -114,10 +114,13 @@ contract DataProvider is IDataProvider {
         }
     }
 
+    function pendingTokens(address user, address wooSimpleRewarder) public view returns (uint256 tokens) {
+        return IWooSimpleRewarder(wooSimpleRewarder).pendingTokens(user);
+    }
+
     function requestedWithdrawAmounts(address user, address[] memory superChargerVaults)
         public
         view
-        override
         returns (uint256[] memory results)
     {
         uint256 length = superChargerVaults.length;
@@ -130,7 +133,6 @@ contract DataProvider is IDataProvider {
     function withdrawAmounts(address user, address[] memory withdrawManagers)
         public
         view
-        override
         returns (uint256[] memory results)
     {
         uint256 length = withdrawManagers.length;

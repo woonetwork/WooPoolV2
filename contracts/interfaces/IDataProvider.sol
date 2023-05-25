@@ -29,6 +29,10 @@ interface IMasterChefWooInfo {
         returns (uint256 pendingRewardAmount, uint256 pendingRewarderTokens);
 }
 
+interface IWooSimpleRewarder {
+    function pendingTokens(address user) external view returns (uint256 tokens);
+}
+
 interface IDataProvider {
     /* ----- Struct ----- */
 
@@ -48,6 +52,7 @@ interface IDataProvider {
         uint256[] rewardDebts;
         uint256[] pendingXWooAmounts;
         uint256[] pendingWooAmounts;
+        uint256 pendingTokens;
     }
 
     struct SuperChargerRelatedInfos {
@@ -60,6 +65,7 @@ interface IDataProvider {
     function infos(
         address user,
         address masterChefWoo,
+        address wooSimpleRewarder,
         address[] memory vaults,
         address[] memory tokens,
         address[] memory superChargerVaults,
@@ -92,6 +98,8 @@ interface IDataProvider {
         address masterChefWoo,
         uint256[] memory pids
     ) external view returns (uint256[] memory pendingXWooAmounts, uint256[] memory pendingWooAmounts);
+
+    function pendingTokens(address user, address wooSimpleRewarder) external view returns (uint256 tokens);
 
     function requestedWithdrawAmounts(address user, address[] memory superChargerVaults)
         external
