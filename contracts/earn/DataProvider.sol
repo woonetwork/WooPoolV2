@@ -62,11 +62,7 @@ contract DataProvider is IDataProvider {
         }
     }
 
-    function costSharePrices(address user, address[] memory vaults)
-        public
-        view
-        returns (uint256[] memory results)
-    {
+    function costSharePrices(address user, address[] memory vaults) public view returns (uint256[] memory results) {
         uint256 length = vaults.length;
         results = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {
