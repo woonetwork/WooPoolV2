@@ -34,17 +34,18 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import {WooracleV2} from "./WooracleV2.sol";
+import {WooracleV2_1} from "./WooracleV2_1.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "./libraries/TransferHelper.sol";
 
-/// @title Wooracle V2 contract for L2 chains for calldata zip.
-contract WooracleV2ZipInherit is WooracleV2 {
+/// @title Wooracle V2.1 contract for L2 chains for calldata zip.
+/// subversion 1 change: no timestamp update for posting price from WooPP.
+contract WooracleV2_1_ZipInherit is WooracleV2_1 {
     mapping(uint8 => address) public bases;
 
     function setBase(uint8 _id, address _base) external onlyAdmin {
-        require(getBase(_id) == address(0), "WooracleV2Zip: !id_SET_ALREADY");
+        require(getBase(_id) == address(0), "WooracleV2_1_ZipInherit: !id_SET_ALREADY");
         bases[_id] = _base;
     }
 
@@ -85,7 +86,7 @@ contract WooracleV2ZipInherit is WooracleV2 {
         */
 
         uint256 x = _input.length;
-        require(x > 0, "WooracleV2Zip: !calldata");
+        require(x > 0, "WooracleV2_1_ZipInherit: !calldata");
 
         uint8 firstByte = uint8(bytes1(_input[0]));
         uint8 op = firstByte >> 6; // 11000000
