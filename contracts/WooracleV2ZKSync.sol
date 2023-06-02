@@ -433,7 +433,7 @@ contract WooracleV2ZKSync is Ownable, IWooracleV2 {
                 _setState(base, p, s, k);
             }
 
-            timestamp = (op == 0) ? block.timestamp : uint256(uint32(bytes4(_input[1 + len * 9:1 + len * 9 + 4])));
+            timestamp = (op == 1) ? block.timestamp : uint256(uint32(bytes4(_input[1 + len * 9:1 + len * 9 + 4])));
         } else {
             // not supported
         }
