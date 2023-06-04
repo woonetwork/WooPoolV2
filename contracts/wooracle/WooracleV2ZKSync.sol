@@ -34,24 +34,24 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import "./interfaces/IWooracleV2.sol";
-import "./interfaces/AggregatorV3Interface.sol";
+import "../interfaces/IWooracleV2.sol";
+import "../interfaces/AggregatorV3Interface.sol";
+import "../libraries/TransferHelper.sol";
 
 // OpenZeppelin contracts
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @title Wooracle V2 contract:
-/// subversion 1 change: no timestamp update for posting price from WooPP.
-contract WooracleV2_1 is Ownable, IWooracleV2 {
+/// @title Wooracle V2 contract for ZKSync
+contract WooracleV2ZKSync is Ownable, IWooracleV2 {
     /* ----- State variables ----- */
 
     // 128 + 64 + 64 = 256 bits (slot size)
     struct TokenInfo {
-        uint128 price; // as chainlink oracle (e.g. decimal = 8)
-        uint64 coeff; // k: decimal = 18.    18.4 * 1e18
-        uint64 spread; // s: decimal = 18.   spread <= 2e18   18.4 * 1e18
+        uint128 price; // as chainlink oracle (e.g. decimal = 8)                zip: 32 bits = (27, 5)
+        uint64 coeff; // k: decimal = 18.    18.4 * 1e18                        zip: 16 bits = (11, 5), 2^11 = 2048
+        uint64 spread; // s: decimal = 18.   spread <= 2e18   18.4 * 1e18       zip: 16 bits = (11, 5)
     }
 
     struct CLOracle {
@@ -61,21 +61,20 @@ contract WooracleV2_1 is Ownable, IWooracleV2 {
     }
 
     mapping(address => TokenInfo) public infos;
-
     mapping(address => CLOracle) public clOracles;
 
-    address public quoteToken;
-    uint256 public timestamp;
+    address public override quoteToken;
+    uint256 public override timestamp;
 
     uint256 public staleDuration;
     uint64 public bound;
 
     mapping(address => bool) public isAdmin;
 
-    address public wooPP;
+    mapping(uint8 => address) public basesMap;
 
     constructor() {
-        staleDuration = uint256(300);
+        staleDuration = uint256(120); // default: 2 mins
         bound = uint64(1e16); // 1%
     }
 
@@ -85,10 +84,6 @@ contract WooracleV2_1 is Ownable, IWooracleV2 {
     }
 
     /* ----- External Functions ----- */
-
-    function setWooPP(address _wooPP) external onlyAdmin {
-        wooPP = _wooPP;
-    }
 
     function setAdmin(address addr, bool flag) external onlyOwner {
         isAdmin[addr] = flag;
@@ -129,28 +124,33 @@ contract WooracleV2_1 is Ownable, IWooracleV2 {
         staleDuration = newStaleDuration;
     }
 
+    function postPrice(
+        address, /* base */
+        uint128 /* newPrice */
+    ) external onlyAdmin {
+        revert("NOT SUPPORTED IN ZKSYNC");
+    }
+
     /// @dev Update the base token prices.
     /// @param base the baseToken address
     /// @param newPrice the new prices for the base token
-    function postPrice(address base, uint128 newPrice) external onlyAdmin {
+    function postPrice(
+        address base,
+        uint128 newPrice,
+        uint256 _ts
+    ) external onlyAdmin {
         infos[base].price = newPrice;
-        if (msg.sender != wooPP) {
-            timestamp = block.timestamp;
-        }
-    }
-
-    /// @dev No wooPP check for msg.sedner; always update the timestamp.
-    /// @param base the baseToken address
-    /// @param newPrice the new prices for the base token
-    function postPriceLegacy(address base, uint128 newPrice) external onlyAdmin {
-        infos[base].price = newPrice;
-        timestamp = block.timestamp;
+        timestamp = _ts;
     }
 
     /// @dev batch update baseTokens prices
     /// @param bases list of baseToken address
     /// @param newPrices the updated prices list
-    function postPriceList(address[] calldata bases, uint128[] calldata newPrices) external onlyAdmin {
+    function postPriceList(
+        address[] calldata bases,
+        uint128[] calldata newPrices,
+        uint256 _ts
+    ) external onlyAdmin {
         uint256 length = bases.length;
         require(length == newPrices.length, "Wooracle: length_INVALID");
 
@@ -163,31 +163,16 @@ contract WooracleV2_1 is Ownable, IWooracleV2 {
             }
         }
 
-        timestamp = block.timestamp;
+        timestamp = _ts;
     }
 
-    /// @dev update the spreads info.
-    /// @param base baseToken address
-    /// @param newSpread the new spreads
-    function postSpread(address base, uint64 newSpread) external onlyAdmin {
-        infos[base].spread = newSpread;
-        timestamp = block.timestamp;
-    }
-
-    /// @dev batch update the spreads info.
-    /// @param bases list of baseToken address
-    /// @param newSpreads list of spreads info
-    function postSpreadList(address[] calldata bases, uint64[] calldata newSpreads) external onlyAdmin {
-        uint256 length = bases.length;
-        require(length == newSpreads.length, "Wooracle: length_INVALID");
-
-        unchecked {
-            for (uint256 i = 0; i < length; i++) {
-                infos[bases[i]].spread = newSpreads[i];
-            }
-        }
-
-        timestamp = block.timestamp;
+    function postState(
+        address, /* base */
+        uint128, /* newPrice */
+        uint64, /* newSpread */
+        uint64 /* newCoeff */
+    ) external onlyAdmin {
+        revert("NOT SUPPORTED IN ZKSYNC");
     }
 
     /// @dev update the state of the given base token.
@@ -199,10 +184,11 @@ contract WooracleV2_1 is Ownable, IWooracleV2 {
         address base,
         uint128 newPrice,
         uint64 newSpread,
-        uint64 newCoeff
+        uint64 newCoeff,
+        uint256 _ts
     ) external onlyAdmin {
         _setState(base, newPrice, newSpread, newCoeff);
-        timestamp = block.timestamp;
+        timestamp = _ts;
     }
 
     /// @dev batch update the prices, spreads and slipagge coeffs info.
@@ -214,7 +200,8 @@ contract WooracleV2_1 is Ownable, IWooracleV2 {
         address[] calldata bases,
         uint128[] calldata newPrices,
         uint64[] calldata newSpreads,
-        uint64[] calldata newCoeffs
+        uint64[] calldata newCoeffs,
+        uint256 _ts
     ) external onlyAdmin {
         uint256 length = bases.length;
         unchecked {
@@ -222,7 +209,7 @@ contract WooracleV2_1 is Ownable, IWooracleV2 {
                 _setState(bases[i], newPrices[i], newSpreads[i], newCoeffs[i]);
             }
         }
-        timestamp = block.timestamp;
+        timestamp = _ts;
     }
 
     /*
@@ -259,7 +246,7 @@ contract WooracleV2_1 is Ownable, IWooracleV2 {
     /// @notice the price decimal for the specified base token
     function decimals(address base) external view override returns (uint8) {
         uint8 d = clOracles[base].decimal;
-        return d != 0 ? d : 8;
+        return d != 0 ? d : 8; // why 8 for default?
     }
 
     function cloPrice(address base) external view override returns (uint256 refPrice, uint256 refTimestamp) {
@@ -268,6 +255,30 @@ contract WooracleV2_1 is Ownable, IWooracleV2 {
 
     function isWoFeasible(address base) external view override returns (bool) {
         return infos[base].price != 0 && block.timestamp <= (timestamp + staleDuration);
+    }
+
+    function syncTS() external onlyAdmin {
+        timestamp = block.timestamp;
+    }
+
+    function syncTS(uint256 _ts) external onlyAdmin {
+        timestamp = _ts;
+    }
+
+    function debugTS()
+        external
+        view
+        returns (
+            uint256 n,
+            uint256 bs,
+            uint256 ts,
+            bool f
+        )
+    {
+        n = block.number;
+        bs = block.timestamp;
+        ts = timestamp;
+        f = block.timestamp <= (timestamp + staleDuration);
     }
 
     function woSpread(address base) external view override returns (uint64) {
@@ -305,13 +316,13 @@ contract WooracleV2_1 is Ownable, IWooracleV2 {
         clo = clOracles[base].oracle;
     }
 
-    /* ----- Internal & Private Functions ----- */
+    /* ----- Private Functions ----- */
     function _setState(
         address base,
         uint128 newPrice,
         uint64 newSpread,
         uint64 newCoeff
-    ) internal {
+    ) private {
         TokenInfo storage info = infos[base];
         info.price = newPrice;
         info.spread = newSpread;
@@ -339,5 +350,109 @@ contract WooracleV2_1 is Ownable, IWooracleV2 {
         uint256 ceoff = uint256(10)**quoteDecimal;
         refPrice = (baseRefPrice * ceoff) / quoteRefPrice;
         refTimestamp = baseUpdatedAt >= quoteUpdatedAt ? quoteUpdatedAt : baseUpdatedAt;
+    }
+
+    /* ----- Zip Related Functions ----- */
+
+    function setBase(uint8 _id, address _base) external onlyAdmin {
+        require(getBase(_id) == address(0), "WooracleV2ZKSync: !id_SET_ALREADY");
+        basesMap[_id] = _base;
+    }
+
+    function getBase(uint8 _id) public view returns (address) {
+        address[5] memory CONST_BASES = [
+            // mload
+            // NOTE: Update token address for different chains
+            0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, // WETH
+            0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f, // WBTC
+            0xcAFcD85D8ca7Ad1e1C6F82F651fA15E33AEfD07b, // WOO
+            0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9, // USDT
+            0x912CE59144191C1204E64559FE8253a0e49E6548 // ARB
+        ];
+
+        return _id < CONST_BASES.length ? CONST_BASES[_id] : basesMap[_id];
+    }
+
+    // https://docs.soliditylang.org/en/v0.8.12/contracts.html#fallback-function
+    // prettier-ignore
+    fallback (bytes calldata _input) external onlyAdmin returns (bytes memory _output) {
+        /*
+            2 bit:  0: post prices,
+                    1: post states,
+                    2: post prices with local timestamp
+                    3: post states with local timestamp
+            6 bits: length
+
+            post prices:
+               [price] -->
+                  base token: 8 bites (1 byte)
+                  price data: 32 bits = (27, 5)
+
+            post states:
+               [states] -->
+                  base token: 8 bites (1 byte)
+                  price:      32 bits (4 bytes) = (27, 5)
+                  k coeff:    16 bits (2 bytes) = (11, 5)
+                  s spread:   16 bits (2 bytes) = (11, 5)
+
+            4 bytes (32bits): timestamp
+                MAX: 2^32-1 = 4,294,967,295 = Feb 7, 2106 6:28:15 AM (~83 years away)
+        */
+
+        uint256 x = _input.length;
+        require(x > 0, "WooracleV2Zip: !calldata");
+
+        uint8 firstByte = uint8(bytes1(_input[0]));
+        uint8 op = firstByte >> 6; // 11000000
+        uint8 len = firstByte & 0x3F; // 00111111
+
+        if (op == 0 || op == 2) {
+            // post prices list
+            address base;
+            uint128 p;
+
+            for (uint256 i = 0; i < len; ++i) {
+                base = getBase(uint8(bytes1(_input[1 + i * 5:1 + i * 5 + 1])));
+                p = _price(uint32(bytes4(_input[1 + i * 5 + 1:1 + i * 5 + 5])));
+                infos[base].price = p;
+            }
+
+            timestamp = (op == 0) ? block.timestamp : uint256(uint32(bytes4(_input[1 + len * 5:1 + len * 5 + 4])));
+        } else if (op == 1 || op == 3) {
+            // post states list
+            address base;
+            uint128 p;
+            uint64 s;
+            uint64 k;
+
+            for (uint256 i = 0; i < len; ++i) {
+                base = getBase(uint8(bytes1(_input[1 + i * 9:1 + i * 9 + 1])));
+                p = _price(uint32(bytes4(_input[1 + i * 9 + 1:1 + i * 9 + 5])));
+                s = _ks(uint16(bytes2(_input[1 + i * 9 + 5:1 + i * 9 + 7])));
+                k = _ks(uint16(bytes2(_input[1 + i * 9 + 7:1 + i * 9 + 9])));
+                _setState(base, p, s, k);
+            }
+
+            timestamp = (op == 1) ? block.timestamp : uint256(uint32(bytes4(_input[1 + len * 9:1 + len * 9 + 4])));
+        } else {
+            // not supported
+        }
+    }
+
+    function _price(uint32 b) internal pure returns (uint128) {
+        return uint128((b >> 5) * (10**(b & 0x1F))); // 0x1F = 00011111
+    }
+
+    function _ks(uint16 b) internal pure returns (uint64) {
+        return uint64((b >> 5) * (10**(b & 0x1F)));
+    }
+
+    function inCaseTokenGotStuck(address stuckToken) external onlyAdmin {
+        if (stuckToken == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
+            TransferHelper.safeTransferETH(msg.sender, address(this).balance);
+        } else {
+            uint256 amount = IERC20(stuckToken).balanceOf(address(this));
+            TransferHelper.safeTransfer(stuckToken, msg.sender, amount);
+        }
     }
 }

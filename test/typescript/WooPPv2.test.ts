@@ -39,7 +39,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 import { WooracleV2, WooPPV2 } from "../../typechain";
 import TestERC20TokenArtifact from "../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json";
-import WooracleV2Artifact from "../../artifacts/contracts/WooracleV2.sol/WooracleV2.json";
+import WooracleV2Artifact from "../../artifacts/contracts/wooracle/WooracleV2.sol/WooracleV2.json";
 import WooPPV2Artifact from "../../artifacts/contracts/WooPPV2.sol/WooPPV2.json";
 
 use(solidity);

@@ -4,7 +4,7 @@ import { ethers } from "hardhat";
 import { deployContract } from "ethereum-waffle";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { WooracleV2ZipInherit, WooracleV2, TestChainLink, TestQuoteChainLink } from "../../typechain";
-import WooracleV2ZipArtifact from "../../artifacts/contracts/WooracleV2ZipInherit.sol/WooracleV2ZipInherit.json";
+import WooracleV2ZipArtifact from "../../artifacts/contracts/wooracle/WooracleV2ZipInherit.sol/WooracleV2ZipInherit.json";
 import TestChainLinkArtifact from "../../artifacts/contracts/test/TestChainLink.sol/TestChainLink.json";
 import TestQuoteChainLinkArtifact from "../../artifacts/contracts/test/TestChainLink.sol/TestQuoteChainLink.json";
 import TestERC20TokenArtifact from "../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json";

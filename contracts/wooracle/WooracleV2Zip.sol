@@ -34,14 +34,29 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import {WooracleV2} from "./WooracleV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IWooracleV2} from "../interfaces/IWooracleV2.sol";
 
-import "./libraries/TransferHelper.sol";
+import "../libraries/TransferHelper.sol";
 
 /// @title Wooracle V2 contract for L2 chains for calldata zip.
-contract WooracleV2ZipInherit is WooracleV2 {
+contract WooracleV2Zip {
     mapping(uint8 => address) public bases;
+
+    IWooracleV2 public wooracle;
+
+    modifier onlyAdmin() {
+        require(wooracle.isAdmin(msg.sender), "WooracleV2Zip: !Admin");
+        _;
+    }
+
+    constructor(address _wooracle) {
+        wooracle = IWooracleV2(_wooracle);
+    }
+
+    function setWooracle(address _wooracle) external onlyAdmin {
+        wooracle = IWooracleV2(_wooracle);
+    }
 
     function setBase(uint8 _id, address _base) external onlyAdmin {
         require(getBase(_id) == address(0), "WooracleV2Zip: !id_SET_ALREADY");
@@ -68,7 +83,7 @@ contract WooracleV2ZipInherit is WooracleV2 {
     // prettier-ignore
     fallback (bytes calldata _input) external onlyAdmin returns (bytes memory _output) {
         /*
-            2 bit: 0: post prices, 1: post states, 2,3: TBD
+            2 bit: 0: post prices, 1: post states, 2,3: for future operations
             6 bits: length
 
             post prices:
@@ -83,7 +98,6 @@ contract WooracleV2ZipInherit is WooracleV2 {
                   k coeff:    16 bits (2 bytes) = (11, 5)
                   s spread:   16 bits (2 bytes) = (11, 5)
         */
-
         uint256 x = _input.length;
         require(x > 0, "WooracleV2Zip: !calldata");
 
@@ -94,30 +108,24 @@ contract WooracleV2ZipInherit is WooracleV2 {
             // post prices list
             address base;
             uint128 p;
-
             for (uint256 i = 0; i < len; ++i) {
                 base = getBase(uint8(bytes1(_input[1 + i * 5:1 + i * 5 + 1])));
                 p = _price(uint32(bytes4(_input[1 + i * 5 + 1:1 + i * 5 + 5])));
-                infos[base].price = p;
+                wooracle.postPrice(base, p);
             }
-
-            timestamp = block.timestamp;
         } else if (op == 1) {
             // post states list
             address base;
             uint128 p;
             uint64 s;
             uint64 k;
-
             for (uint256 i = 0; i < len; ++i) {
                 base = getBase(uint8(bytes1(_input[1 + i * 9:1 + i * 9 + 1])));
                 p = _price(uint32(bytes4(_input[1 + i * 9 + 1:1 + i * 9 + 5])));
                 s = _ks(uint16(bytes2(_input[1 + i * 9 + 5:1 + i * 9 + 7])));
                 k = _ks(uint16(bytes2(_input[1 + i * 9 + 7:1 + i * 9 + 9])));
-                _setState(base, p, s, k);
+                wooracle.postState(base, p, s, k);
             }
-
-            timestamp = block.timestamp;
         } else {
             // not supported
         }
