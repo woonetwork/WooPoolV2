@@ -1,0 +1,393 @@
+// SPDX-License-Identifier: MIT
+pragma solidity =0.8.14;
+
+/*
+
+░██╗░░░░░░░██╗░█████╗░░█████╗░░░░░░░███████╗██╗
+░██║░░██╗░░██║██╔══██╗██╔══██╗░░░░░░██╔════╝██║
+░╚██╗████╗██╔╝██║░░██║██║░░██║█████╗█████╗░░██║
+░░████╔═████║░██║░░██║██║░░██║╚════╝██╔══╝░░██║
+░░╚██╔╝░╚██╔╝░╚█████╔╝╚█████╔╝░░░░░░██║░░░░░██║
+░░░╚═╝░░░╚═╝░░░╚════╝░░╚════╝░░░░░░░╚═╝░░░░░╚═╝
+
+*
+* MIT License
+* ===========
+*
+* Copyright (c) 2020 WooTrade
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+import "../interfaces/IWooracleV2.sol";
+import "../interfaces/IWooPPV3.sol";
+import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/IWooLendingManager.sol";
+
+import "../libraries/TransferHelper.sol";
+
+import "./WooPPBase.sol";
+
+// OpenZeppelin contracts
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
+// REMOVE IT IN PROD
+// import "hardhat/console.sol";
+
+/// @title Woo pool for token swap, version 3.
+/// Change in version 3:
+///     - virtual quote: USD. All swaps are base to base.
+///     - Stable swap support
+///     - Legacy supercharger lending manager support
+contract WooPPV3 is WooPPBase, IWooPPV3 {
+    uint8 public constant USD_DECIMAL = 6;
+
+    /* ----- Type declarations ----- */
+    struct DecimalInfo {
+        uint64 priceDec; // 10**(price_decimal)
+        uint64 quoteDec; // 10**(quote_decimal)
+        uint64 baseDec; // 10**(base_decimal)
+    }
+
+    struct TokenInfo {
+        uint192 reserve; // balance reserve
+        uint16 feeRate; // 1 in 100000; 10 = 1bp = 0.01%; max = 65535
+    }
+
+    uint256 public unclaimedFee; // NOTE: in USD
+
+    // token address --> fee rate
+    mapping(address => TokenInfo) public tokenInfos;
+
+    mapping(address => IWooLendingManager) public lendManagers;
+
+    constructor() {}
+
+    /* ----- External Functions ----- */
+
+    /// @inheritdoc IWooPPV3
+    function tryQuery(
+        address fromToken,
+        address toToken,
+        uint256 fromAmount
+    ) external view override returns (uint256 toAmount) {
+        (toAmount, ) = _tryQueryBaseToBase(fromToken, toToken, fromAmount);
+    }
+
+    /// @inheritdoc IWooPPV3
+    function query(
+        address fromToken,
+        address toToken,
+        uint256 fromAmount
+    ) external view override returns (uint256 toAmount) {
+        (toAmount, ) = _tryQueryBaseToBase(fromToken, toToken, fromAmount);
+        require(toAmount <= tokenInfos[toToken].reserve, "IWooPPV3: INSUFF_BALANCE");
+    }
+
+    /// @inheritdoc IWooPPV3
+    function swap(
+        address fromToken,
+        address toToken,
+        uint256 fromAmount,
+        uint256 minToAmount,
+        address to,
+        address rebateTo
+    ) external override returns (uint256 realToAmount) {
+        realToAmount = _swapBaseToBase(fromToken, toToken, fromAmount, minToAmount, to, rebateTo);
+    }
+
+    /// @dev OKAY to be public method
+    function claimFee(address _withdrawToken) external nonReentrant {
+        require(feeAddr != address(0), "IWooPPV3: !feeAddr");
+        uint256 quoteAmount = unclaimedFee;
+        unclaimedFee = 0;
+        uint256 baseAmount;
+        {
+            uint256 newPrice;
+            IWooracleV2.State memory state = IWooracleV2(wooracle).state(_withdrawToken);
+            (baseAmount, newPrice) = _calcBaseAmountSellUsd(_withdrawToken, quoteAmount, state);
+            IWooracleV2(wooracle).postPrice(_withdrawToken, uint128(newPrice));
+            // console.log('Post new price:', newPrice, newPrice/1e8);
+        }
+        tokenInfos[_withdrawToken].reserve = uint192(tokenInfos[_withdrawToken].reserve - baseAmount);
+        TransferHelper.safeTransfer(_withdrawToken, feeAddr, baseAmount);
+    }
+
+    /// @inheritdoc IWooPPV3
+    /// @dev pool size = tokenInfo.reserve
+    function poolSize(address token) public view override returns (uint256) {
+        return tokenInfos[token].reserve;
+    }
+
+    /// @dev User pool balance (substracted unclaimed fee)
+    function balance(address token) public view returns (uint256) {
+        // WooPP V2 code:
+        // return token == quoteToken ? _rawBalance(token) - unclaimedFee : _rawBalance(token);
+        return _rawBalance(token);
+    }
+
+    function decimalInfo(address baseToken) public view returns (DecimalInfo memory) {
+        return
+            DecimalInfo({
+                priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
+                quoteDec: uint64(10)**(USD_DECIMAL), // 6, same as native USDC
+                baseDec: uint64(10)**(IERC20Metadata(baseToken).decimals()) // 18 or 8
+            });
+    }
+
+    /* ----- Admin Functions ----- */
+
+    function deposit(address token, uint256 amount) public override nonReentrant onlyAdmin {
+        uint256 balanceBefore = balance(token);
+        TransferHelper.safeTransferFrom(token, msg.sender, address(this), amount);
+        uint256 amountReceived = balance(token) - balanceBefore;
+        require(amountReceived >= amount, "AMOUNT_INSUFF");
+
+        tokenInfos[token].reserve = uint192(tokenInfos[token].reserve + amount);
+
+        emit Deposit(token, msg.sender, amount);
+    }
+
+    function depositAll(address token) external onlyAdmin {
+        deposit(token, IERC20(token).balanceOf(msg.sender));
+    }
+
+    function repayWeeklyLending(address wantToken) external nonReentrant onlyAdmin {
+        IWooLendingManager lendManager = lendManagers[wantToken];
+        lendManager.accureInterest();
+        uint256 amount = lendManager.weeklyRepayment();
+        address repaidToken = lendManager.want();
+        if (amount > 0) {
+            tokenInfos[repaidToken].reserve = uint192(tokenInfos[repaidToken].reserve - amount);
+            TransferHelper.safeApprove(repaidToken, address(lendManager), amount);
+            lendManager.repayWeekly();
+        }
+        emit Withdraw(repaidToken, address(lendManager), amount);
+    }
+
+    function withdraw(address token, uint256 amount) public nonReentrant onlyAdmin {
+        require(tokenInfos[token].reserve >= amount, "IWooPPV3: !amount");
+        tokenInfos[token].reserve = uint192(tokenInfos[token].reserve - amount);
+        TransferHelper.safeTransfer(token, owner(), amount);
+        emit Withdraw(token, owner(), amount);
+    }
+
+    function withdrawAll(address token) external onlyAdmin {
+        withdraw(token, poolSize(token));
+    }
+
+    function skim(address token) public nonReentrant onlyAdmin {
+        TransferHelper.safeTransfer(token, owner(), balance(token) - tokenInfos[token].reserve);
+    }
+
+    function skimMulTokens(address[] memory tokens) external nonReentrant onlyAdmin {
+        unchecked {
+            uint256 len = tokens.length;
+            for (uint256 i = 0; i < len; i++) {
+                skim(tokens[i]);
+            }
+        }
+    }
+
+    function sync(address token) external nonReentrant onlyAdmin {
+        tokenInfos[token].reserve = uint192(balance(token));
+    }
+
+    /* ----- Owner Functions ----- */
+
+    function setLendManager(IWooLendingManager _lendManager) external onlyOwner {
+        lendManagers[_lendManager.want()] = _lendManager;
+        isAdmin[address(_lendManager)] = true;
+        emit AdminUpdated(address(_lendManager), true);
+    }
+
+    function migrateToNewPool(address token, address newPool) external onlyOwner {
+        require(token != address(0), "WooPPV3: !token");
+        require(newPool != address(0), "WooPPV3: !newPool");
+
+        tokenInfos[token].reserve = 0;
+
+        uint256 bal = balance(token);
+        TransferHelper.safeApprove(token, newPool, bal);
+        WooPPV3(newPool).depositAll(token);
+
+        emit Migrate(token, newPool, bal);
+    }
+
+    /* ----- Private Functions ----- */
+
+    function _tryQueryBaseToBase(
+        address baseToken1,
+        address baseToken2,
+        uint256 base1Amount
+    ) private view whenNotPaused returns (uint256 base2Amount, uint256 swapFee) {
+        if (baseToken1 == address(0) || baseToken2 == address(0)) {
+            return (0, 0);
+        }
+
+        IWooracleV2.State memory state1 = IWooracleV2(wooracle).state(baseToken1);
+        IWooracleV2.State memory state2 = IWooracleV2(wooracle).state(baseToken2);
+
+        uint64 spread = _maxUInt64(state1.spread, state2.spread) / 2;
+        uint16 feeRate = _maxUInt16(tokenInfos[baseToken1].feeRate, tokenInfos[baseToken2].feeRate);
+
+        state1.spread = spread;
+        state2.spread = spread;
+
+        (uint256 usdAmount, ) = _calcUsdAmountSellBase(baseToken1, base1Amount, state1);
+
+        swapFee = (usdAmount * feeRate) / 1e5;
+        usdAmount = usdAmount - swapFee;
+
+        (base2Amount, ) = _calcBaseAmountSellUsd(baseToken2, usdAmount, state2);
+    }
+
+    function _swapBaseToBase(
+        address baseToken1,
+        address baseToken2,
+        uint256 base1Amount,
+        uint256 minBase2Amount,
+        address to,
+        address rebateTo
+    ) private nonReentrant whenNotPaused returns (uint256 base2Amount) {
+        require(baseToken1 != address(0), "IWooPPV3: !baseToken1");
+        require(baseToken2 != address(0), "IWooPPV3: !baseToken2");
+        require(to != address(0), "IWooPPV3: !to");
+
+        require(balance(baseToken1) - tokenInfos[baseToken1].reserve >= base1Amount, "IWooPPV3: !BASE1_BALANCE");
+
+        IWooracleV2.State memory state1 = IWooracleV2(wooracle).state(baseToken1);
+        IWooracleV2.State memory state2 = IWooracleV2(wooracle).state(baseToken2);
+
+        uint256 swapFee;
+        uint256 usdAmount;
+        {
+            uint64 spread = _maxUInt64(state1.spread, state2.spread) / 2;
+            uint16 feeRate = _maxUInt16(tokenInfos[baseToken1].feeRate, tokenInfos[baseToken2].feeRate);
+
+            state1.spread = spread;
+            state2.spread = spread;
+
+            uint256 newBase1Price;
+            (usdAmount, newBase1Price) = _calcUsdAmountSellBase(baseToken1, base1Amount, state1);
+            IWooracleV2(wooracle).postPrice(baseToken1, uint128(newBase1Price));
+            // console.log('Post new base1 price:', newBase1Price, newBase1Price/1e8);
+
+            swapFee = (usdAmount * feeRate) / 1e5;
+        }
+
+        usdAmount -= swapFee;
+        unclaimedFee += swapFee;
+
+        tokenInfos[baseToken1].reserve = uint192(tokenInfos[baseToken1].reserve + base1Amount);
+
+        {
+            uint256 newBase2Price;
+            (base2Amount, newBase2Price) = _calcBaseAmountSellUsd(baseToken2, usdAmount, state2);
+            IWooracleV2(wooracle).postPrice(baseToken2, uint128(newBase2Price));
+            // console.log('Post new base2 price:', newBase2Price, newBase2Price/1e8);
+            require(base2Amount >= minBase2Amount, "IWooPPV3: base2Amount_LT_minBase2Amount");
+        }
+
+        tokenInfos[baseToken2].reserve = uint192(tokenInfos[baseToken2].reserve - base2Amount);
+
+        if (to != address(this)) {
+            TransferHelper.safeTransfer(baseToken2, to, base2Amount);
+        }
+
+        emit WooSwap(
+            baseToken1,
+            baseToken2,
+            base1Amount,
+            base2Amount,
+            msg.sender,
+            to,
+            rebateTo,
+            usdAmount + swapFee,
+            swapFee
+        );
+    }
+
+    /// @dev Get the pool's balance of the specified token
+    /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
+    /// @dev forked and curtesy by Uniswap v3 core
+    function _rawBalance(address token) private view returns (uint256) {
+        (bool success, bytes memory data) = token.staticcall(
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(this))
+        );
+        require(success && data.length >= 32, "IWooPPV3: !BALANCE");
+        return abi.decode(data, (uint256));
+    }
+
+    function _calcUsdAmountSellBase(
+        address baseToken,
+        uint256 baseAmount,
+        IWooracleV2.State memory state
+    ) internal view returns (uint256 usdAmount, uint256 newPrice) {
+        require(state.woFeasible, "IWooPPV3: !ORACLE_FEASIBLE");
+
+        DecimalInfo memory decs = decimalInfo(baseToken);
+
+        // usdAmount = baseAmount * oracle.price * (1 - oracle.k * baseAmount * oracle.price - oracle.spread)
+        {
+            uint256 coef = uint256(1e18) -
+                ((uint256(state.coeff) * baseAmount * state.price) / decs.baseDec / decs.priceDec) -
+                state.spread;
+            usdAmount = (((baseAmount * decs.quoteDec * state.price) / decs.priceDec) * coef) / 1e18 / decs.baseDec;
+        }
+
+        // newPrice = oracle.price * (1 - 2 * k * oracle.price * baseAmount)
+        newPrice =
+            ((uint256(1e18) - (uint256(2) * state.coeff * state.price * baseAmount) / decs.priceDec / decs.baseDec) *
+                state.price) /
+            1e18;
+    }
+
+    function _calcBaseAmountSellUsd(
+        address baseToken,
+        uint256 usdAmount,
+        IWooracleV2.State memory state
+    ) internal view returns (uint256 baseAmount, uint256 newPrice) {
+        require(state.woFeasible, "IWooPPV3: !ORACLE_FEASIBLE");
+
+        DecimalInfo memory decs = decimalInfo(baseToken);
+
+        // baseAmount = usdAmount / oracle.price * (1 - oracle.k * usdAmount - oracle.spread)
+        {
+            uint256 coef = uint256(1e18) - (usdAmount * state.coeff) / decs.quoteDec - state.spread;
+            baseAmount = (((usdAmount * decs.baseDec * decs.priceDec) / state.price) * coef) / 1e18 / decs.quoteDec;
+        }
+
+        // new_price = oracle.price * (1 + 2 * k * usdAmount)
+        newPrice =
+            ((uint256(1e18) * decs.quoteDec + uint256(2) * state.coeff * usdAmount) * state.price) /
+            decs.quoteDec /
+            1e18;
+    }
+
+    function _maxUInt16(uint16 a, uint16 b) private pure returns (uint16) {
+        return a > b ? a : b;
+    }
+
+    function _maxUInt64(uint64 a, uint64 b) private pure returns (uint64) {
+        return a > b ? a : b;
+    }
+}
