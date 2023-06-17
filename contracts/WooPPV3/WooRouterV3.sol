@@ -79,6 +79,10 @@ contract WooRouterV3 is IWooRouterV3, Ownable, ReentrancyGuard {
         wooPP = IWooPPV3(_wooPP);
     }
 
+    function usdOFT() external view returns (address) {
+        return wooPP.usdOFT();
+    }
+
     /// @inheritdoc IWooRouterV3
     function querySwap(
         address fromToken,

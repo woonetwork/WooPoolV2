@@ -82,8 +82,6 @@ interface IWooCrossChainRouterV3 {
 
     function weth() external view returns (address);
 
-    function bridgeSlippage() external view returns (uint256);
-
     function dstGas() external view returns (uint256);
 
     function lzChainIdLocal() external view returns (uint16);

@@ -53,10 +53,7 @@ abstract contract WooPPBase is Pausable, Ownable, ReentrancyGuard {
     address public wooracle;
     address public feeAddr;
 
-    constructor() {}
-
-    function init(address _wooracle, address _feeAddr) external onlyOwner {
-        require(address(wooracle) == address(0), "WooPPBase: INIT_INVALID");
+    constructor(address _wooracle, address _feeAddr) {
         wooracle = _wooracle;
         feeAddr = _feeAddr;
     }
@@ -89,7 +86,7 @@ abstract contract WooPPBase is Pausable, Ownable, ReentrancyGuard {
         emit AdminUpdated(addr, flag);
     }
 
-    function inCaseTokenGotStuck(address stuckToken) external virtual onlyOwner {
+    function inCaseTokenGotStuck(address stuckToken) external onlyOwner {
         if (stuckToken == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
             TransferHelper.safeTransferETH(_msgSender(), address(this).balance);
         } else {

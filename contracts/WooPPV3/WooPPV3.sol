@@ -43,6 +43,8 @@ import "../libraries/TransferHelper.sol";
 
 import "./WooPPBase.sol";
 
+import {WooUsdOFT} from "./WooUsdOFT.sol";
+
 // OpenZeppelin contracts
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -58,8 +60,6 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 ///     - Stable swap support
 ///     - Legacy supercharger lending manager support
 contract WooPPV3 is WooPPBase, IWooPPV3 {
-    uint8 public constant USD_DECIMAL = 6;
-
     /* ----- Type declarations ----- */
     struct DecimalInfo {
         uint64 priceDec; // 10**(price_decimal)
@@ -79,7 +79,16 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
 
     mapping(address => IWooLendingManager) public lendManagers;
 
-    constructor() {}
+    // int256 public usdReserve;    // USD (virtual quote) balance
+    address public usdOFT;
+
+    constructor(
+        address _wooracle,
+        address _feeAddr,
+        address _usdOFT
+    ) WooPPBase(_wooracle, _feeAddr) {
+        usdOFT = _usdOFT;
+    }
 
     /* ----- External Functions ----- */
 
@@ -89,7 +98,13 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         address toToken,
         uint256 fromAmount
     ) external view override returns (uint256 toAmount) {
-        (toAmount, ) = _tryQueryBaseToBase(fromToken, toToken, fromAmount);
+        if (fromToken == usdOFT) {
+            toAmount = _tryQuerySellUsd(toToken, fromAmount);
+        } else if (toToken == usdOFT) {
+            toAmount = _tryQuerySellBase(fromToken, fromAmount);
+        } else {
+            (toAmount, ) = _tryQueryBaseToBase(fromToken, toToken, fromAmount);
+        }
     }
 
     /// @inheritdoc IWooPPV3
@@ -98,8 +113,16 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         address toToken,
         uint256 fromAmount
     ) external view override returns (uint256 toAmount) {
-        (toAmount, ) = _tryQueryBaseToBase(fromToken, toToken, fromAmount);
-        require(toAmount <= tokenInfos[toToken].reserve, "IWooPPV3: INSUFF_BALANCE");
+        if (fromToken == usdOFT) {
+            toAmount = _tryQuerySellUsd(toToken, fromAmount);
+        } else if (toToken == usdOFT) {
+            toAmount = _tryQuerySellBase(fromToken, fromAmount);
+        } else {
+            (toAmount, ) = _tryQueryBaseToBase(fromToken, toToken, fromAmount);
+            // TODO: double check it
+            // require(swapFee <= tokenInfos[quoteToken].reserve, "WooPPV3: INSUFF_QUOTE_FOR_SWAPFEE");
+        }
+        require(toAmount <= tokenInfos[toToken].reserve, "WooPPV3: INSUFF_BALANCE");
     }
 
     /// @inheritdoc IWooPPV3
@@ -148,7 +171,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         return
             DecimalInfo({
                 priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
-                quoteDec: uint64(10)**(USD_DECIMAL), // 6, same as native USDC
+                quoteDec: uint64(10)**(IERC20Metadata(usdOFT).decimals()), // 6, same as native USDC
                 baseDec: uint64(10)**(IERC20Metadata(baseToken).decimals()) // 18 or 8
             });
     }
@@ -184,7 +207,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
     }
 
     function withdraw(address token, uint256 amount) public nonReentrant onlyAdmin {
-        require(tokenInfos[token].reserve >= amount, "IWooPPV3: !amount");
+        require(tokenInfos[token].reserve >= amount, "WooPPV3: !amount");
         tokenInfos[token].reserve = uint192(tokenInfos[token].reserve - amount);
         TransferHelper.safeTransfer(token, owner(), amount);
         emit Withdraw(token, owner(), amount);
@@ -205,6 +228,10 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
                 skim(tokens[i]);
             }
         }
+    }
+
+    function skimUSD(address to) external nonReentrant onlyAdmin {
+        TransferHelper.safeTransfer(usdOFT, to, balance(usdOFT) - unclaimedFee);
     }
 
     function sync(address token) external nonReentrant onlyAdmin {
@@ -232,14 +259,29 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         emit Migrate(token, newPool, bal);
     }
 
-    /* ----- Private Functions ----- */
+    /* ----- Internal Functions ----- */
+
+    function _tryQuerySellBase(address baseToken, uint256 baseAmount) internal view returns (uint256 usdAmount) {
+        IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+        (usdAmount, ) = _calcUsdAmountSellBase(baseToken, baseAmount, state);
+        uint256 fee = (usdAmount * tokenInfos[baseToken].feeRate) / 1e5;
+        usdAmount = usdAmount - fee;
+    }
+
+    function _tryQuerySellUsd(address baseToken, uint256 usdAmount) internal view returns (uint256 baseAmount) {
+        uint256 swapFee = (usdAmount * tokenInfos[baseToken].feeRate) / 1e5;
+        usdAmount = usdAmount - swapFee;
+        IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+        (baseAmount, ) = _calcBaseAmountSellUsd(baseToken, usdAmount, state);
+    }
 
     function _tryQueryBaseToBase(
         address baseToken1,
         address baseToken2,
         uint256 base1Amount
     ) private view whenNotPaused returns (uint256 base2Amount, uint256 swapFee) {
-        if (baseToken1 == address(0) || baseToken2 == address(0)) {
+        if (baseToken1 == address(0) || baseToken2 == address(0) ||
+            baseToken1 == usdOFT || baseToken2 == usdOFT) {
             return (0, 0);
         }
 
@@ -268,8 +310,8 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         address to,
         address rebateTo
     ) private nonReentrant whenNotPaused returns (uint256 base2Amount) {
-        require(baseToken1 != address(0), "IWooPPV3: !baseToken1");
-        require(baseToken2 != address(0), "IWooPPV3: !baseToken2");
+        require(baseToken1 != address(0) && baseToken1 != usdOFT, "IWooPPV3: !baseToken1");
+        require(baseToken2 != address(0) && baseToken2 != usdOFT, "IWooPPV3: !baseToken2");
         require(to != address(0), "IWooPPV3: !to");
 
         require(balance(baseToken1) - tokenInfos[baseToken1].reserve >= base1Amount, "IWooPPV3: !BASE1_BALANCE");
@@ -322,6 +364,99 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
             to,
             rebateTo,
             usdAmount + swapFee,
+            swapFee
+        );
+    }
+
+    function _swapBaseToUsd(
+        address baseToken,
+        uint256 baseAmount,
+        uint256 minQuoteAmount,
+        address to,
+        address rebateTo
+    ) internal returns (uint256 quoteAmount) {
+        require(baseToken != address(0) && baseToken != usdOFT, "WooPPV3: !baseToken");
+        require(to != address(0), "WooPPV3: !to");
+        require(
+            balance(baseToken) - tokenInfos[baseToken].reserve >= baseAmount,
+            "WooPPV3: BASE_BALANCE_NOT_ENOUGH"
+        );
+
+        {
+            uint256 newPrice;
+            IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+            (quoteAmount, newPrice) = _calcUsdAmountSellBase(baseToken, baseAmount, state);
+            IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
+            // console.log('Post new price:', newPrice, newPrice/1e8);
+        }
+
+        uint256 swapFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
+        quoteAmount -= swapFee;
+        require(quoteAmount >= minQuoteAmount, "WooPPV3: quoteAmount_LT_minQuoteAmount");
+
+        unclaimedFee += swapFee;
+        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve + baseAmount);
+
+        // ATTENTION: for cross chain, usdOFT will be minted in base->usd swap
+        WooUsdOFT(usdOFT).mint(to, quoteAmount + swapFee);
+
+        emit WooSwap(
+            baseToken,
+            usdOFT,
+            baseAmount,
+            quoteAmount,
+            msg.sender,
+            to,
+            rebateTo,
+            (quoteAmount + swapFee),
+            swapFee
+        );
+    }
+
+    function _swapUsdToBase(
+        address baseToken,
+        uint256 quoteAmount,
+        uint256 minBaseAmount,
+        address to,
+        address rebateTo
+    ) internal returns (uint256 baseAmount) {
+        require(baseToken != address(0) && baseToken != usdOFT, "WooPPV3: !baseToken");
+        require(to != address(0), "WooPPV3: !to");
+
+        // TODO: double check this logic
+        require(balance(usdOFT) - unclaimedFee >= quoteAmount, "WooPPV3: USD_BALANCE_NOT_ENOUGH");
+
+        uint256 swapFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
+        quoteAmount -= swapFee; // NOTE: quote deducted the swap fee
+        unclaimedFee += swapFee;
+
+        {
+            uint256 newPrice;
+            IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+            (baseAmount, newPrice) = _calcBaseAmountSellUsd(baseToken, quoteAmount, state);
+            IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
+            // console.log('Post new price:', newPrice, newPrice/1e8);
+            require(baseAmount >= minBaseAmount, "WooPPV3: baseAmount_LT_minBaseAmount");
+        }
+
+        tokenInfos[baseToken].reserve = uint192(tokenInfos[baseToken].reserve - baseAmount);
+
+        // ATTENTION: for cross swap, usdOFT will be burnt in usd->base swap
+        WooUsdOFT(usdOFT).burn(address(this), quoteAmount);
+
+        if (to != address(this)) {
+            TransferHelper.safeTransfer(baseToken, to, baseAmount);
+        }
+
+        emit WooSwap(
+            usdOFT,
+            baseToken,
+            quoteAmount + swapFee,
+            baseAmount,
+            msg.sender,
+            to,
+            rebateTo,
+            quoteAmount + swapFee,
             swapFee
         );
     }

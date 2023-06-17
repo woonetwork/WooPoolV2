@@ -67,6 +67,8 @@ interface IWooRouterV3 {
 
     function wooPP() external view returns (IWooPPV3);
 
+    function usdOFT() external view returns (address);
+
     /* ----- Main query & swap APIs ----- */
 
     /// @notice query the amount to swap fromToken -> toToken

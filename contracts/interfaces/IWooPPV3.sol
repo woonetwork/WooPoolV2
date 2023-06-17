@@ -58,6 +58,10 @@ interface IWooPPV3 {
 
     /* ----- External Functions ----- */
 
+    /// @notice Gets the woo USD OFT address
+    /// @return the oft address
+    function usdOFT() external view returns (address);
+
     /// @notice Gets the pool size of the specified token (swap liquidity).
     /// @param token the token address
     /// @return the pool size

@@ -12,7 +12,6 @@ import {ICommonOFT, IOFTV2} from "@layerzerolabs/solidity-examples/contracts/tok
 import {IWETH} from "../interfaces/IWETH.sol";
 import {IWooCrossChainRouterV3} from "../interfaces/IWooCrossChainRouterV3.sol";
 import {IWooRouterV3} from "../interfaces/IWooRouterV3.sol";
-import {IWooPPV3Cross} from "../interfaces/IWooPPV3Cross.sol";
 import {ILzApp} from "../interfaces/LayerZero/ILzApp.sol";
 
 import {TransferHelper} from "../libraries/TransferHelper.sol";
@@ -28,10 +27,9 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
 
     /* ----- Variables ----- */
 
-    IWooPPV3Cross public wooPPCross;
+    IWooRouterV3 public wooRouter;
 
     address public immutable weth;
-    uint256 public bridgeSlippage; // 1 in 10000th: default 1%
     uint256 public dstGas;
     uint16 public lzChainIdLocal; // Stargate chainId on local chain
 
@@ -41,14 +39,13 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
 
     constructor(
         address _weth,
-        address _wooPPCross,
+        address _wooRouter,
         uint16 _lzChainIdLocal
     ) {
         weth = _weth;
-        wooPPCross = IWooPPV3Cross(_wooPPCross);
+        wooRouter = IWooRouterV3(_wooRouter);
         lzChainIdLocal = _lzChainIdLocal;
 
-        bridgeSlippage = 100;
         dstGas = 600000;
 
         _initLz();
@@ -67,25 +64,27 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
         require(to != address(0), "WooUsdOFTCrossRouter: !to");
 
         uint256 msgValue = msg.value;
+        address usdOFT = wooRouter.usdOFT();
         uint256 bridgeAmount;
 
         {
             if (srcInfos.fromToken == ETH_PLACEHOLDER_ADDR) {
                 require(srcInfos.fromAmount <= msgValue, "WooUsdOFTCrossRouter: !srcInfos.fromAmount");
-                srcInfos.fromToken = weth;
-                IWETH(weth).deposit{value: srcInfos.fromAmount}();
+                // srcInfos.fromToken = weth;
+                // IWETH(weth).deposit{value: srcInfos.fromAmount}();
                 msgValue -= srcInfos.fromAmount;
             } else {
                 TransferHelper.safeTransferFrom(
                     srcInfos.fromToken,
                     msg.sender,
-                    address(wooPPCross),
+                    address(wooRouter),
                     srcInfos.fromAmount
                 );
             }
 
-            bridgeAmount = wooPPCross.swapBaseToUsd(
+            bridgeAmount = wooRouter.swap(
                 srcInfos.fromToken,
+                usdOFT,
                 srcInfos.fromAmount,
                 srcInfos.minBridgeAmount,
                 payable(address(this)),
@@ -93,18 +92,14 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
             );
 
             require(
-                bridgeAmount <= IERC20(srcInfos.bridgeToken).balanceOf(address(this)),
-                "WooUsdOFTCrossRouter: bridgeToken_BALANACE_NOT_ENOUGH"
+                bridgeAmount <= IERC20(usdOFT).balanceOf(address(this)),
+                "WooUsdOFTCrossRouter: usdOFT_BALANACE_NOT_ENOUGH"
             );
         }
-
-        // OFT src logic: require(_removeDust(bridgeAmount) >= minAmount)
-        uint256 minAmount = (bridgeAmount * (10000 - bridgeSlippage)) / 10000;
 
         bytes memory payload = abi.encode(refId, to, dstInfos.toToken, dstInfos.minToAmount);
 
         uint256 dstGasForCall = dstGas;
-        address usdOFT = wooPPCross.usdOFT();
         ICommonOFT.LzCallParams memory callParams;
         {
             bytes memory adapterParams = _getAdapterParams(to, address(usdOFT), dstGasForCall, dstInfos);
@@ -147,7 +142,7 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
         bytes memory payload = abi.encode(refId, to, dstInfos.toToken, dstInfos.minToAmount);
 
         uint256 dstGasForCall = dstGas;
-        address usdOFT = wooPPCross.usdOFT();
+        address usdOFT = wooRouter.usdOFT();
         bytes memory adapterParams = _getAdapterParams(to, address(usdOFT), dstGasForCall, dstInfos);
 
         bool useZro = false;
@@ -163,6 +158,63 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
                 useZro,
                 adapterParams
             );
+    }
+
+    function onOFTReceived(
+        uint16 srcChainId,
+        bytes memory, // srcAddress
+        uint64, // nonce
+        bytes32 from,
+        uint256 amountLD,
+        bytes memory payload
+    ) external {
+        address usdOFT = wooRouter.usdOFT();
+        address msgSender = _msgSender();
+        require(msgSender == usdOFT, "WooUsdOFTCrossRouter: INVALID_CALLER");
+
+        require(
+            wooCrossChainRouters[srcChainId] == address(uint160(uint256(from))),
+            "WooUsdOFTCrossRouter: INVALID_FROM"
+        );
+
+        // make sure the same order to abi.encode when decode payload
+        (uint256 refId, address to, address toToken, uint256 minToAmount) = abi.decode(
+            payload,
+            (uint256, address, address, uint256)
+        );
+
+        address bridgedToken = usdOFT;
+        uint256 bridgedAmount = amountLD;
+
+        TransferHelper.safeApprove(bridgedToken, address(wooRouter), bridgedAmount);
+        try wooRouter.swap(usdOFT, toToken, bridgedAmount, minToAmount, payable(to), to) returns (
+            uint256 realToAmount
+        ) {
+            emit WooCrossSwapOnDstChain(
+                refId,
+                msgSender,
+                to,
+                bridgedToken,
+                bridgedAmount,
+                toToken,
+                toToken,
+                minToAmount,
+                realToAmount
+            );
+        } catch {
+            TransferHelper.safeTransfer(bridgedToken, to, bridgedAmount);
+            emit WooCrossSwapOnDstChain(
+                refId,
+                msgSender,
+                to,
+                bridgedToken,
+                bridgedAmount,
+                toToken,
+                bridgedToken,
+                minToAmount,
+                bridgedAmount
+            );
+        }
     }
 
     function _initLz() internal {}
@@ -190,13 +242,8 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
 
     /* ----- Owner & Admin Functions ----- */
 
-    function setWooPPCross(address _wooPPCross) external onlyOwner {
-        wooPPCross = IWooPPV3Cross(_wooPPCross);
-    }
-
-    function setBridgeSlippage(uint256 _bridgeSlippage) external onlyOwner {
-        require(_bridgeSlippage <= 10000, "WooUsdOFTCrossRouter: !_bridgeSlippage");
-        bridgeSlippage = _bridgeSlippage;
+    function setWooRouter(address _wooRouter) external onlyOwner {
+        wooRouter = IWooRouterV3(_wooRouter);
     }
 
     function setDstGas(uint256 _dstGas) external onlyOwner {
