@@ -49,9 +49,13 @@ contract WooUsdOFT is OFTV2 {
     constructor(
         string memory _name,
         string memory _symbol,
-        uint8 _sharedDecimals,
         address _lzEndpoint
-    ) OFTV2(_name, _symbol, _sharedDecimals, _lzEndpoint) {}
+    ) OFTV2(_name, _symbol, decimals(), _lzEndpoint) {
+    }
+
+    function decimals() public override pure returns (uint8) {
+        return 6;
+    }
 
     function mint(address _user, uint256 _amount) public onlyWooPPAllowed {
         _mint(_user, _amount);
