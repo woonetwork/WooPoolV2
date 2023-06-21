@@ -240,6 +240,10 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
 
     /* ----- Owner Functions ----- */
 
+    function setUsdOFT(address _usdOFT) external onlyOwner {
+        usdOFT = _usdOFT;
+    }
+
     function setLendManager(IWooLendingManager _lendManager) external onlyOwner {
         lendManagers[_lendManager.want()] = _lendManager;
         isAdmin[address(_lendManager)] = true;
@@ -280,8 +284,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         address baseToken2,
         uint256 base1Amount
     ) private view whenNotPaused returns (uint256 base2Amount, uint256 swapFee) {
-        if (baseToken1 == address(0) || baseToken2 == address(0) ||
-            baseToken1 == usdOFT || baseToken2 == usdOFT) {
+        if (baseToken1 == address(0) || baseToken2 == address(0) || baseToken1 == usdOFT || baseToken2 == usdOFT) {
             return (0, 0);
         }
 
@@ -377,10 +380,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
     ) internal returns (uint256 quoteAmount) {
         require(baseToken != address(0) && baseToken != usdOFT, "WooPPV3: !baseToken");
         require(to != address(0), "WooPPV3: !to");
-        require(
-            balance(baseToken) - tokenInfos[baseToken].reserve >= baseAmount,
-            "WooPPV3: BASE_BALANCE_NOT_ENOUGH"
-        );
+        require(balance(baseToken) - tokenInfos[baseToken].reserve >= baseAmount, "WooPPV3: BASE_BALANCE_NOT_ENOUGH");
 
         {
             uint256 newPrice;
