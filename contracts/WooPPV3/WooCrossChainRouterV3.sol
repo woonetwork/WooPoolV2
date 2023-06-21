@@ -74,12 +74,8 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
                 // IWETH(weth).deposit{value: srcInfos.fromAmount}();
                 msgValue -= srcInfos.fromAmount;
             } else {
-                TransferHelper.safeTransferFrom(
-                    srcInfos.fromToken,
-                    msg.sender,
-                    address(wooRouter),
-                    srcInfos.fromAmount
-                );
+                TransferHelper.safeTransferFrom(srcInfos.fromToken, msg.sender, address(this), srcInfos.fromAmount);
+                TransferHelper.safeApprove(srcInfos.fromToken, address(wooRouter), srcInfos.fromAmount);
             }
 
             bridgeAmount = wooRouter.swap(
@@ -217,8 +213,7 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
         }
     }
 
-    function _initLz() internal {
-    }
+    function _initLz() internal {}
 
     function _getAdapterParams(
         address to,
