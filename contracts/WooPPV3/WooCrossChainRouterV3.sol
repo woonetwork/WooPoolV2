@@ -217,7 +217,8 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
         }
     }
 
-    function _initLz() internal {}
+    function _initLz() internal {
+    }
 
     function _getAdapterParams(
         address to,
