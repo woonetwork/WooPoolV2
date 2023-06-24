@@ -86,6 +86,24 @@ abstract contract WooPPBase is Pausable, Ownable, ReentrancyGuard {
         emit AdminUpdated(addr, flag);
     }
 
+    /// @dev User pool balance (substracted unclaimed fee)
+    function balance(address token) public view returns (uint256) {
+        // WooPP V2 code:
+        // return token == quoteToken ? _rawBalance(token) - unclaimedFee : _rawBalance(token);
+        return _rawBalance(token);
+    }
+
+    /// @dev Get the pool's balance of the specified token
+    /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
+    /// @dev forked and curtesy by Uniswap v3 core
+    function _rawBalance(address token) internal view returns (uint256) {
+        (bool success, bytes memory data) = token.staticcall(
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(this))
+        );
+        require(success && data.length >= 32, "IWooPPV3: !BALANCE");
+        return abi.decode(data, (uint256));
+    }
+
     function inCaseTokenGotStuck(address stuckToken) external onlyOwner {
         if (stuckToken == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
             TransferHelper.safeTransferETH(_msgSender(), address(this).balance);

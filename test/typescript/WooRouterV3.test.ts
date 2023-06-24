@@ -37,11 +37,12 @@ import { ethers } from "hardhat";
 import { deployContract, solidity } from "ethereum-waffle";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-import { WooracleV2, WooPPV2, WooRouterV2 } from "../../typechain";
+import { WooracleV2_1, WooPPV3, WooRouterV3, WooUsdOFT } from "../../typechain";
 import TestERC20TokenArtifact from "../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json";
-import WooracleV2Artifact from "../../artifacts/contracts/wooracle/WooracleV2.sol/WooracleV2.json";
-import WooPPV2Artifact from "../../artifacts/contracts/WooPPV2.sol/WooPPV2.json";
-import WooRouterV2Artifact from "../../artifacts/contracts/WooRouterV2.sol/WooRouterV2.json";
+import WooracleV2_1Artifact from "../../artifacts/contracts/wooracle/WooracleV2_1.sol/WooracleV2_1.json";
+import WooPPV3Artifact from "../../artifacts/contracts/WooPPV3/WooPPV3.sol/WooPPV3.json";
+import WooUsdOFTArtifact from "../../artifacts/contracts/WooPPV3/WooUsdOFT.sol/WooUsdOFT.json";
+import WooRouterV3Artifact from "../../artifacts/contracts/WooPPV3/WooRouterV3.sol/WooRouterV3.json";
 
 use(solidity);
 
@@ -54,9 +55,11 @@ const BTC_PRICE = 20000;
 const WOO_PRICE = 0.15;
 
 const ONE = BigNumber.from(10).pow(18);
+const ONE_12 = BigNumber.from(10).pow(12);
+const ONE_USD = BigNumber.from(10).pow(6);
 const PRICE_DEC = BigNumber.from(10).pow(8);
 
-describe("WooRouterV2 Integration Tests", () => {
+describe("WooRouterV3 Integration Tests", () => {
   let owner: SignerWithAddress;
   let feeAddr: SignerWithAddress;
   let user: SignerWithAddress;
@@ -64,7 +67,7 @@ describe("WooRouterV2 Integration Tests", () => {
   let wooracle: WooracleV2;
   let btcToken: Contract;
   let wooToken: Contract;
-  let usdtToken: Contract;
+  let usdtToken: WooUsdOFT;
 
   before("Deploy ERC20", async () => {
     const signers = await ethers.getSigners();
@@ -73,21 +76,23 @@ describe("WooRouterV2 Integration Tests", () => {
     feeAddr = signers[2];
     btcToken = await deployContract(owner, TestERC20TokenArtifact, []);
     wooToken = await deployContract(owner, TestERC20TokenArtifact, []);
-    usdtToken = await deployContract(owner, TestERC20TokenArtifact, []);
+    usdtToken = await deployContract(owner, WooUsdOFTArtifact, ["vusd", "vusd", ZERO_ADDR]);
 
-    wooracle = (await deployContract(owner, WooracleV2Artifact, [])) as WooracleV2;
+    await usdtToken.setWooPP(owner.address, true);
+
+    wooracle = (await deployContract(owner, WooracleV2_1Artifact, [])) as WooracleV2_1;
   });
 
   describe("Query Functions", () => {
-    let wooPP: WooPPV2;
-    let wooRouter: WooRouterV2;
+    let wooPP: WooPPV3;
+    let wooRouter: WooRouterV3;
 
     beforeEach("Deploy WooRouter", async () => {
-      wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2;
+      wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
 
-      await wooPP.init(wooracle.address, feeAddr.address);
+      await usdtToken.setWooPP(wooPP.address, true);
 
-      wooRouter = (await deployContract(owner, WooRouterV2Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV2;
+      wooRouter = (await deployContract(owner, WooRouterV3Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV3;
 
       await btcToken.mint(owner.address, ONE.mul(100));
       await usdtToken.mint(owner.address, ONE.mul(5000000));
@@ -119,7 +124,7 @@ describe("WooRouterV2 Integration Tests", () => {
     it("querySwap accuracy1", async () => {
       const btcNum = 1;
       const amount = await wooRouter.querySwap(btcToken.address, usdtToken.address, ONE.mul(btcNum));
-      const amountNum = Number(utils.formatEther(amount));
+      const amountNum = amount.div(ONE_USD).toNumber();
       const benchmark = BTC_PRICE * btcNum;
       expect(amountNum).to.lessThan(benchmark);
       const slippage = (benchmark - amountNum) / benchmark;
@@ -130,7 +135,7 @@ describe("WooRouterV2 Integration Tests", () => {
     it("querySwap accuracy1_2", async () => {
       const btcNum = 3;
       const amount = await wooRouter.querySwap(btcToken.address, usdtToken.address, ONE.mul(btcNum));
-      const amountNum = Number(utils.formatEther(amount));
+      const amountNum = amount.div(ONE_USD).toNumber();
       const benchmark = BTC_PRICE * btcNum;
       expect(amountNum).to.lessThan(benchmark);
       const slippage = (benchmark - amountNum) / benchmark;
@@ -141,7 +146,7 @@ describe("WooRouterV2 Integration Tests", () => {
     it("querySwap accuracy1_3", async () => {
       const btcNum = 10;
       const amount = await wooRouter.querySwap(btcToken.address, usdtToken.address, ONE.mul(btcNum));
-      const amountNum = Number(utils.formatEther(amount));
+      const amountNum = amount.div(ONE_USD).toNumber();
       const benchmark = BTC_PRICE * btcNum;
       expect(amountNum).to.lessThan(benchmark);
       const slippage = (benchmark - amountNum) / benchmark;
@@ -151,7 +156,7 @@ describe("WooRouterV2 Integration Tests", () => {
 
     it("querySwap accuracy2_1", async () => {
       const uAmount = 10000;
-      const amount = await wooRouter.querySwap(usdtToken.address, btcToken.address, ONE.mul(uAmount));
+      const amount = await wooRouter.querySwap(usdtToken.address, btcToken.address, ONE_USD.mul(uAmount));
       const amountNum = Number(utils.formatEther(amount));
       const benchmark = uAmount / BTC_PRICE;
       expect(amountNum).to.lessThan(benchmark);
@@ -162,7 +167,7 @@ describe("WooRouterV2 Integration Tests", () => {
 
     it("querySwap accuracy2_2", async () => {
       const uAmount = 100000;
-      const amount = await wooRouter.querySwap(usdtToken.address, btcToken.address, ONE.mul(uAmount));
+      const amount = await wooRouter.querySwap(usdtToken.address, btcToken.address, ONE_USD.mul(uAmount));
       const amountNum = Number(utils.formatEther(amount));
       const benchmark = uAmount / BTC_PRICE;
       expect(amountNum).to.lessThan(benchmark);
@@ -173,39 +178,37 @@ describe("WooRouterV2 Integration Tests", () => {
 
     it("querySwap revert1", async () => {
       const btcAmount = 100;
-      await expect(wooRouter.querySwap(btcToken.address, usdtToken.address, ONE.mul(btcAmount))).to.be.revertedWith(
-        "WooPPV2: INSUFF_BALANCE"
-      );
+      await wooRouter.querySwap(btcToken.address, usdtToken.address, ONE.mul(btcAmount));
     });
 
     it("querySwap revert2", async () => {
       const uAmount = 300000;
-      await expect(wooRouter.querySwap(usdtToken.address, btcToken.address, ONE.mul(uAmount))).to.be.revertedWith(
-        "WooPPV2: INSUFF_BALANCE"
+      await expect(wooRouter.querySwap(usdtToken.address, btcToken.address, ONE_USD.mul(uAmount))).to.be.revertedWith(
+        "WooPPV3: INSUFF_BALANCE"
       );
     });
   });
 
   describe("Swap Functions", () => {
-    let wooPP: WooPPV2;
-    let wooRouter: WooRouterV2;
+    let wooPP: WooPPV3;
+    let wooRouter: WooRouterV3;
 
-    beforeEach("Deploy WooRouterV2", async () => {
-      wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2;
+    beforeEach("Deploy WooRouterV3", async () => {
+      wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
 
-      await wooPP.init(wooracle.address, feeAddr.address);
+      await usdtToken.setWooPP(wooPP.address, true);
 
-      wooRouter = (await deployContract(owner, WooRouterV2Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV2;
+      wooRouter = (await deployContract(owner, WooRouterV3Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV3;
 
       await btcToken.mint(owner.address, ONE.mul(100));
-      await usdtToken.mint(owner.address, ONE.mul(5000000));
+      await usdtToken.mint(owner.address, ONE_USD.mul(5000000));
       await wooToken.mint(owner.address, ONE.mul(10000000));
 
       await btcToken.approve(wooPP.address, ONE.mul(50));
       await wooPP.deposit(btcToken.address, ONE.mul(50));
 
-      await usdtToken.approve(wooPP.address, ONE.mul(3000000));
-      await wooPP.deposit(usdtToken.address, ONE.mul(3000000));
+      // await usdtToken.approve(wooPP.address, ONE.mul(3000000));
+      // await wooPP.deposit(usdtToken.address, ONE.mul(3000000));
 
       await wooToken.approve(wooPP.address, ONE.mul(3000000));
       await wooPP.deposit(wooToken.address, ONE.mul(3000000));
@@ -232,7 +235,7 @@ describe("WooRouterV2 Integration Tests", () => {
 
       const name = "Swap: btc -> usdt";
       const fromAmount = ONE.mul(1);
-      const minToAmount = ONE.mul(BTC_PRICE).mul(998).div(1000);
+      const minToAmount = ONE_USD.mul(BTC_PRICE).mul(998).div(1000);
       const price = BTC_PRICE;
       const minSlippage = 0.002;
       await _testSwap(name, btcToken, usdtToken, fromAmount, minToAmount, price, minSlippage);
@@ -243,7 +246,7 @@ describe("WooRouterV2 Integration Tests", () => {
 
       const name = "Swap: btc -> usdt";
       const fromAmount = ONE.mul(50);
-      const minToAmount = fromAmount.mul(BTC_PRICE).mul(99).div(100);
+      const minToAmount = ONE_USD.mul(50).mul(BTC_PRICE).mul(99).div(100);
       const price = BTC_PRICE;
       const minSlippage = 0.01;
       await _testSwap(name, btcToken, usdtToken, fromAmount, minToAmount, price, minSlippage);
@@ -254,7 +257,7 @@ describe("WooRouterV2 Integration Tests", () => {
 
       const name = "Swap: woo -> usdt";
       const fromAmount = ONE.mul(10000);
-      const minToAmount = fromAmount.mul(15).div(100).mul(95).div(100);
+      const minToAmount = ONE_USD.mul(10000).mul(15).div(100).mul(95).div(100);
       const price = WOO_PRICE;
       const minSlippage = 0.035;
       await _testSwap(name, wooToken, usdtToken, fromAmount, minToAmount, price, minSlippage);
@@ -265,7 +268,7 @@ describe("WooRouterV2 Integration Tests", () => {
 
       const name = "Swap: woo -> usdt";
       const fromAmount = ONE.mul(200000);
-      const minToAmount = fromAmount.mul(15).div(100).mul(70).div(100);
+      const minToAmount = ONE_USD.mul(200000).mul(15).div(100).mul(70).div(100);
       const price = WOO_PRICE;
       const minSlippage = 0.3;
       await _testSwap(name, wooToken, usdtToken, fromAmount, minToAmount, price, minSlippage);
@@ -298,8 +301,8 @@ describe("WooRouterV2 Integration Tests", () => {
       await usdtToken.mint(user.address, ONE.mul(20000));
 
       const name = "Swap: usdt -> woo";
-      const fromAmount = ONE.mul(3000);
-      const minToAmount = fromAmount.mul(100).div(15).mul(99).div(100);
+      const fromAmount = ONE_USD.mul(3000);
+      const minToAmount = fromAmount.mul(ONE_12).mul(100).div(15).mul(99).div(100);
       const price = 1.0 / WOO_PRICE;
       const minSlippage = 0.01;
       await _testSwap(name, usdtToken, wooToken, fromAmount, minToAmount, price, minSlippage);
@@ -309,8 +312,8 @@ describe("WooRouterV2 Integration Tests", () => {
       await usdtToken.mint(user.address, ONE.mul(20000));
 
       const name = "Swap: usdt -> woo";
-      const fromAmount = ONE.mul(15000);
-      const minToAmount = fromAmount.mul(100).div(15).mul(96).div(100);
+      const fromAmount = ONE_USD.mul(15000);
+      const minToAmount = fromAmount.mul(ONE_12).mul(100).div(15).mul(96).div(100);
       const price = 1.0 / WOO_PRICE;
       const minSlippage = 0.04;
       await _testSwap(name, usdtToken, wooToken, fromAmount, minToAmount, price, minSlippage);
@@ -320,30 +323,30 @@ describe("WooRouterV2 Integration Tests", () => {
       await usdtToken.mint(user.address, ONE.mul(200000));
 
       const name = "Swap: usdt -> woo";
-      const fromAmount = ONE.mul(BTC_PRICE);
-      const minToAmount = fromAmount.mul(100).div(15).mul(90).div(100);
+      const fromAmount = ONE_USD.mul(BTC_PRICE);
+      const minToAmount = fromAmount.mul(ONE_12).mul(100).div(15).mul(90).div(100);
       const price = 1.0 / WOO_PRICE;
       const minSlippage = 0.1;
       await _testSwap(name, usdtToken, wooToken, fromAmount, minToAmount, price, minSlippage);
     });
 
-    it("swap usdt -> btc accuracy1", async () => {
+    it("WooRouterV3 swap usdt -> btc accuracy1", async () => {
       await usdtToken.mint(user.address, ONE.mul(200000));
 
       const name = "Swap: usdt -> btc";
-      const fromAmount = ONE.mul(20000);
-      const minToAmount = fromAmount.div(BTC_PRICE).mul(995).div(1000);
+      const fromAmount = ONE_USD.mul(20000);
+      const minToAmount = fromAmount.mul(ONE_12).div(BTC_PRICE).mul(995).div(1000);
       const price = 1.0 / BTC_PRICE;
       const minSlippage = 0.003;
       await _testSwap(name, usdtToken, btcToken, fromAmount, minToAmount, price, minSlippage);
     });
 
-    it("Swap: usdt -> btc accuracy2", async () => {
+    it("WooRouterV3 swap usdt -> btc accuracy2", async () => {
       await usdtToken.mint(user.address, ONE.mul(5000000));
 
       const name = "Swap: usdt -> btc";
-      const fromAmount = ONE.mul(300000);
-      const minToAmount = fromAmount.div(BTC_PRICE).mul(99).div(100);
+      const fromAmount = ONE_USD.mul(300000);
+      const minToAmount = fromAmount.mul(ONE_12).div(BTC_PRICE).mul(99).div(100);
       const price = 1.0 / BTC_PRICE;
       const minSlippage = 0.008;
       await _testSwap(name, usdtToken, btcToken, fromAmount, minToAmount, price, minSlippage);
@@ -376,36 +379,43 @@ describe("WooRouterV2 Integration Tests", () => {
         .connect(user)
         .swap(token0.address, token1.address, fromAmount, minToAmount, user.address, ZERO_ADDR);
 
-      const toNum = Number(utils.formatEther(realToAmount));
-      const fromNum = Number(utils.formatEther(fromAmount));
+      const toDec = token1 == usdtToken ? ONE_12 : 1;
+      const toNum = Number(utils.formatEther(realToAmount.mul(toDec)));
+      const fromDec = token0 == usdtToken ? ONE_12 : 1;
+      const fromNum = Number(utils.formatEther(fromAmount.mul(fromDec)));
       const benchmark = price * fromNum;
       expect(toNum).to.lessThan(benchmark);
       const slippage = (benchmark - toNum) / benchmark;
+      console.log(`${swapName}: ${fromNum} -> ${toNum} with benchmark ${benchmark} slippage ${slippage}`);
       expect(slippage).to.lessThan(minSlippage);
-      console.log(`${swapName}: ${fromNum} -> ${toNum} with slippage ${slippage}`);
 
       const curWooppToken0Amount = await wooPP.poolSize(token0.address);
       const curWooppToken1Amount = await wooPP.poolSize(token1.address);
       const curUserToken0Amount = await token0.balanceOf(user.address);
       const curUserToken1Amount = await token1.balanceOf(user.address);
-      expect(curWooppToken0Amount.sub(preWooppToken0Amount)).to.eq(fromAmount);
-      expect(preUserToken0Amount.sub(curUserToken0Amount)).to.eq(fromAmount);
-      expect(preWooppToken1Amount.sub(curWooppToken1Amount)).to.eq(realToAmount);
-      expect(curUserToken1Amount.sub(preUserToken1Amount)).to.eq(realToAmount);
+      if (token0 != usdtToken) {
+        expect(curWooppToken0Amount.sub(preWooppToken0Amount)).to.eq(fromAmount);
+        expect(preUserToken0Amount.sub(curUserToken0Amount)).to.eq(fromAmount);
+      }
+      if (token1 != usdtToken) {
+        expect(preWooppToken1Amount.sub(curWooppToken1Amount)).to.eq(realToAmount);
+        expect(curUserToken1Amount.sub(preUserToken1Amount)).to.eq(realToAmount);
+      }
     }
   });
 
   describe("Try Related Functions", () => {
-    let wooPP: WooPPV2;
-    let wooRouter: WooRouterV2;
+    let wooPP: WooPPV3;
+    let wooRouter: WooRouterV3;
 
     beforeEach("Deploy WooRouter", async () => {
-      wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2;
+      wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
 
-      await wooPP.init(wooracle.address, feeAddr.address);
+      await usdtToken.setWooPP(wooPP.address, true);
+
       await wooPP.setFeeRate(btcToken.address, 100);
 
-      wooRouter = (await deployContract(owner, WooRouterV2Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV2;
+      wooRouter = (await deployContract(owner, WooRouterV3Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV3;
 
       // await btcToken.mint(owner.address, ONE.mul(100))
       // await usdtToken.mint(owner.address, ONE.mul(5000000))
@@ -437,12 +447,10 @@ describe("WooRouterV2 Integration Tests", () => {
     it("tryQuerySwap accuracy1", async () => {
       const btcNum = 1;
 
-      await expect(wooRouter.querySwap(btcToken.address, usdtToken.address, ONE.mul(btcNum))).to.be.revertedWith(
-        "WooPPV2: INSUFF_BALANCE"
-      );
+      await wooRouter.querySwap(btcToken.address, usdtToken.address, ONE.mul(btcNum));
 
       const amount = await wooRouter.tryQuerySwap(btcToken.address, usdtToken.address, ONE.mul(btcNum));
-      const amountNum = Number(utils.formatEther(amount));
+      const amountNum = Number(utils.formatEther(amount.mul(ONE_12)));
       const benchmark = BTC_PRICE * btcNum;
       expect(amountNum).to.lessThan(benchmark);
       const slippage = (benchmark - amountNum) / benchmark;
@@ -453,11 +461,11 @@ describe("WooRouterV2 Integration Tests", () => {
     it("tryQuerySwap accuracy2", async () => {
       const uAmount = 10000;
 
-      await expect(wooRouter.querySwap(usdtToken.address, btcToken.address, ONE.mul(uAmount))).to.be.revertedWith(
-        "WooPPV2: INSUFF_BALANCE"
+      await expect(wooRouter.querySwap(usdtToken.address, btcToken.address, ONE_USD.mul(uAmount))).to.be.revertedWith(
+        "WooPPV3: INSUFF_BALANCE"
       );
 
-      const amount = await wooRouter.tryQuerySwap(usdtToken.address, btcToken.address, ONE.mul(uAmount));
+      const amount = await wooRouter.tryQuerySwap(usdtToken.address, btcToken.address, ONE_USD.mul(uAmount));
       const amountNum = Number(utils.formatEther(amount));
       const benchmark = uAmount / BTC_PRICE;
       expect(amountNum).to.lessThan(benchmark);
@@ -470,7 +478,7 @@ describe("WooRouterV2 Integration Tests", () => {
       const btcNum = 1;
 
       await expect(wooRouter.querySwap(btcToken.address, wooToken.address, ONE.mul(btcNum))).to.be.revertedWith(
-        "WooPPV2: INSUFF_QUOTE_FOR_SWAPFEE"
+        "WooPPV3: INSUFF_BALANCE"
       );
 
       const amount = await wooRouter.tryQuerySwap(btcToken.address, wooToken.address, ONE.mul(btcNum));
@@ -489,7 +497,7 @@ describe("WooRouterV2 Integration Tests", () => {
       const btcNum = 1;
 
       await expect(wooRouter.querySwap(btcToken.address, wooToken.address, ONE.mul(btcNum))).to.be.revertedWith(
-        "WooPPV2: INSUFF_BALANCE"
+        "WooPPV3: INSUFF_BALANCE"
       );
 
       const amount = await wooRouter.tryQuerySwap(btcToken.address, wooToken.address, ONE.mul(btcNum));
@@ -535,7 +543,7 @@ describe("WooRouterV2 Integration Tests", () => {
       const btcNum = 1;
 
       await expect(wooRouter.querySwap(btcToken.address, wooToken.address, ONE.mul(btcNum))).to.be.revertedWith(
-        "WooPPV2: INSUFF_BALANCE"
+        "WooPPV3: INSUFF_BALANCE"
       );
 
       const amount = await wooRouter.tryQuerySwap(btcToken.address, wooToken.address, ONE.mul(btcNum));

@@ -39,6 +39,18 @@ pragma solidity =0.8.14;
 ///         marketing making pool.
 /// @author woo.network
 interface IWooPPV3 {
+    /* ----- Type declarations ----- */
+    struct DecimalInfo {
+        uint64 priceDec; // 10**(price_decimal)
+        uint64 quoteDec; // 10**(quote_decimal)
+        uint64 baseDec; // 10**(base_decimal)
+    }
+
+    struct TokenInfo {
+        uint192 reserve; // balance reserve
+        uint16 feeRate; // 1 in 100000; 10 = 1bp = 0.01%; max = 65535
+    }
+
     /* ----- Events ----- */
 
     event Deposit(address indexed token, address indexed sender, uint256 amount);

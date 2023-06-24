@@ -60,27 +60,15 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 ///     - Stable swap support
 ///     - Legacy supercharger lending manager support
 contract WooPPV3 is WooPPBase, IWooPPV3 {
-    /* ----- Type declarations ----- */
-    struct DecimalInfo {
-        uint64 priceDec; // 10**(price_decimal)
-        uint64 quoteDec; // 10**(quote_decimal)
-        uint64 baseDec; // 10**(base_decimal)
-    }
-
-    struct TokenInfo {
-        uint192 reserve; // balance reserve
-        uint16 feeRate; // 1 in 100000; 10 = 1bp = 0.01%; max = 65535
-    }
-
     uint256 public unclaimedFee; // NOTE: in USD
-
-    // token address --> fee rate
-    mapping(address => TokenInfo) public tokenInfos;
 
     mapping(address => IWooLendingManager) public lendManagers;
 
     // int256 public usdReserve;    // USD (virtual quote) balance
     address public usdOFT;
+
+    // token address --> fee rate
+    mapping(address => TokenInfo) public tokenInfos;
 
     constructor(
         address _wooracle,
@@ -115,14 +103,15 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
     ) external view override returns (uint256 toAmount) {
         if (fromToken == usdOFT) {
             toAmount = _tryQuerySellUsd(toToken, fromAmount);
+            require(toAmount <= tokenInfos[toToken].reserve, "WooPPV3: INSUFF_BALANCE");
         } else if (toToken == usdOFT) {
             toAmount = _tryQuerySellBase(fromToken, fromAmount);
         } else {
             (toAmount, ) = _tryQueryBaseToBase(fromToken, toToken, fromAmount);
             // TODO: double check it
             // require(swapFee <= tokenInfos[quoteToken].reserve, "WooPPV3: INSUFF_QUOTE_FOR_SWAPFEE");
+            require(toAmount <= tokenInfos[toToken].reserve, "WooPPV3: INSUFF_BALANCE");
         }
-        require(toAmount <= tokenInfos[toToken].reserve, "WooPPV3: INSUFF_BALANCE");
     }
 
     /// @inheritdoc IWooPPV3
@@ -134,7 +123,17 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         address to,
         address rebateTo
     ) external override returns (uint256 realToAmount) {
-        realToAmount = _swapBaseToBase(fromToken, toToken, fromAmount, minToAmount, to, rebateTo);
+        // realToAmount = _swapBaseToBase(fromToken, toToken, fromAmount, minToAmount, to, rebateTo);
+        if (fromToken == usdOFT) {
+            // case 1: usdOFT --> baseToken
+            realToAmount = _swapUsdToBase(toToken, fromAmount, minToAmount, to, rebateTo);
+        } else if (toToken == usdOFT) {
+            // case 2: fromToken --> usdOFT
+            realToAmount = _swapBaseToUsd(fromToken, fromAmount, minToAmount, to, rebateTo);
+        } else {
+            // case 3: fromToken --> toToken (base to base)
+            realToAmount = _swapBaseToBase(fromToken, toToken, fromAmount, minToAmount, to, rebateTo);
+        }
     }
 
     function claimFee() external onlyAdmin {
@@ -159,13 +158,6 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         return tokenInfos[token].reserve;
     }
 
-    /// @dev User pool balance (substracted unclaimed fee)
-    function balance(address token) public view returns (uint256) {
-        // WooPP V2 code:
-        // return token == quoteToken ? _rawBalance(token) - unclaimedFee : _rawBalance(token);
-        return _rawBalance(token);
-    }
-
     function decimalInfo(address baseToken) public view returns (DecimalInfo memory) {
         return
             DecimalInfo({
@@ -173,6 +165,11 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
                 quoteDec: uint64(10)**(IERC20Metadata(usdOFT).decimals()), // 6, same as native USDC
                 baseDec: uint64(10)**(IERC20Metadata(baseToken).decimals()) // 18 or 8
             });
+    }
+
+    function setFeeRate(address token, uint16 rate) external onlyAdmin {
+        require(rate <= 1e5, "!rate");
+        tokenInfos[token].feeRate = rate;
     }
 
     /* ----- Admin Functions ----- */
@@ -426,7 +423,9 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         require(to != address(0), "WooPPV3: !to");
 
         // TODO: double check this logic
-        require(balance(usdOFT) >= quoteAmount, "WooPPV3: USD_BALANCE_NOT_ENOUGH");
+        // or: require(balance(usdOFT) - tokenInfos[usdOFT].reserve >= quoteAmount, "WooPPV3: USD_BALANCE_NOT_ENOUGH");
+        // require(balance(usdOFT) >= quoteAmount, "WooPPV3: USD_BALANCE_NOT_ENOUGH");
+        require(balance(usdOFT) - tokenInfos[usdOFT].reserve >= quoteAmount, "WooPPV3: USD_BALANCE_NOT_ENOUGH");
 
         // ATTENTION: for cross swap, usdOFT will be burnt in usd->base swap
         WooUsdOFT(usdOFT).burn(address(this), quoteAmount);
@@ -463,17 +462,6 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
             quoteAmount + swapFee,
             swapFee
         );
-    }
-
-    /// @dev Get the pool's balance of the specified token
-    /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
-    /// @dev forked and curtesy by Uniswap v3 core
-    function _rawBalance(address token) private view returns (uint256) {
-        (bool success, bytes memory data) = token.staticcall(
-            abi.encodeWithSelector(IERC20.balanceOf.selector, address(this))
-        );
-        require(success && data.length >= 32, "IWooPPV3: !BALANCE");
-        return abi.decode(data, (uint256));
     }
 
     function _calcUsdAmountSellBase(
