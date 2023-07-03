@@ -79,6 +79,11 @@ interface IWooPPV3 {
     /// @return the pool size
     function poolSize(address token) external view returns (uint256);
 
+    /// @notice Gets the decimal info of the given base token
+    /// @param baseToken the base token address
+    /// @return the struct of decimal info
+    function decimalInfo(address baseToken) external view returns (DecimalInfo memory);
+
     /// @notice Query the amount to swap `fromToken` to `toToken`, without checking the pool reserve balance.
     /// @param fromToken the from token
     /// @param toToken the to token
