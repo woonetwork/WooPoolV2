@@ -63,7 +63,8 @@ interface IWooCrossChainRouterV3 {
         address fromToken,
         uint256 fromAmount,
         uint256 minBridgeAmount,
-        uint256 realBridgeAmount
+        uint256 realBridgeAmount,
+        uint256 crossFee
     );
 
     event WooCrossSwapOnDstChain(
@@ -75,7 +76,8 @@ interface IWooCrossChainRouterV3 {
         address toToken,
         address realToToken,
         uint256 minToAmount,
-        uint256 realToAmount
+        uint256 realToAmount,
+        uint256 crossFee
     );
 
     /* ----- State Variables ----- */
