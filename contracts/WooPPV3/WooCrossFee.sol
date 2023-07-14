@@ -106,7 +106,7 @@ contract WooCrossFee is Ownable, IWooCrossFee {
         uint256 tgtBal = targetBalance;
         if (newBal >= (feeInfo.maxPercent * tgtBal) / FEE_BASE) {
             return 0;
-        } else if (newBal <= (feeInfo.minPercent * tgtBal) / FEE_BASE) {
+        } else if (newBal < (feeInfo.minPercent * tgtBal) / FEE_BASE) {
             // k1 + k2 * (minP * targetBal - newBal) / (minP * targetBal)
             return
                 feeInfo.k1 +

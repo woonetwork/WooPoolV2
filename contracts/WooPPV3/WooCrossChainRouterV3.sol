@@ -80,8 +80,6 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
         {
             if (srcInfos.fromToken == ETH_PLACEHOLDER_ADDR) {
                 require(srcInfos.fromAmount <= msgValue, "WooUsdOFTCrossRouter: !srcInfos.fromAmount");
-                // srcInfos.fromToken = weth;
-                // IWETH(weth).deposit{value: srcInfos.fromAmount}();
                 msgValue -= srcInfos.fromAmount;
             } else {
                 TransferHelper.safeTransferFrom(srcInfos.fromToken, msg.sender, address(this), srcInfos.fromAmount);
@@ -262,7 +260,6 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
         require(feeAddr != address(0), "WooUsdOFTCrossRouter: !feeAddr");
         uint256 _fee = unclaimedFee;
         unclaimedFee = 0;
-        // WooUsdOFT(usdOFT).mint(feeAddr, _fee);
         address usdOFT = wooRouter.usdOFT();
         TransferHelper.safeTransfer(usdOFT, feeAddr, _fee);
     }
@@ -272,7 +269,6 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
         require(_withdrawToken != address(0), "WooUsdOFTCrossRouter: !_withdrawToken");
         uint256 _fee = unclaimedFee;
         unclaimedFee = 0;
-        // WooUsdOFT(usdOFT).mint(address(this), _fee);
         address usdOFT = wooRouter.usdOFT();
         TransferHelper.safeApprove(usdOFT, address(wooRouter), _fee);
         wooRouter.swap(usdOFT, _withdrawToken, _fee, 0, payable(feeAddr), feeAddr);
