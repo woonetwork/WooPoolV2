@@ -13,6 +13,7 @@ import {IWETH} from "../interfaces/IWETH.sol";
 import {IWooCrossChainRouterV3} from "../interfaces/IWooCrossChainRouterV3.sol";
 import {IWooRouterV3} from "../interfaces/IWooRouterV3.sol";
 import {ILzApp} from "../interfaces/LayerZero/ILzApp.sol";
+import {IWooCrossFee} from "../interfaces/IWooCrossFee.sol";
 
 import {TransferHelper} from "../libraries/TransferHelper.sol";
 
@@ -28,6 +29,8 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
     /* ----- Variables ----- */
 
     IWooRouterV3 public wooRouter;
+    IWooCrossFee public crossFee;
+    uint256 public unclaimedFee;
 
     address public immutable weth;
     uint256 public dstGas;
@@ -35,15 +38,21 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
 
     mapping(uint16 => address) public wooCrossChainRouters; // chainId => WooCrossChainRouter address
 
+    address public feeAddr;
+
     receive() external payable {}
 
     constructor(
         address _weth,
         address _wooRouter,
+        address _crossFee,
+        address _feeAddr,
         uint16 _lzChainIdLocal
     ) {
         weth = _weth;
         wooRouter = IWooRouterV3(_wooRouter);
+        crossFee = IWooCrossFee(_crossFee);
+        feeAddr = _feeAddr;
         lzChainIdLocal = _lzChainIdLocal;
 
         dstGas = 600000;
@@ -66,12 +75,11 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
         uint256 msgValue = msg.value;
         address usdOFT = wooRouter.usdOFT();
         uint256 bridgeAmount;
+        uint256 fee;
 
         {
             if (srcInfos.fromToken == ETH_PLACEHOLDER_ADDR) {
                 require(srcInfos.fromAmount <= msgValue, "WooUsdOFTCrossRouter: !srcInfos.fromAmount");
-                // srcInfos.fromToken = weth;
-                // IWETH(weth).deposit{value: srcInfos.fromAmount}();
                 msgValue -= srcInfos.fromAmount;
             } else {
                 TransferHelper.safeTransferFrom(srcInfos.fromToken, msg.sender, address(this), srcInfos.fromAmount);
@@ -86,11 +94,14 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
                 payable(address(this)),
                 to
             );
-
             require(
-                bridgeAmount <= IERC20(usdOFT).balanceOf(address(this)),
+                bridgeAmount <= IERC20(usdOFT).balanceOf(address(this)) - unclaimedFee,
                 "WooUsdOFTCrossRouter: usdOFT_BALANACE_NOT_ENOUGH"
             );
+
+            fee = (bridgeAmount * crossFee.outgressFee(bridgeAmount)) / crossFee.feeBase();
+            unclaimedFee += fee;
+            bridgeAmount -= fee;
         }
 
         bytes memory payload = abi.encode(refId, to, dstInfos.toToken, dstInfos.minToAmount);
@@ -125,7 +136,8 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
             srcInfos.fromToken,
             srcInfos.fromAmount,
             srcInfos.minBridgeAmount,
-            bridgeAmount
+            bridgeAmount,
+            fee
         );
     }
 
@@ -182,6 +194,10 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
         address bridgedToken = usdOFT;
         uint256 bridgedAmount = amountLD;
 
+        uint256 fee = bridgedAmount * crossFee.ingressFee(bridgedAmount) * crossFee.feeBase();
+        unclaimedFee += fee;
+        bridgedAmount -= fee;
+
         TransferHelper.safeApprove(bridgedToken, address(wooRouter), bridgedAmount);
         try wooRouter.swap(usdOFT, toToken, bridgedAmount, minToAmount, payable(to), to) returns (
             uint256 realToAmount
@@ -195,7 +211,8 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
                 toToken,
                 toToken,
                 minToAmount,
-                realToAmount
+                realToAmount,
+                fee
             );
         } catch {
             TransferHelper.safeTransfer(bridgedToken, to, bridgedAmount);
@@ -208,7 +225,8 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
                 toToken,
                 bridgedToken,
                 minToAmount,
-                bridgedAmount
+                bridgedAmount,
+                fee
             );
         }
     }
@@ -238,8 +256,30 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
 
     /* ----- Owner & Admin Functions ----- */
 
+    function claimFee() external onlyOwner {
+        require(feeAddr != address(0), "WooUsdOFTCrossRouter: !feeAddr");
+        uint256 _fee = unclaimedFee;
+        unclaimedFee = 0;
+        address usdOFT = wooRouter.usdOFT();
+        TransferHelper.safeTransfer(usdOFT, feeAddr, _fee);
+    }
+
+    function claimFee(address _withdrawToken) external onlyOwner {
+        require(feeAddr != address(0), "WooUsdOFTCrossRouter: !feeAddr");
+        require(_withdrawToken != address(0), "WooUsdOFTCrossRouter: !_withdrawToken");
+        uint256 _fee = unclaimedFee;
+        unclaimedFee = 0;
+        address usdOFT = wooRouter.usdOFT();
+        TransferHelper.safeApprove(usdOFT, address(wooRouter), _fee);
+        wooRouter.swap(usdOFT, _withdrawToken, _fee, 0, payable(feeAddr), feeAddr);
+    }
+
     function setWooRouter(address _wooRouter) external onlyOwner {
         wooRouter = IWooRouterV3(_wooRouter);
+    }
+
+    function setCrossFee(address _crossFee) external onlyOwner {
+        crossFee = IWooCrossFee(_crossFee);
     }
 
     function setDstGas(uint256 _dstGas) external onlyOwner {
@@ -248,6 +288,10 @@ contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuar
 
     function setLzChainIdLocal(uint16 _lzChainIdLocal) external onlyOwner {
         lzChainIdLocal = _lzChainIdLocal;
+    }
+
+    function setFeeAddr(address _feeAddr) external onlyOwner {
+        feeAddr = _feeAddr;
     }
 
     function setWooCrossChainRouter(uint16 chainId, address wooCrossChainRouter) external onlyOwner {

@@ -47,6 +47,8 @@ interface IWooCrossFee {
 
     function targetBalance() external view returns (uint256 targetBalance);
 
+    function feeBase() external pure returns (uint256 feeBase);
+
     /* ----- Functions ----- */
 
     function ingressFee(uint256 amount) external view returns (uint256 fee);

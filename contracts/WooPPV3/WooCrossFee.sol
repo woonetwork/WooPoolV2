@@ -55,7 +55,7 @@ contract WooCrossFee is Ownable, IWooCrossFee {
         uint16 minPercent; // e.g. 5% of target balance
     }
 
-    uint256 public constant FEE_INFO_DECIMAL = 1e4; // bps
+    uint256 public constant FEE_BASE = 1e4; // bps
 
     FeeInfo public feeInfo;
 
@@ -88,6 +88,10 @@ contract WooCrossFee is Ownable, IWooCrossFee {
 
     /* ----- Business Functions ----- */
 
+    function feeBase() external pure returns (uint256) {
+        return FEE_BASE;
+    }
+
     function ingressFee(uint256 amount) external view returns (uint256 fee) {
         uint256 curBal = currentBalance();
         fee = _fee(curBal + amount);
@@ -100,19 +104,19 @@ contract WooCrossFee is Ownable, IWooCrossFee {
 
     function _fee(uint256 newBal) internal view returns (uint256) {
         uint256 tgtBal = targetBalance;
-        if (newBal >= (feeInfo.maxPercent * tgtBal) / FEE_INFO_DECIMAL) {
+        if (newBal >= (feeInfo.maxPercent * tgtBal) / FEE_BASE) {
             return 0;
-        } else if (newBal <= (feeInfo.minPercent * tgtBal) / FEE_INFO_DECIMAL) {
+        } else if (newBal < (feeInfo.minPercent * tgtBal) / FEE_BASE) {
             // k1 + k2 * (minP * targetBal - newBal) / (minP * targetBal)
             return
                 feeInfo.k1 +
-                (feeInfo.k2 * ((feeInfo.minPercent * tgtBal) / FEE_INFO_DECIMAL - newBal)) /
-                ((feeInfo.minPercent * tgtBal) / FEE_INFO_DECIMAL);
+                (feeInfo.k2 * ((feeInfo.minPercent * tgtBal) / FEE_BASE - newBal)) /
+                ((feeInfo.minPercent * tgtBal) / FEE_BASE);
         } else {
             // k1 * (maxP * targetBal - newBal) / ((maxP - minP) * targetBal)
             return
-                (feeInfo.k1 * ((feeInfo.maxPercent * tgtBal) / FEE_INFO_DECIMAL - newBal)) /
-                (((feeInfo.maxPercent - feeInfo.minPercent) * tgtBal) / FEE_INFO_DECIMAL);
+                (feeInfo.k1 * ((feeInfo.maxPercent * tgtBal) / FEE_BASE - newBal)) /
+                (((feeInfo.maxPercent - feeInfo.minPercent) * tgtBal) / FEE_BASE);
         }
     }
 
