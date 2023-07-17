@@ -34,9 +34,9 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/// @title WOOFi cross chain router interface (version 3).
+/// @title WOOFi cross chain router interface (version 3) via WooUsd OFT
 /// @notice functions to interface with WOOFi cross chain swap.
-interface IWooCrossChainRouterV3 {
+interface IWooUsdOFTCrossRouter {
     /* ----- Structs ----- */
 
     struct SrcInfos {

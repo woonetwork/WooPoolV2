@@ -10,7 +10,7 @@ import {ICommonOFT, IOFTV2} from "@layerzerolabs/solidity-examples/contracts/tok
 
 // Local Contracts
 import {IWETH} from "../interfaces/IWETH.sol";
-import {IWooCrossChainRouterV3} from "../interfaces/IWooCrossChainRouterV3.sol";
+import {IWooUsdOFTCrossRouter} from "../interfaces/IWooUsdOFTCrossRouter.sol";
 import {IWooRouterV3} from "../interfaces/IWooRouterV3.sol";
 import {ILzApp} from "../interfaces/LayerZero/ILzApp.sol";
 import {IWooCrossFee} from "../interfaces/IWooCrossFee.sol";
@@ -19,7 +19,7 @@ import {TransferHelper} from "../libraries/TransferHelper.sol";
 
 /// @title WOOFi cross chain router via WooUSD OFT.
 /// @notice Router for stateless execution of cross chain swap.
-contract WooUsdOFTCrossRouter is IWooCrossChainRouterV3, Ownable, ReentrancyGuard {
+contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /* ----- Constants ----- */
