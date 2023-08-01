@@ -39,6 +39,7 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard
     mapping(uint16 => address) public wooCrossChainRouters; // chainId => WooCrossChainRouter address
 
     address public feeAddr;
+    address public zroPaymentAddress;
 
     receive() external payable {}
 
@@ -54,6 +55,7 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard
         crossFee = IWooCrossFee(_crossFee);
         feeAddr = _feeAddr;
         lzChainIdLocal = _lzChainIdLocal;
+        zroPaymentAddress = address(0);
 
         dstGas = 600000;
 
@@ -276,6 +278,10 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard
 
     function setWooRouter(address _wooRouter) external onlyOwner {
         wooRouter = IWooRouterV3(_wooRouter);
+    }
+
+    function setZroPaymentAddress(address _zroPaymentAddress) external onlyOwner {
+        zroPaymentAddress = _zroPaymentAddress;
     }
 
     function setCrossFee(address _crossFee) external onlyOwner {
