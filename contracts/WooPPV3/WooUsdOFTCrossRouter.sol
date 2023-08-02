@@ -56,7 +56,7 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, Pausable, Reent
         crossFee = IWooCrossFee(_crossFee);
         feeAddr = _feeAddr;
         lzChainIdLocal = _lzChainIdLocal;
-        zroPaymentAddress = address(0);
+        zroPaymentAddress = _feeAddr;
 
         dstGas = 600000;
 
@@ -115,7 +115,7 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, Pausable, Reent
             bytes memory adapterParams = _getAdapterParams(to, address(usdOFT), dstGasForCall, dstInfos);
             callParams = ICommonOFT.LzCallParams(
                 payable(msg.sender), // refundAddress
-                address(0), // zroPaymentAddress
+                zroPaymentAddress, // zroPaymentAddress
                 adapterParams //adapterParams
             );
         }
