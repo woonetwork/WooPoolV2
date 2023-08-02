@@ -7,6 +7,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {ICommonOFT, IOFTV2} from "@layerzerolabs/solidity-examples/contracts/token/oft/v2/IOFTV2.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
 // Local Contracts
 import {IWETH} from "../interfaces/IWETH.sol";
@@ -19,7 +20,7 @@ import {TransferHelper} from "../libraries/TransferHelper.sol";
 
 /// @title WOOFi cross chain router via WooUSD OFT.
 /// @notice Router for stateless execution of cross chain swap.
-contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard {
+contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, Pausable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /* ----- Constants ----- */
@@ -69,7 +70,7 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard
         address payable to,
         SrcInfos memory srcInfos,
         DstInfos memory dstInfos
-    ) external payable nonReentrant {
+    ) external payable nonReentrant whenNotPaused {
         require(srcInfos.fromToken != address(0), "WooUsdOFTCrossRouter: !srcInfos.fromToken");
         require(dstInfos.toToken != address(0), "WooUsdOFTCrossRouter: !dstInfos.toToken");
         require(to != address(0), "WooUsdOFTCrossRouter: !to");
