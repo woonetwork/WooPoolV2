@@ -41,6 +41,9 @@ contract WooUsdOFT is OFTV2 {
 
     mapping(address => bool) public isWooPP;
 
+    bool public mintAllowed;
+    bool public burnAllowed;
+
     modifier onlyWooPPAllowed() {
         require(isWooPP[_msgSender()], "WooUsdOFT: !allowed");
         _;
@@ -50,22 +53,35 @@ contract WooUsdOFT is OFTV2 {
         string memory _name,
         string memory _symbol,
         address _lzEndpoint
-    ) OFTV2(_name, _symbol, decimals(), _lzEndpoint) {}
+    ) OFTV2(_name, _symbol, decimals(), _lzEndpoint) {
+        mintAllowed = true;
+        burnAllowed = true;
+    }
 
     function decimals() public pure override returns (uint8) {
         return 6;
     }
 
     function mint(address _user, uint256 _amount) public onlyWooPPAllowed {
+        require(mintAllowed, "WooUsdOFT: !mintAllowed");
         _mint(_user, _amount);
     }
 
     function burn(address _user, uint256 _amount) public onlyWooPPAllowed {
+        require(burnAllowed, "WooUsdOFT: !burnAllowed");
         _burn(_user, _amount);
     }
 
     function setWooPP(address _wooPP, bool _flag) public onlyOwner {
         isWooPP[_wooPP] = _flag;
         emit WooPPUpdated(_wooPP, _flag);
+    }
+
+    function setMintAllowed(bool _mintAllowed) external onlyOwner {
+        mintAllowed = _mintAllowed;
+    }
+
+    function setBurnAllowed(bool _burnAllowed) external onlyOwner {
+        burnAllowed = _burnAllowed;
     }
 }
