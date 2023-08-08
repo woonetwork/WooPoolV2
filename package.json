@@ -74,7 +74,7 @@
     "zksync-web3": "^0.14.3"
   },
   "dependencies": {
-    "@layerzerolabs/solidity-examples": "^0.0.8",
-    "@openzeppelin/contracts": "^4.7.3"
+    "@layerzerolabs/solidity-examples": "^0.0.13",
+    "@openzeppelin/contracts": "^4.9.3"
   }
 }

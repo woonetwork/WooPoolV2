@@ -7,6 +7,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {ICommonOFT, IOFTV2} from "@layerzerolabs/solidity-examples/contracts/token/oft/v2/IOFTV2.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
 // Local Contracts
 import {IWETH} from "../interfaces/IWETH.sol";
@@ -19,7 +20,7 @@ import {TransferHelper} from "../libraries/TransferHelper.sol";
 
 /// @title WOOFi cross chain router via WooUSD OFT.
 /// @notice Router for stateless execution of cross chain swap.
-contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard {
+contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, Pausable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /* ----- Constants ----- */
@@ -39,6 +40,7 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard
     mapping(uint16 => address) public wooCrossChainRouters; // chainId => WooCrossChainRouter address
 
     address public feeAddr;
+    address public zroPaymentAddress;
 
     receive() external payable {}
 
@@ -54,6 +56,7 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard
         crossFee = IWooCrossFee(_crossFee);
         feeAddr = _feeAddr;
         lzChainIdLocal = _lzChainIdLocal;
+        zroPaymentAddress = _feeAddr;
 
         dstGas = 600000;
 
@@ -67,7 +70,7 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard
         address payable to,
         SrcInfos memory srcInfos,
         DstInfos memory dstInfos
-    ) external payable nonReentrant {
+    ) external payable nonReentrant whenNotPaused {
         require(srcInfos.fromToken != address(0), "WooUsdOFTCrossRouter: !srcInfos.fromToken");
         require(dstInfos.toToken != address(0), "WooUsdOFTCrossRouter: !dstInfos.toToken");
         require(to != address(0), "WooUsdOFTCrossRouter: !to");
@@ -112,7 +115,7 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard
             bytes memory adapterParams = _getAdapterParams(to, address(usdOFT), dstGasForCall, dstInfos);
             callParams = ICommonOFT.LzCallParams(
                 payable(msg.sender), // refundAddress
-                address(0), // zroPaymentAddress
+                zroPaymentAddress, // zroPaymentAddress
                 adapterParams //adapterParams
             );
         }
@@ -276,6 +279,10 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, ReentrancyGuard
 
     function setWooRouter(address _wooRouter) external onlyOwner {
         wooRouter = IWooRouterV3(_wooRouter);
+    }
+
+    function setZroPaymentAddress(address _zroPaymentAddress) external onlyOwner {
+        zroPaymentAddress = _zroPaymentAddress;
     }
 
     function setCrossFee(address _crossFee) external onlyOwner {
