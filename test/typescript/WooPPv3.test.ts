@@ -92,6 +92,10 @@ describe("WooPPV3 Integration Tests", () => {
     beforeEach("Deploy WooPPV3", async () => {
       wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
 
+      await wooPP.setCapBals(
+        [btcToken.address, wooToken.address, usdtToken.address],
+        [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
+
       await usdtToken.setWooPP(wooPP.address, true);
       await wooPP.setFeeRate(btcToken.address, 100);
 
@@ -200,6 +204,10 @@ describe("WooPPV3 Integration Tests", () => {
     beforeEach("Deploy WooPPV3", async () => {
       wooPP = (await deployContract(owner, WooPPV3Artifact,
         [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
+
+      await wooPP.setCapBals(
+        [btcToken.address, wooToken.address, usdtToken.address],
+        [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
 
       await usdtToken.setWooPP(wooPP.address, true);
 
@@ -512,6 +520,10 @@ describe("WooPPV3 Integration Tests", () => {
       wooPP = (await deployContract(owner, WooPPV3Artifact,
         [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
 
+      await wooPP.setCapBals(
+        [btcToken.address, wooToken.address, usdtToken.address],
+        [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
+
       await usdtToken.setWooPP(wooPP.address, true);
 
       await wooPP.setFeeRate(btcToken.address, 100);
@@ -640,6 +652,10 @@ describe("WooPPV3 Integration Tests", () => {
 
     beforeEach("Deploy WooPPV3", async () => {
       wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
+
+      await wooPP.setCapBals(
+        [btcToken.address, wooToken.address, usdtToken.address],
+        [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
 
       await usdtToken.setWooPP(wooPP.address, true);
 

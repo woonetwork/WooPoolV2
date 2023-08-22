@@ -172,6 +172,24 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         tokenInfos[token].feeRate = rate;
     }
 
+    function setFeeRates(address[] calldata tokens, uint16[] calldata feeRates) external onlyAdmin {
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            tokenInfos[tokens[i]].feeRate = feeRates[i];
+        }
+    }
+
+    function setCapBals(address[] calldata tokens, uint192[] calldata capBals) external onlyAdmin {
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            tokenInfos[tokens[i]].capBal = capBals[i];
+        }
+    }
+
+    function setTargetBals(address[] calldata tokens, uint192[] calldata tgtBals) external onlyAdmin {
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            tokenInfos[tokens[i]].tgtBal = tgtBals[i];
+        }
+    }
+
     /* ----- Admin Functions ----- */
 
     function deposit(address token, uint256 amount) public override nonReentrant onlyAdmin {
@@ -224,10 +242,6 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
                 skim(tokens[i]);
             }
         }
-    }
-
-    function skimUSD(address to) external nonReentrant onlyAdmin {
-        TransferHelper.safeTransfer(usdOFT, to, balance(usdOFT));
     }
 
     function sync(address token) external nonReentrant onlyAdmin {
@@ -309,11 +323,12 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         address to,
         address rebateTo
     ) private nonReentrant whenNotPaused returns (uint256 base2Amount) {
-        require(baseToken1 != address(0) && baseToken1 != usdOFT, "IWooPPV3: !baseToken1");
-        require(baseToken2 != address(0) && baseToken2 != usdOFT, "IWooPPV3: !baseToken2");
-        require(to != address(0), "IWooPPV3: !to");
+        require(baseToken1 != address(0) && baseToken1 != usdOFT, "WooPPV3: !baseToken1");
+        require(baseToken2 != address(0) && baseToken2 != usdOFT, "WooPPV3: !baseToken2");
+        require(to != address(0), "WooPPV3: !to");
 
-        require(balance(baseToken1) - tokenInfos[baseToken1].reserve >= base1Amount, "IWooPPV3: !BASE1_BALANCE");
+        require(balance(baseToken1) <= tokenInfos[baseToken1].capBal, "WooPPV3: CAP_EXCEEDS");
+        require(balance(baseToken1) - tokenInfos[baseToken1].reserve >= base1Amount, "WooPPV3: !BASE1_BALANCE");
 
         IWooracleV2.State memory state1 = IWooracleV2(wooracle).state(baseToken1);
         IWooracleV2.State memory state2 = IWooracleV2(wooracle).state(baseToken2);
@@ -347,7 +362,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
             // TODO: uncomment it in prod version
             // IWooracleV2(wooracle).postPrice(baseToken2, uint128(newBase2Price));
             // console.log('Post new base2 price:', newBase2Price, newBase2Price/1e8);
-            require(base2Amount >= minBase2Amount, "IWooPPV3: base2Amount_LT_minBase2Amount");
+            require(base2Amount >= minBase2Amount, "WooPPV3: base2Amount_LT_minBase2Amount");
         }
 
         tokenInfos[baseToken2].reserve = uint192(tokenInfos[baseToken2].reserve - base2Amount);
@@ -378,6 +393,8 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
     ) internal returns (uint256 quoteAmount) {
         require(baseToken != address(0) && baseToken != usdOFT, "WooPPV3: !baseToken");
         require(to != address(0), "WooPPV3: !to");
+
+        require(balance(baseToken) <= tokenInfos[baseToken].capBal, "WooPPV3: CAP_EXCEEDS");
         require(balance(baseToken) - tokenInfos[baseToken].reserve >= baseAmount, "WooPPV3: BASE_BALANCE_NOT_ENOUGH");
 
         {
@@ -421,6 +438,8 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
     ) internal returns (uint256 baseAmount) {
         require(baseToken != address(0) && baseToken != usdOFT, "WooPPV3: !baseToken");
         require(to != address(0), "WooPPV3: !to");
+
+        require(balance(usdOFT) <= tokenInfos[usdOFT].capBal, "WooPPV3: CAP_EXCEEDS");
 
         // TODO: double check this logic
         // or: require(balance(usdOFT) - tokenInfos[usdOFT].reserve >= quoteAmount, "WooPPV3: USD_BALANCE_NOT_ENOUGH");
@@ -469,7 +488,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         uint256 baseAmount,
         IWooracleV2.State memory state
     ) internal view returns (uint256 usdAmount, uint256 newPrice) {
-        require(state.woFeasible, "IWooPPV3: !ORACLE_FEASIBLE");
+        require(state.woFeasible, "WooPPV3: !ORACLE_FEASIBLE");
 
         DecimalInfo memory decs = decimalInfo(baseToken);
 
@@ -493,7 +512,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         uint256 usdAmount,
         IWooracleV2.State memory state
     ) internal view returns (uint256 baseAmount, uint256 newPrice) {
-        require(state.woFeasible, "IWooPPV3: !ORACLE_FEASIBLE");
+        require(state.woFeasible, "WooPPV3: !ORACLE_FEASIBLE");
 
         DecimalInfo memory decs = decimalInfo(baseToken);
 

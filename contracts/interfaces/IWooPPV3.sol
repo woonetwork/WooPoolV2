@@ -49,6 +49,8 @@ interface IWooPPV3 {
     struct TokenInfo {
         uint192 reserve; // balance reserve
         uint16 feeRate; // 1 in 100000; 10 = 1bp = 0.01%; max = 65535
+        uint192 capBal; // maximum balance cap in token amount
+        uint192 tgtBal; // target balance for swap fee
     }
 
     /* ----- Events ----- */
