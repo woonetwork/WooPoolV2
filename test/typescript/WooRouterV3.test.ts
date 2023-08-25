@@ -90,6 +90,10 @@ describe("WooRouterV3 Integration Tests", () => {
     beforeEach("Deploy WooRouter", async () => {
       wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
 
+      await wooPP.setCapBals(
+        [btcToken.address, wooToken.address, usdtToken.address],
+        [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
+
       await usdtToken.setWooPP(wooPP.address, true);
 
       wooRouter = (await deployContract(owner, WooRouterV3Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV3;
@@ -195,6 +199,10 @@ describe("WooRouterV3 Integration Tests", () => {
 
     beforeEach("Deploy WooRouterV3", async () => {
       wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
+
+      await wooPP.setCapBals(
+        [btcToken.address, wooToken.address, usdtToken.address],
+        [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
 
       await usdtToken.setWooPP(wooPP.address, true);
 
@@ -410,6 +418,10 @@ describe("WooRouterV3 Integration Tests", () => {
 
     beforeEach("Deploy WooRouter", async () => {
       wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
+
+      await wooPP.setCapBals(
+        [btcToken.address, wooToken.address, usdtToken.address],
+        [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
 
       await usdtToken.setWooPP(wooPP.address, true);
 
