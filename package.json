@@ -75,6 +75,7 @@
   },
   "dependencies": {
     "@layerzerolabs/solidity-examples": "^0.0.13",
-    "@openzeppelin/contracts": "^4.9.3"
+    "@openzeppelin/contracts": "^4.9.3",
+    "@uniswap/v3-periphery": "^1.4.3"
   }
 }

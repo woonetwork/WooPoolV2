@@ -124,6 +124,23 @@ const config: HardhatUserConfig = {
       chainId: 1442,
       accounts: accounts,
     },
+    linea: {
+      url: "https://rpc.linea.build/",
+      chainId: 59144,
+      accounts: accounts,
+    },
+    baseGoerli: {
+      url: "https://goerli.base.org",
+      accounts: accounts,
+    },
+    arbitrumGoerli: {
+      url: "https://goerli-rollup.arbitrum.io/rpc",
+      accounts: accounts,
+    },
+    goerli: {
+      url: "https://rpc.ankr.com/eth_goerli",
+      accounts: accounts,
+    },
   },
   etherscan: {
     apiKey: {
@@ -149,6 +166,9 @@ const config: HardhatUserConfig = {
       base_testnet: "no-api-key-needed",
       polygon_zkevm_mainnet: process.env.ZKEVM_POLYGONSCAN_KEY !== undefined ? process.env.ZKEVM_POLYGONSCAN_KEY : "",
       polygon_zkevm_testnet: process.env.ZKEVM_POLYGONSCAN_KEY !== undefined ? process.env.ZKEVM_POLYGONSCAN_KEY : "",
+      linea: process.env.LINEA_KEY !== undefined ? process.env.LINEA_KEY : "",
+      baseGoerli: process.env.BASESCAN_KEY !== undefined ? process.env.BASESCAN_KEY : "",
+      goerli: process.env.ETHERSCAN_KEY !== undefined ? process.env.ETHERSCAN_KEY : "",
     },
     customChains: [
       {
@@ -174,6 +194,22 @@ const config: HardhatUserConfig = {
           apiURL: "https://api-testnet-zkevm.polygonscan.com/api",
           browserURL: "https://testnet-zkevm.polygonscan.com",
         }
+      },
+      {
+        network: "linea",
+        chainId: 59144,
+        urls: {
+          apiURL: "https://api.lineascan.build/api",
+          browserURL: "https://lineascan.build",
+        }
+      },
+      {
+        network: "baseGoerli",
+        chainId: 84531,
+        urls: {
+          apiURL: "https://api-goerli.basescan.org/api",
+          browserURL: "https://goerli.basescan.org",
+        },
       },
     ]
   },
@@ -204,7 +240,7 @@ const config: HardhatUserConfig = {
     path: "./abis",
     runOnCompile: true,
     clear: true,
-    flat: true,
+    flat: false,
     pretty: false,
     except: ["test*"],
   },
