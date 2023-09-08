@@ -88,7 +88,10 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
             dstInfos.toToken != address(0) && dstInfos.toToken != sgETHs[dstInfos.chainId],
             "WOOFiDexCrossChainRouter: dstInfos.toToken not allow"
         );
-        require(woofiDexVaults[dstInfos.chainId][dstInfos.toToken] != address(0), "WOOFiDexCrossChainRouter: dstInfos.chainId not allow");
+        require(
+            woofiDexVaults[dstInfos.chainId][dstInfos.toToken] != address(0),
+            "WOOFiDexCrossChainRouter: dstInfos.chainId not allow"
+        );
 
         address sender = _msgSender();
         uint256 nativeAmount = msg.value;
@@ -192,7 +195,6 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         uint256 nonce = nonceCounter.outboundNonce(dstInfos.chainId) + 1;
         bytes memory payload = _getEncodePayload(nonce, payable(to), dstInfos, dstVaultDeposit);
 
-
         // only bridge via Stargate
         IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
 
@@ -278,9 +280,17 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
             );
     }
 
-    function _getDecodePayload(
-        bytes memory payload
-    ) internal pure returns (uint256, address, address, uint256, DstVaultDeposit memory) {
+    function _getDecodePayload(bytes memory payload)
+        internal
+        pure
+        returns (
+            uint256,
+            address,
+            address,
+            uint256,
+            DstVaultDeposit memory
+        )
+    {
         (
             uint256 nonce,
             address to,
@@ -455,11 +465,18 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
     }
 
     function setWOOFiDexCrossChainRouter(uint16 chainId, address woofiDexCrossChainRouter) external onlyOwner {
-        require(woofiDexCrossChainRouter != address(0), "WOOFiDexCrossChainRouter: woofiDexCrossChainRouter cant be zero");
+        require(
+            woofiDexCrossChainRouter != address(0),
+            "WOOFiDexCrossChainRouter: woofiDexCrossChainRouter cant be zero"
+        );
         woofiDexCrossChainRouters[chainId] = woofiDexCrossChainRouter;
     }
 
-    function setWOOFiDexVault(uint16 chainId, address token, address woofiDexVault) external onlyOwner {
+    function setWOOFiDexVault(
+        uint16 chainId,
+        address token,
+        address woofiDexVault
+    ) external onlyOwner {
         require(woofiDexVault != address(0), "WOOFiDexCrossChainRouter: woofiDexVault cant be zero");
         woofiDexVaults[chainId][token] = woofiDexVault;
     }
@@ -469,7 +486,11 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         sgETHs[chainId] = token;
     }
 
-    function setSgPoolId(uint16 chainId, address token, uint256 poolId) external onlyOwner {
+    function setSgPoolId(
+        uint16 chainId,
+        address token,
+        uint256 poolId
+    ) external onlyOwner {
         sgPoolIds[chainId][token] = poolId;
     }
 
