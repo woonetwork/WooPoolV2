@@ -30,7 +30,6 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
 
     /* ----- Variables ----- */
 
-    IWooCrossChainRouterV2 public crossRouter;
     IWooRouterV2 public wooRouter;
     IStargateRouter public stargateRouter;
 
@@ -81,12 +80,17 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
         sgETHs[110] = 0x82CbeCF39bEe528B5476FE6d1550af59a9dB6Fc0;
         // Optimism
         sgETHs[111] = 0xb69c8CBCD90A39D8D3d3ccf0a3E968511C3856A0;
+        // Linea
+        sgETHs[183] = 0x224D8Fd7aB6AD4c6eb4611Ce56EF35Dec2277F03;
+        // Base
+        sgETHs[184] = 0x224D8Fd7aB6AD4c6eb4611Ce56EF35Dec2277F03;
     }
 
     function _initSgPoolIds() internal {
         // poolId > 0 means able to be bridge token
         // Ethereum
         sgPoolIds[101][0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 1; // USDC
+        sgPoolIds[101][0xdAC17F958D2ee523a2206206994597C13D831ec7] = 2; // USDT
         sgPoolIds[101][0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = 13; // WETH
         sgPoolIds[101][0x4691937a7508860F876c9c0a2a617E7d9E945D4B] = 20; // WOO
         // BNB Chain
@@ -113,6 +117,11 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
         // Fantom
         sgPoolIds[112][0x04068DA6C83AFCFA0e13ba15A6696662335D5B75] = 1; // USDC
         sgPoolIds[112][0x6626c47c00F1D87902fc13EECfaC3ed06D5E8D8a] = 20; // WOO
+        // Linea
+        sgPoolIds[183][0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f] = 13; // WETH
+        // Base
+        sgPoolIds[184][0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA] = 1; // USDC
+        sgPoolIds[184][0x4200000000000000000000000000000000000006] = 13; // WETH
     }
 
     /* ----- Functions ----- */
@@ -134,6 +143,7 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
 
         uint256 msgValue = msg.value;
         uint256 bridgeAmount;
+        uint256 fee = 0;
 
         {
             // Step 1: transfer
@@ -160,6 +170,7 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                         payable(address(this)),
                         src1inch.data
                     );
+                    fee = (bridgeAmount * srcExternalFeeRate) / 1e6;
                 } else {
                     // swap via WOOFi
                     bridgeAmount = wooRouter.swap(
@@ -186,7 +197,7 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
         }
 
         // Step 3: deduct the swap fee
-        bridgeAmount -= ((bridgeAmount * srcExternalFeeRate) / 1e6);
+        bridgeAmount -= fee;
 
         // Step 4: cross chain swap by StargateRouter
         _bridgeByStargate(refId, to, msgValue, bridgeAmount, srcInfos, dstInfos, dst1inch);
@@ -197,9 +208,11 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
             to,
             srcInfos.fromToken,
             srcInfos.fromAmount,
+            srcInfos.bridgeToken,
             srcInfos.minBridgeAmount,
             bridgeAmount,
-            src1inch.swapRouter == address(0) ? 0 : 1
+            src1inch.swapRouter == address(0) ? 0 : 1,
+            fee
         );
     }
 
@@ -375,7 +388,8 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                 ETH_PLACEHOLDER_ADDR,
                 minToAmount,
                 bridgedAmount,
-                dst1inch.swapRouter == address(0) ? 0 : 1
+                dst1inch.swapRouter == address(0) ? 0 : 1,
+                0
             );
         } else {
             if (dst1inch.swapRouter != address(0)) {
@@ -403,7 +417,8 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                         toToken,
                         minToAmount,
                         realToAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1
+                        dst1inch.swapRouter == address(0) ? 0 : 1,
+                        fee
                     );
                 } catch {
                     // NOTE: reimburse the swap fee if external swap failed
@@ -419,7 +434,8 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                         ETH_PLACEHOLDER_ADDR,
                         minToAmount,
                         bridgedAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1
+                        dst1inch.swapRouter == address(0) ? 0 : 1,
+                        0
                     );
                 }
             } else {
@@ -443,7 +459,8 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                         toToken,
                         minToAmount,
                         realToAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1
+                        dst1inch.swapRouter == address(0) ? 0 : 1,
+                        0
                     );
                 } catch {
                     TransferHelper.safeTransferETH(to, bridgedAmount);
@@ -457,7 +474,8 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                         ETH_PLACEHOLDER_ADDR,
                         minToAmount,
                         bridgedAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1
+                        dst1inch.swapRouter == address(0) ? 0 : 1,
+                        0
                     );
                 }
             }
@@ -487,7 +505,8 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                 toToken,
                 minToAmount,
                 bridgedAmount,
-                dst1inch.swapRouter == address(0) ? 0 : 1
+                dst1inch.swapRouter == address(0) ? 0 : 1,
+                0
             );
         } else {
             // Deduct the external swap fee
@@ -518,7 +537,8 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                         toToken,
                         minToAmount,
                         realToAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1
+                        dst1inch.swapRouter == address(0) ? 0 : 1,
+                        fee
                     );
                 } catch {
                     bridgedAmount += fee;
@@ -533,7 +553,8 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                         bridgedToken,
                         minToAmount,
                         bridgedAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1
+                        dst1inch.swapRouter == address(0) ? 0 : 1,
+                        0
                     );
                 }
             } else {
@@ -550,7 +571,8 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                         toToken,
                         minToAmount,
                         realToAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1
+                        dst1inch.swapRouter == address(0) ? 0 : 1,
+                        0
                     );
                 } catch {
                     TransferHelper.safeTransfer(bridgedToken, to, bridgedAmount);
@@ -564,7 +586,8 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                         bridgedToken,
                         minToAmount,
                         bridgedAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1
+                        dst1inch.swapRouter == address(0) ? 0 : 1,
+                        0
                     );
                 }
             }

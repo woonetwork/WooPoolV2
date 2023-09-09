@@ -72,9 +72,11 @@ interface IWooCrossChainExternalRouter {
         address indexed to,
         address fromToken,
         uint256 fromAmount,
+        address bridgeToken,
         uint256 minBridgeAmount,
         uint256 realBridgeAmount,
-        uint8 swapType
+        uint8 swapType,
+        uint256 fee
     );
 
     event WooCrossSwapOnDstChain(
@@ -87,7 +89,8 @@ interface IWooCrossChainExternalRouter {
         address realToToken,
         uint256 minToAmount,
         uint256 realToAmount,
-        uint8 swapType
+        uint8 swapType,
+        uint256 fee
     );
 
     /* ----- State Variables ----- */
