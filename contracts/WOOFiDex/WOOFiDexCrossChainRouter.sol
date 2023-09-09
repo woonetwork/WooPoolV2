@@ -157,7 +157,7 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         bytes memory, // srcAddress
         uint256, // nonce
         address bridgedToken,
-        uint256 amountLD,
+        uint256 bridgedAmount,
         bytes memory payload
     ) external {
         address sender = _msgSender();
@@ -178,7 +178,7 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
             sender,
             to,
             bridgedToken,
-            amountLD,
+            bridgedAmount,
             toToken,
             minToAmount,
             woofiDexVault,
@@ -268,16 +268,7 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         DstInfos calldata dstInfos,
         DstVaultDeposit calldata dstVaultDeposit
     ) internal pure returns (bytes memory) {
-        return
-            abi.encode(
-                nonce,
-                to,
-                dstInfos.toToken,
-                dstInfos.minToAmount,
-                dstVaultDeposit.accountId,
-                dstVaultDeposit.brokerHash,
-                dstVaultDeposit.tokenHash
-            );
+        return abi.encode(nonce, to, dstInfos.toToken, dstInfos.minToAmount, dstVaultDeposit);
     }
 
     function _getDecodePayload(bytes memory payload)
@@ -291,17 +282,10 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
             DstVaultDeposit memory
         )
     {
-        (
-            uint256 nonce,
-            address to,
-            address toToken,
-            uint256 minToAmount,
-            bytes32 accountId,
-            bytes32 brokerHash,
-            bytes32 tokenHash
-        ) = abi.decode(payload, (uint256, address, address, uint256, bytes32, bytes32, bytes32));
+        (uint256 nonce, address to, address toToken, uint256 minToAmount, DstVaultDeposit memory dstVaultDeposit) = abi
+            .decode(payload, (uint256, address, address, uint256, DstVaultDeposit));
 
-        return (nonce, to, toToken, minToAmount, DstVaultDeposit(accountId, brokerHash, tokenHash));
+        return (nonce, to, toToken, minToAmount, dstVaultDeposit);
     }
 
     function _bridgeByStargate(
