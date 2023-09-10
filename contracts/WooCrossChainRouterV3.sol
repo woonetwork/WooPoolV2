@@ -9,8 +9,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 
 // Local Contracts
 import {IWETH} from "./interfaces/IWETH.sol";
-import {IWooCrossChainExternalRouter} from "./interfaces/IWooCrossChainExternalRouter.sol";
-import {IWooCrossChainRouterV2} from "./interfaces/IWooCrossChainRouterV2.sol";
+import {IWooCrossChainRouterV3} from "./interfaces/IWooCrossChainRouterV3.sol";
 import {IWooRouterV2} from "./interfaces/IWooRouterV2.sol";
 import {IStargateEthVault} from "./interfaces/Stargate/IStargateEthVault.sol";
 import {IStargateRouter} from "./interfaces/Stargate/IStargateRouter.sol";
@@ -18,10 +17,10 @@ import {ILzApp} from "./interfaces/LayerZero/ILzApp.sol";
 
 import {TransferHelper} from "./libraries/TransferHelper.sol";
 
-/// @title cross chain router implementation.
-/// @notice Router for stateless execution of cross chain swap against 1inch swap.
+/// @title cross chain router implementation, version 3.
+/// @notice Router for stateless execution of cross chain swap against WOOFi or 1inch swap.
 /// @custom:stargate-contracts https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
-contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, ReentrancyGuard {
+contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /* ----- Constants ----- */
@@ -42,8 +41,9 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
     uint16 public sgChainIdLocal; // Stargate chainId on local chain
     uint16 public srcExternalFeeRate; // unit: 0.1 bps (1e6 = 100%, 25 = 2.5 bps)
     uint16 public dstExternalFeeRate; // unit: 0.1 bps (1e6 = 100%, 25 = 2.5 bps)
+    uint256 public constant FEE_BASE = 1e6;
 
-    mapping(uint16 => address) public wooCrossExternalRouters; // chainId => WooCrossChainExternalRouter address
+    mapping(uint16 => address) public wooCrossRouters; // chainId => WooCrossChainRouterV3 address
     mapping(uint16 => address) public sgETHs; // chainId => SGETH token address
     mapping(uint16 => mapping(address => uint256)) public sgPoolIds; // chainId => token address => Stargate poolId
 
@@ -126,7 +126,7 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
 
     /* ----- Functions ----- */
 
-    function crossExternalSwap(
+    function crossSwap(
         uint256 refId,
         address payable to,
         SrcInfos memory srcInfos,
@@ -134,12 +134,12 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
         Src1inch calldata src1inch,
         Dst1inch calldata dst1inch
     ) external payable nonReentrant {
-        require(srcInfos.fromToken != address(0), "WooCrossChainExternalRouter: !srcInfos.fromToken");
+        require(srcInfos.fromToken != address(0), "WooCrossChainRouterV3: !srcInfos.fromToken");
         require(
             dstInfos.toToken != address(0) && dstInfos.toToken != sgETHs[dstInfos.chainId],
-            "WooCrossChainExternalRouter: !dstInfos.toToken"
+            "WooCrossChainRouterV3: !dstInfos.toToken"
         );
-        require(to != address(0), "WooCrossChainExternalRouter: !to");
+        require(to != address(0), "WooCrossChainRouterV3: !to");
 
         uint256 msgValue = msg.value;
         uint256 bridgeAmount;
@@ -148,7 +148,7 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
         {
             // Step 1: transfer
             if (srcInfos.fromToken == ETH_PLACEHOLDER_ADDR) {
-                require(srcInfos.fromAmount <= msgValue, "WooCrossChainExternalRouter: !srcInfos.fromAmount");
+                require(srcInfos.fromAmount <= msgValue, "WooCrossChainRouterV3: !srcInfos.fromAmount");
                 srcInfos.fromToken = weth;
                 IWETH(weth).deposit{value: srcInfos.fromAmount}();
                 msgValue -= srcInfos.fromAmount;
@@ -160,6 +160,7 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
             if (!directBridgeTokens.contains(srcInfos.fromToken) && srcInfos.fromToken != srcInfos.bridgeToken) {
                 TransferHelper.safeApprove(srcInfos.fromToken, address(wooRouter), srcInfos.fromAmount);
                 if (src1inch.swapRouter != address(0)) {
+                    // external swap via 1inch
                     bridgeAmount = wooRouter.externalSwap(
                         src1inch.swapRouter,
                         src1inch.swapRouter,
@@ -170,7 +171,7 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
                         payable(address(this)),
                         src1inch.data
                     );
-                    fee = (bridgeAmount * srcExternalFeeRate) / 1e6;
+                    fee = (bridgeAmount * srcExternalFeeRate) / FEE_BASE;
                 } else {
                     // swap via WOOFi
                     bridgeAmount = wooRouter.swap(
@@ -185,14 +186,14 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
             } else {
                 require(
                     srcInfos.fromAmount == srcInfos.minBridgeAmount,
-                    "WooCrossChainExternalRouter: !srcInfos.minBridgeAmount"
+                    "WooCrossChainRouterV3: !srcInfos.minBridgeAmount"
                 );
                 bridgeAmount = srcInfos.fromAmount;
             }
 
             require(
                 bridgeAmount <= IERC20(srcInfos.bridgeToken).balanceOf(address(this)),
-                "WooCrossChainExternalRouter: !bridgeAmount"
+                "WooCrossChainRouterV3: !bridgeAmount"
             );
         }
 
@@ -224,7 +225,7 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
         uint256 amountLD,
         bytes memory payload
     ) external {
-        require(msg.sender == address(stargateRouter), "WooCrossChainExternalRouter: INVALID_CALLER");
+        require(msg.sender == address(stargateRouter), "WooCrossChainRouterV3: INVALID_CALLER");
 
         // make sure the same order to abi.encode when decode payload
         (uint256 refId, address to, address toToken, uint256 minToAmount, Dst1inch memory dst1inch) = abi.decode(
@@ -260,9 +261,9 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
             );
     }
 
-    /// @dev OKAY to be public method ???
+    /// @dev OKAY to be public method
     function claimFee(address token) external nonReentrant {
-        require(feeAddr != address(0), "WooCrossChainExternalRouter: !feeAddr");
+        require(feeAddr != address(0), "WooCrossChainRouterV3: !feeAddr");
         uint256 amount = _generalBalanceOf(token, address(this));
         if (amount > 0) {
             if (token == ETH_PLACEHOLDER_ADDR) {
@@ -328,19 +329,13 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
         DstInfos calldata dstInfos,
         Dst1inch calldata dst1inch
     ) internal {
-        require(
-            sgPoolIds[sgChainIdLocal][srcInfos.bridgeToken] > 0,
-            "WooCrossChainExternalRouter: !srcInfos.bridgeToken"
-        );
-        require(
-            sgPoolIds[dstInfos.chainId][dstInfos.bridgeToken] > 0,
-            "WooCrossChainExternalRouter: !dstInfos.bridgeToken"
-        );
+        require(sgPoolIds[sgChainIdLocal][srcInfos.bridgeToken] > 0, "WooCrossChainRouterV3: !srcInfos.bridgeToken");
+        require(sgPoolIds[dstInfos.chainId][dstInfos.bridgeToken] > 0, "WooCrossChainRouterV3: !dstInfos.bridgeToken");
 
         bytes memory payload = abi.encode(refId, to, dstInfos.toToken, dstInfos.minToAmount, dst1inch);
 
         uint256 dstMinBridgeAmount = (bridgeAmount * (10000 - bridgeSlippage)) / 10000;
-        bytes memory dstWooCrossChainRouter = abi.encodePacked(wooCrossExternalRouters[dstInfos.chainId]);
+        bytes memory dstWooCrossChainRouter = abi.encodePacked(wooCrossRouters[dstInfos.chainId]);
 
         IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
 
@@ -393,7 +388,7 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
             );
         } else {
             if (dst1inch.swapRouter != address(0)) {
-                uint256 fee = (bridgedAmount * dstExternalFeeRate) / 1e6;
+                uint256 fee = (bridgedAmount * dstExternalFeeRate) / FEE_BASE;
                 bridgedAmount -= fee;
                 try
                     wooRouter.externalSwap{value: bridgedAmount}(
@@ -510,7 +505,7 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
             );
         } else {
             // Deduct the external swap fee
-            uint256 fee = (bridgedAmount * dstExternalFeeRate) / 1e6;
+            uint256 fee = (bridgedAmount * dstExternalFeeRate) / FEE_BASE;
             bridgedAmount -= fee;
 
             TransferHelper.safeApprove(bridgedToken, address(wooRouter), bridgedAmount);
@@ -605,17 +600,17 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
     }
 
     function setWooRouter(address _wooRouter) external onlyOwner {
-        require(_wooRouter != address(0), "WooCrossChainExternalRouter: !_wooRouter");
+        require(_wooRouter != address(0), "WooCrossChainRouterV3: !_wooRouter");
         wooRouter = IWooRouterV2(_wooRouter);
     }
 
     function setStargateRouter(address _stargateRouter) external onlyOwner {
-        require(_stargateRouter != address(0), "WooCrossChainExternalRouter: !_stargateRouter");
+        require(_stargateRouter != address(0), "WooCrossChainRouterV3: !_stargateRouter");
         stargateRouter = IStargateRouter(_stargateRouter);
     }
 
     function setBridgeSlippage(uint256 _bridgeSlippage) external onlyOwner {
-        require(_bridgeSlippage <= 10000, "WooCrossChainExternalRouter: !_bridgeSlippage");
+        require(_bridgeSlippage <= 10000, "WooCrossChainRouterV3: !_bridgeSlippage");
         bridgeSlippage = _bridgeSlippage;
     }
 
@@ -631,19 +626,19 @@ contract WooCrossChainExternalRouter is IWooCrossChainExternalRouter, Ownable, R
         sgChainIdLocal = _sgChainIdLocal;
     }
 
-    function setWooCrossExternalRouter(uint16 chainId, address wooCrossExternalRouter) external onlyOwner {
-        require(wooCrossExternalRouter != address(0), "WooCrossChainExternalRouter: !wooCrossExternalRouter");
-        wooCrossExternalRouters[chainId] = wooCrossExternalRouter;
+    function setWooCrossRouter(uint16 _chainId, address _crossRouter) external onlyOwner {
+        require(_crossRouter != address(0), "WooCrossChainRouterV3: !_crossRouter");
+        wooCrossRouters[_chainId] = _crossRouter;
     }
 
     function addDirectBridgeToken(address token) external onlyOwner {
         bool success = directBridgeTokens.add(token);
-        require(success, "WooCrossChainExternalRouter: token exist");
+        require(success, "WooCrossChainRouterV3: token exist");
     }
 
     function removeDirectBridgeToken(address token) external onlyOwner {
         bool success = directBridgeTokens.remove(token);
-        require(success, "WooCrossChainExternalRouter: token not exist");
+        require(success, "WooCrossChainRouterV3: token not exist");
     }
 
     function inCaseTokenGotStuck(address stuckToken) external onlyOwner {

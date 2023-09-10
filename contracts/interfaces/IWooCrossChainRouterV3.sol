@@ -34,9 +34,9 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/// @title WOOFi cross chain router interface (version 3, supporting 1inch).
+/// @title WOOFi cross chain router interface (version 3, supporting WOOFi and 1inch).
 /// @notice functions to interface with WOOFi cross chain swap, and 1inch for local swap
-interface IWooCrossChainExternalRouter {
+interface IWooCrossChainRouterV3 {
     /* ----- Structs ----- */
 
     struct SrcInfos {
@@ -101,11 +101,11 @@ interface IWooCrossChainExternalRouter {
 
     function dstGasForNoSwapCall() external view returns (uint256);
 
-    function wooCrossExternalRouters(uint16 chainId) external view returns (address wooCrossExternalRouter);
+    function wooCrossRouters(uint16 chainId) external view returns (address wooCrossRouter);
 
     /* ----- Functions ----- */
 
-    function crossExternalSwap(
+    function crossSwap(
         uint256 refId,
         address payable to,
         SrcInfos memory srcInfos,
