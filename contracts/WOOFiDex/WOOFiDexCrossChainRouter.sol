@@ -65,8 +65,8 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
 
         weth = _weth;
         bridgeSlippage = 20;
-        dstGasForSwapCall = 710000;
-        dstGasForNoSwapCall = 430000;
+        dstGasForSwapCall = 750000;
+        dstGasForNoSwapCall = 450000;
 
         sgChainIdLocal = _sgChainIdLocal;
 
@@ -223,33 +223,50 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         return directBridgeTokens.length();
     }
 
-    function _initSgETHs() internal {}
+    function _initSgETHs() internal {
+        sgETHs[101] = 0x72E2F4830b9E45d52F80aC08CB2bEC0FeF72eD9c; // Ethereum
+        sgETHs[110] = 0x82CbeCF39bEe528B5476FE6d1550af59a9dB6Fc0; // Arbitrum
+        sgETHs[111] = 0xb69c8CBCD90A39D8D3d3ccf0a3E968511C3856A0; // Optimism
+        sgETHs[183] = 0x224D8Fd7aB6AD4c6eb4611Ce56EF35Dec2277F03; // Linea
+        sgETHs[184] = 0x224D8Fd7aB6AD4c6eb4611Ce56EF35Dec2277F03; // Base
+    }
 
     function _initSgPoolIds() internal {
         // poolId > 0 means able to be bridge token
-        // Ethereum Goerli
-        sgPoolIds[10121][0xDf0360Ad8C5ccf25095Aa97ee5F2785c8d848620] = 1; // USDC
-        sgPoolIds[10121][0x5BCc22abEC37337630C0E0dd41D64fd86CaeE951] = 2; // USDT
-        // BNB Chain Testnet
-        sgPoolIds[10102][0xF49E250aEB5abDf660d643583AdFd0be41464EfD] = 2; // USDT
-        sgPoolIds[10102][0x1010Bb1b9Dff29e6233E7947e045e0ba58f6E92e] = 5; // BUSD
-        // Avalanche Fuji
-        sgPoolIds[10106][0x4A0D1092E9df255cf95D72834Ea9255132782318] = 1; // USDC
-        sgPoolIds[10106][0x134Dc38AE8C853D1aa2103d5047591acDAA16682] = 2; // USDT
-        // Polygon Mumbai
-        sgPoolIds[10109][0x742DfA5Aa70a8212857966D491D67B09Ce7D6ec7] = 1; // USDC
-        sgPoolIds[10109][0x6Fc340be8e378c2fF56476409eF48dA9a3B781a0] = 2; // USDT
-        // Arbitrum Goerli
-        sgPoolIds[10143][0x6aAd876244E7A1Ad44Ec4824Ce813729E5B6C291] = 1; // USDC
-        sgPoolIds[10143][0x533046F316590C19d99c74eE661c6d541b64471C] = 2; // USDT
-        // Optimism Goerli
-        sgPoolIds[10132][0x0CEDBAF2D0bFF895C861c5422544090EEdC653Bf] = 1; // USDC
-        // Fantom Testnet
-        sgPoolIds[10112][0x076488D244A73DA4Fa843f5A8Cd91F655CA81a1e] = 1; // USDC
-        // Linea Goerli
-        sgPoolIds[10157][0x78136C68561996d36a3B053C99c7ADC62B673644] = 1; // USDC
-        // Base Goerli
-        sgPoolIds[10160][0x5C8ef0FA2b094276520D25dEf4725F93467227bC] = 1; // USDC
+        // Ethereum
+        sgPoolIds[101][0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 1; // USDC
+        sgPoolIds[101][0xdAC17F958D2ee523a2206206994597C13D831ec7] = 2; // USDT
+        sgPoolIds[101][0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = 13; // WETH
+        sgPoolIds[101][0x4691937a7508860F876c9c0a2a617E7d9E945D4B] = 20; // WOO
+        // BNB Chain
+        sgPoolIds[102][0x55d398326f99059fF775485246999027B3197955] = 2; // USDT
+        sgPoolIds[102][0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56] = 5; // BUSD
+        sgPoolIds[102][0x4691937a7508860F876c9c0a2a617E7d9E945D4B] = 20; // WOO
+        // Avalanche
+        sgPoolIds[106][0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E] = 1; // USDC
+        sgPoolIds[106][0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7] = 2; // USDT
+        sgPoolIds[106][0xaBC9547B534519fF73921b1FBA6E672b5f58D083] = 20; // WOO
+        // Polygon
+        sgPoolIds[109][0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174] = 1; // USDC
+        sgPoolIds[109][0xc2132D05D31c914a87C6611C10748AEb04B58e8F] = 2; // USDT
+        sgPoolIds[109][0x1B815d120B3eF02039Ee11dC2d33DE7aA4a8C603] = 20; // WOO
+        // Arbitrum
+        sgPoolIds[110][0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8] = 1; // USDC
+        sgPoolIds[110][0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9] = 2; // USDT
+        sgPoolIds[110][0x82aF49447D8a07e3bd95BD0d56f35241523fBab1] = 13; // WETH
+        sgPoolIds[110][0xcAFcD85D8ca7Ad1e1C6F82F651fA15E33AEfD07b] = 20; // WOO
+        // Optimism
+        sgPoolIds[111][0x7F5c764cBc14f9669B88837ca1490cCa17c31607] = 1; // USDC
+        sgPoolIds[111][0x4200000000000000000000000000000000000006] = 13; // WETH
+        sgPoolIds[111][0x871f2F2ff935FD1eD867842FF2a7bfD051A5E527] = 20; // WOO
+        // Fantom
+        sgPoolIds[112][0x04068DA6C83AFCFA0e13ba15A6696662335D5B75] = 1; // USDC
+        sgPoolIds[112][0x6626c47c00F1D87902fc13EECfaC3ed06D5E8D8a] = 20; // WOO
+        // Linea
+        sgPoolIds[183][0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f] = 13; // WETH
+        // Base
+        sgPoolIds[184][0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA] = 1; // USDC
+        sgPoolIds[184][0x4200000000000000000000000000000000000006] = 13; // WETH
     }
 
     function _getDstGasForCall(DstInfos memory dstInfos) internal view returns (uint256) {
