@@ -150,6 +150,14 @@ const config: HardhatUserConfig = {
     },
     customChains: [
       {
+        network: "arbitrumGoerli",
+        chainId: 421613,
+        urls: {
+          apiURL: "https://api-goerli.arbiscan.io/api",
+          browserURL: "https://goerli.arbiscan.io",
+        }
+      },
+      {
         network: "polygonZkEVM",
         chainId: 1101,
         urls: {
@@ -218,7 +226,7 @@ const config: HardhatUserConfig = {
     path: "./abis",
     runOnCompile: true,
     clear: true,
-    flat: false,
+    flat: true,
     pretty: false,
     except: ["test*"],
   },
