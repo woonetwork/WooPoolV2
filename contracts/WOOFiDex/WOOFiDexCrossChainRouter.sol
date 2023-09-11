@@ -135,7 +135,7 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         uint256 nonce = nonceCounter.increment(dstInfos.chainId);
         {
             uint256 dstMinBridgedAmount = (bridgeAmount * (MAX_BRIDGE_SLIPPAGE - bridgeSlippage)) / MAX_BRIDGE_SLIPPAGE;
-            bytes memory payload = _getEncodePayload(nonce, to, dstInfos, dstVaultDeposit);
+            bytes memory payload = abi.encode(nonce, to, dstInfos.toToken, dstInfos.minToAmount, dstVaultDeposit);
             _bridgeByStargate(to, nativeAmount, bridgeAmount, dstMinBridgedAmount, payload, srcInfos, dstInfos);
         }
 
@@ -163,13 +163,8 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         address sender = _msgSender();
         require(sender == address(stargateRouter), "WOOFiDexCrossChainRouter: invalid sender");
 
-        (
-            uint256 nonce,
-            address to,
-            address toToken,
-            uint256 minToAmount,
-            DstVaultDeposit memory dstVaultDeposit
-        ) = _getDecodePayload(payload);
+        (uint256 nonce, address to, address toToken, uint256 minToAmount, DstVaultDeposit memory dstVaultDeposit) = abi
+            .decode(payload, (uint256, address, address, uint256, DstVaultDeposit));
         address woofiDexVault = woofiDexVaults[sgChainIdLocal][toToken];
 
         _handleERC20Received(
@@ -188,12 +183,11 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
 
     function quoteLayerZeroFee(
         address to,
-        SrcInfos calldata, // srcInfos
         DstInfos calldata dstInfos,
         DstVaultDeposit calldata dstVaultDeposit
     ) external view returns (uint256 nativeAmount, uint256 zroAmount) {
         uint256 nonce = nonceCounter.outboundNonce(dstInfos.chainId) + 1;
-        bytes memory payload = _getEncodePayload(nonce, payable(to), dstInfos, dstVaultDeposit);
+        bytes memory payload = abi.encode(nonce, to, dstInfos.toToken, dstInfos.minToAmount, dstVaultDeposit);
 
         // only bridge via Stargate
         IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
@@ -279,32 +273,6 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         return IStargateRouter.lzTxObj(dstGasForCall, dstInfos.airdropNativeAmount, abi.encodePacked(to));
     }
 
-    function _getEncodePayload(
-        uint256 nonce,
-        address payable to,
-        DstInfos calldata dstInfos,
-        DstVaultDeposit calldata dstVaultDeposit
-    ) internal pure returns (bytes memory) {
-        return abi.encode(nonce, to, dstInfos.toToken, dstInfos.minToAmount, dstVaultDeposit);
-    }
-
-    function _getDecodePayload(bytes memory payload)
-        internal
-        pure
-        returns (
-            uint256,
-            address,
-            address,
-            uint256,
-            DstVaultDeposit memory
-        )
-    {
-        (uint256 nonce, address to, address toToken, uint256 minToAmount, DstVaultDeposit memory dstVaultDeposit) = abi
-            .decode(payload, (uint256, address, address, uint256, DstVaultDeposit));
-
-        return (nonce, to, toToken, minToAmount, dstVaultDeposit);
-    }
-
     function _bridgeByStargate(
         address payable to,
         uint256 nativeAmount,
@@ -348,6 +316,25 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         );
     }
 
+    function _depositTo(
+        address to,
+        address toToken,
+        address woofiDexVault,
+        DstVaultDeposit memory dstVaultDeposit,
+        uint256 tokenAmount
+    ) internal returns (IWOOFiDexVault.VaultDepositFE memory) {
+        IWOOFiDexVault.VaultDepositFE memory vaultDepositFE = IWOOFiDexVault.VaultDepositFE(
+            dstVaultDeposit.accountId,
+            dstVaultDeposit.brokerHash,
+            dstVaultDeposit.tokenHash,
+            uint128(tokenAmount)
+        );
+        TransferHelper.safeApprove(toToken, woofiDexVault, tokenAmount);
+        IWOOFiDexVault(woofiDexVault).depositTo(to, vaultDepositFE);
+
+        return vaultDepositFE;
+    }
+
     function _handleERC20Received(
         uint16 srcChainId,
         uint256 nonce,
@@ -361,14 +348,13 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         DstVaultDeposit memory dstVaultDeposit
     ) internal {
         if (toToken == bridgedToken) {
-            IWOOFiDexVault.VaultDepositFE memory vaultDepositFE = IWOOFiDexVault.VaultDepositFE(
-                dstVaultDeposit.accountId,
-                dstVaultDeposit.brokerHash,
-                dstVaultDeposit.tokenHash,
-                uint128(bridgedAmount)
+            IWOOFiDexVault.VaultDepositFE memory vaultDepositFE = _depositTo(
+                to,
+                toToken,
+                woofiDexVault,
+                dstVaultDeposit,
+                bridgedAmount
             );
-            TransferHelper.safeApprove(toToken, woofiDexVault, bridgedAmount);
-            IWOOFiDexVault(woofiDexVault).depositTo(to, vaultDepositFE);
             emit WOOFiDexCrossSwapOnDstChain(
                 srcChainId,
                 nonce,
@@ -390,14 +376,13 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
             try wooRouter.swap(bridgedToken, toToken, bridgedAmount, minToAmount, payable(address(this)), to) returns (
                 uint256 realToAmount
             ) {
-                IWOOFiDexVault.VaultDepositFE memory vaultDepositFE = IWOOFiDexVault.VaultDepositFE(
-                    dstVaultDeposit.accountId,
-                    dstVaultDeposit.brokerHash,
-                    dstVaultDeposit.tokenHash,
-                    uint128(realToAmount)
+                IWOOFiDexVault.VaultDepositFE memory vaultDepositFE = _depositTo(
+                    to,
+                    toToken,
+                    woofiDexVault,
+                    dstVaultDeposit,
+                    realToAmount
                 );
-                TransferHelper.safeApprove(toToken, woofiDexVault, realToAmount);
-                IWOOFiDexVault(woofiDexVault).depositTo(to, vaultDepositFE);
                 emit WOOFiDexCrossSwapOnDstChain(
                     srcChainId,
                     nonce,

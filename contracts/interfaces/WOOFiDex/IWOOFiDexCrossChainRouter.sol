@@ -101,7 +101,6 @@ interface IWOOFiDexCrossChainRouter {
 
     function quoteLayerZeroFee(
         address to,
-        SrcInfos memory srcInfos,
         DstInfos memory dstInfos,
         DstVaultDeposit calldata dstVaultDeposit
     ) external view returns (uint256 nativeAmount, uint256 zroAmount);
