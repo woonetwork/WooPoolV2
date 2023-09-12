@@ -32,96 +32,92 @@ const config: HardhatUserConfig = {
       },
       gasPrice: "auto",
     },
-    bsc_mainnet: {
-      url: "https://rpc.ankr.com/bsc/",
-      chainId: 56,
+    bsc: {
+      url: "https://rpc.ankr.com/bsc",
       accounts: accounts,
     },
-    bsc_testnet: {
-      url: "https://data-seed-prebsc-1-s1.binance.org:8545/",
-      chainId: 97,
+    bscTestnet: {
+      url: "https://data-seed-prebsc-1-s1.binance.org:8545",
       accounts: accounts,
     },
-    avalanche_mainnet: {
+    avalanche: {
       url: "https://api.avax.network/ext/bc/C/rpc",
-      chainId: 43114,
       accounts: accounts,
     },
-    avalanche_testnet: {
+    avalancheFuji: {
       url: "https://api.avax-test.network/ext/bc/C/rpc",
-      chainId: 43113,
       accounts: accounts,
     },
-    fantom_mainnet: {
-      url: "https://rpc.ftm.tools/",
-      chainId: 250,
+    fantom: {
+      url: "https://rpc.ftm.tools",
       accounts: accounts,
     },
-    fantom_testnet: {
-      url: "https://rpc.testnet.fantom.network/",
-      chainId: 4002,
+    fantomTestnet: {
+      url: "https://rpc.testnet.fantom.network",
       accounts: accounts,
     },
-    polygon_mainnet: {
-      url: "https://polygon-rpc.com/",
-      chainId: 137,
+    polygon: {
+      url: "https://polygon-rpc.com",
       accounts: accounts,
     },
-    polygon_testnet: {
-      url: "https://matic-mumbai.chainstacklabs.com/",
-      chainId: 80001,
+    polygonMumbai: {
+      url: "https://matic-mumbai.chainstacklabs.com",
       accounts: accounts,
     },
-    arbitrum_mainnet: {
-      url: "https://arb1.arbitrum.io/rpc/",
-      chainId: 42161,
+    arbitrum: {
+      url: "https://arb1.arbitrum.io/rpc",
       accounts: accounts,
     },
-    arbitrum_testnet: {
-      url: "https://goerli-rollup.arbitrum.io/rpc/",
-      chainId: 421613,
+    arbitrumGoerli: {
+      url: "https://goerli-rollup.arbitrum.io/rpc",
       accounts: accounts,
     },
-    optimism_mainnet: {
-      url: "https://rpc.ankr.com/optimism/",
-      chainId: 10,
+    optimism: {
+      url: "https://rpc.ankr.com/optimism",
       accounts: accounts,
     },
-    optimism_testnet: {
-      url: "https://goerli.optimism.io/",
-      chainId: 420,
+    optimismGoerli: {
+      url: "https://goerli.optimism.io",
       accounts: accounts,
     },
-    ethereum_mainnet: {
-      url: "https://rpc.ankr.com/eth/",
-      chainId: 1,
+    mainnet: {
+      url: "https://rpc.ankr.com/eth",
       accounts: accounts,
     },
-    base_testnet: {
-      url: "https://goerli.base.org/",
-      chainId: 84531,
+    goerli: { 
+      url: "https://rpc.ankr.com/eth_goerli",
       accounts: accounts,
     },
-    zksync_mainnet: {
+    zkSync: {
       url: "https://mainnet.era.zksync.io",
       ethNetwork: "mainnet",
       zksync: true,
       verifyURL: "https://zksync2-mainnet-explorer.zksync.io/contract_verification",
     },
-    zksync_testnet: {
+    zkSyncGoerli: {
       url: "https://zksync2-testnet.zksync.dev",
       ethNetwork: "goerli",
       zksync: true,
       verifyURL: "https://zksync2-testnet-explorer.zksync.dev/contract_verification",
     },
-    polygon_zkevm_mainnet: {
+    polygonZkEVM: {
       url: "https://zkevm-rpc.com/",
-      chainId: 1101,
       accounts: accounts,
     },
-    polygon_zkevm_testnet: {
-      url: "https://rpc.public.zkevm-test.net/",
-      chainId: 1442,
+    polygonZkEVMTestnet: {
+      url: "https://rpc.public.zkevm-test.net",
+      accounts: accounts,
+    },
+    linea: {
+      url: "https://rpc.linea.build",
+      accounts: accounts,
+    },
+    base: {
+      url: "https://mainnet.base.org",
+      accounts: accounts,
+    },
+    baseGoerli: {
+      url: "https://goerli.base.org",
       accounts: accounts,
     },
   },
@@ -146,21 +142,23 @@ const config: HardhatUserConfig = {
       // optimism
       optimisticEthereum: process.env.OPTIMISTIC_ETHERSCAN_KEY !== undefined ? process.env.OPTIMISTIC_ETHERSCAN_KEY : "",
       optimisticGoerli: process.env.OPTIMISTIC_ETHERSCAN_KEY !== undefined ? process.env.OPTIMISTIC_ETHERSCAN_KEY : "",
-      base_testnet: "no-api-key-needed",
       polygon_zkevm_mainnet: process.env.ZKEVM_POLYGONSCAN_KEY !== undefined ? process.env.ZKEVM_POLYGONSCAN_KEY : "",
       polygon_zkevm_testnet: process.env.ZKEVM_POLYGONSCAN_KEY !== undefined ? process.env.ZKEVM_POLYGONSCAN_KEY : "",
+      linea: process.env.LINEA_KEY !== undefined ? process.env.LINEA_KEY : "",
+      baseGoerli: process.env.BASESCAN_KEY !== undefined ? process.env.BASESCAN_KEY : "",
+      goerli: process.env.ETHERSCAN_KEY !== undefined ? process.env.ETHERSCAN_KEY : "",
     },
     customChains: [
       {
-        network: "base_testnet",
-        chainId: 84531,
+        network: "arbitrumGoerli",
+        chainId: 421613,
         urls: {
-          apiURL: "https://api-goerli.basescan.org/api",
-          browserURL: "https://goerli.basescan.org",
+          apiURL: "https://api-goerli.arbiscan.io/api",
+          browserURL: "https://goerli.arbiscan.io",
         }
       },
       {
-        network: "polygon_zkevm_mainnet",
+        network: "polygonZkEVM",
         chainId: 1101,
         urls: {
           apiURL: "https://api-zkevm.polygonscan.com/api",
@@ -168,12 +166,36 @@ const config: HardhatUserConfig = {
         }
       },
       {
-        network: "polygon_zkevm_testnet",
+        network: "polygonZkEVMTestnet",
         chainId: 1442,
         urls: {
           apiURL: "https://api-testnet-zkevm.polygonscan.com/api",
           browserURL: "https://testnet-zkevm.polygonscan.com",
         }
+      },
+      {
+        network: "linea",
+        chainId: 59144,
+        urls: {
+          apiURL: "https://api.lineascan.build/api",
+          browserURL: "https://lineascan.build",
+        }
+      },
+      {
+        network: "base",
+        chainId: 8453,
+        urls: {
+          apiURL: "https://api.basescan.org/api",
+          browserURL: "https://basescan.org",
+        },
+      },
+      {
+        network: "baseGoerli",
+        chainId: 84531,
+        urls: {
+          apiURL: "https://api-goerli.basescan.org/api",
+          browserURL: "https://goerli.basescan.org",
+        },
       },
     ]
   },
