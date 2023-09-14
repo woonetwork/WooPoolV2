@@ -490,6 +490,14 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         require(success, "WOOFiDexCrossChainRouter: token not exist");
     }
 
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     function inCaseTokenGotStuck(address stuckToken) external onlyOwner {
         address sender = _msgSender();
         if (stuckToken == NATIVE_PLACEHOLDER) {

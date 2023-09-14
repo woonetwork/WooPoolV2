@@ -145,6 +145,7 @@ const config: HardhatUserConfig = {
       polygon_zkevm_mainnet: process.env.ZKEVM_POLYGONSCAN_KEY !== undefined ? process.env.ZKEVM_POLYGONSCAN_KEY : "",
       polygon_zkevm_testnet: process.env.ZKEVM_POLYGONSCAN_KEY !== undefined ? process.env.ZKEVM_POLYGONSCAN_KEY : "",
       linea: process.env.LINEA_KEY !== undefined ? process.env.LINEA_KEY : "",
+      base: process.env.BASESCAN_KEY !== undefined ? process.env.BASESCAN_KEY : "",
       baseGoerli: process.env.BASESCAN_KEY !== undefined ? process.env.BASESCAN_KEY : "",
       goerli: process.env.ETHERSCAN_KEY !== undefined ? process.env.ETHERSCAN_KEY : "",
     },
