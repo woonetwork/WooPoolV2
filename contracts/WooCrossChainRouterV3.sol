@@ -41,7 +41,7 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, ReentrancyGua
     uint16 public sgChainIdLocal; // Stargate chainId on local chain
     uint16 public srcExternalFeeRate; // unit: 0.1 bps (1e6 = 100%, 25 = 2.5 bps)
     uint16 public dstExternalFeeRate; // unit: 0.1 bps (1e6 = 100%, 25 = 2.5 bps)
-    uint256 public constant FEE_BASE = 1e6;
+    uint256 public constant FEE_BASE = 1e5;
 
     mapping(uint16 => address) public wooCrossRouters; // chainId => WooCrossChainRouterV3 address
     mapping(uint16 => address) public sgETHs; // chainId => SGETH token address
