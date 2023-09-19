@@ -4,6 +4,7 @@ pragma solidity =0.8.14;
 // OpenZeppelin Contracts
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
@@ -20,7 +21,7 @@ import {TransferHelper} from "./libraries/TransferHelper.sol";
 /// @title cross chain router implementation, version 3.
 /// @notice Router for stateless execution of cross chain swap against WOOFi or 1inch swap.
 /// @custom:stargate-contracts https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
-contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, ReentrancyGuard {
+contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /* ----- Constants ----- */
@@ -133,7 +134,7 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, ReentrancyGua
         DstInfos calldata dstInfos,
         Src1inch calldata src1inch,
         Dst1inch calldata dst1inch
-    ) external payable nonReentrant {
+    ) external payable whenNotPaused nonReentrant {
         require(srcInfos.fromToken != address(0), "WooCrossChainRouterV3: !srcInfos.fromToken");
         require(
             dstInfos.toToken != address(0) && dstInfos.toToken != sgETHs[dstInfos.chainId],
@@ -639,6 +640,14 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, ReentrancyGua
     function removeDirectBridgeToken(address token) external onlyOwner {
         bool success = directBridgeTokens.remove(token);
         require(success, "WooCrossChainRouterV3: token not exist");
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     function inCaseTokenGotStuck(address stuckToken) external onlyOwner {
