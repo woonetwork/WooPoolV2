@@ -371,8 +371,8 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         Dst1inch memory dst1inch
     ) internal {
         address msgSender = _msgSender();
-
         if (toToken == ETH_PLACEHOLDER_ADDR) {
+            // Directly transfer ETH
             TransferHelper.safeTransferETH(to, bridgedAmount);
             emit WooCrossSwapOnDstChain(
                 refId,
@@ -389,15 +389,17 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
             );
         } else {
             if (dst1inch.swapRouter != address(0)) {
+                IWETH(weth).deposit{value: bridgedAmount}();
                 uint256 fee = (bridgedAmount * dstExternalFeeRate) / FEE_BASE;
-                bridgedAmount -= fee;
+                uint256 swapAmount = bridgedAmount - fee;
+                TransferHelper.safeApprove(weth, address(wooRouter), swapAmount);
                 try
-                    wooRouter.externalSwap{value: bridgedAmount}(
+                    wooRouter.externalSwap(
                         dst1inch.swapRouter,
                         dst1inch.swapRouter,
-                        ETH_PLACEHOLDER_ADDR,
+                        weth,
                         toToken,
-                        bridgedAmount,
+                        swapAmount,
                         minToAmount,
                         payable(to),
                         dst1inch.data
@@ -417,8 +419,7 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
                         fee
                     );
                 } catch {
-                    // NOTE: reimburse the swap fee if external swap failed
-                    bridgedAmount += fee;
+                    IWETH(weth).withdraw(bridgedAmount);
                     TransferHelper.safeTransferETH(to, bridgedAmount);
                     emit WooCrossSwapOnDstChain(
                         refId,
