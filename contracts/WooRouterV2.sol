@@ -78,7 +78,9 @@ contract WooRouterV2 is IWooRouterV2, Ownable, ReentrancyGuard {
     constructor(address _weth, address _pool) {
         require(_weth != address(0), "WooRouter: weth_ZERO_ADDR");
         WETH = _weth;
-        setPool(_pool);
+        if (_pool != address(0)) {
+            setPool(_pool);
+        }
     }
 
     /// @inheritdoc IWooRouterV2
