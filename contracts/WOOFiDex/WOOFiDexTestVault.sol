@@ -28,6 +28,10 @@ contract WOOFiDexTestVault is IWOOFiDexVault, Ownable, Pausable {
         emit AccountDepositTo(data.accountId, receiver, depositId, data.tokenHash, data.tokenAmount);
     }
 
+    function _newDepositId() internal returns (uint64) {
+        return ++depositId;
+    }
+
     function inCaseTokenGotStuck(address _token) external onlyOwner {
         address msgSender = _msgSender();
         if (_token == NATIVE_PLACEHOLDER) {
@@ -36,9 +40,5 @@ contract WOOFiDexTestVault is IWOOFiDexVault, Ownable, Pausable {
             uint256 bal = IERC20(_token).balanceOf(address(this));
             TransferHelper.safeTransfer(_token, msgSender, bal);
         }
-    }
-
-    function _newDepositId() internal returns (uint64) {
-        return ++depositId;
     }
 }
