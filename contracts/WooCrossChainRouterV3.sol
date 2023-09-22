@@ -48,8 +48,6 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
     mapping(uint16 => address) public sgETHs; // chainId => SGETH token address
     mapping(uint16 => mapping(address => uint256)) public sgPoolIds; // chainId => token address => Stargate poolId
 
-    EnumerableSet.AddressSet private directBridgeTokens;
-
     receive() external payable {}
 
     constructor(
@@ -158,7 +156,7 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
             }
 
             // Step 2: local swap by 1inch router
-            if (!directBridgeTokens.contains(srcInfos.fromToken) && srcInfos.fromToken != srcInfos.bridgeToken) {
+            if (srcInfos.fromToken != srcInfos.bridgeToken) {
                 TransferHelper.safeApprove(srcInfos.fromToken, address(wooRouter), srcInfos.fromAmount);
                 if (src1inch.swapRouter != address(0)) {
                     // external swap via 1inch
@@ -275,21 +273,6 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         }
     }
 
-    function allDirectBridgeTokens() external view returns (address[] memory) {
-        uint256 length = directBridgeTokens.length();
-        address[] memory tokens = new address[](length);
-        unchecked {
-            for (uint256 i = 0; i < length; ++i) {
-                tokens[i] = directBridgeTokens.at(i);
-            }
-        }
-        return tokens;
-    }
-
-    function allDirectBridgeTokensLength() external view returns (uint256) {
-        return directBridgeTokens.length();
-    }
-
     function _getDstGasForCall(DstInfos memory dstInfos) internal view returns (uint256) {
         return (dstInfos.toToken == dstInfos.bridgeToken) ? dstGasForNoSwapCall : dstGasForSwapCall;
     }
@@ -342,9 +325,7 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
 
         if (srcInfos.bridgeToken == weth) {
             IWETH(weth).withdraw(bridgeAmount);
-            address sgETH = sgETHs[sgChainIdLocal];
-            IStargateEthVault(sgETH).deposit{value: bridgeAmount}(); // logic from Stargate RouterETH.sol
-            TransferHelper.safeApprove(sgETH, address(stargateRouter), bridgeAmount);
+            msgValue += bridgeAmount;
         } else {
             TransferHelper.safeApprove(srcInfos.bridgeToken, address(stargateRouter), bridgeAmount);
         }
@@ -631,16 +612,6 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
     function setWooCrossRouter(uint16 _chainId, address _crossRouter) external onlyOwner {
         require(_crossRouter != address(0), "WooCrossChainRouterV3: !_crossRouter");
         wooCrossRouters[_chainId] = _crossRouter;
-    }
-
-    function addDirectBridgeToken(address token) external onlyOwner {
-        bool success = directBridgeTokens.add(token);
-        require(success, "WooCrossChainRouterV3: token exist");
-    }
-
-    function removeDirectBridgeToken(address token) external onlyOwner {
-        bool success = directBridgeTokens.remove(token);
-        require(success, "WooCrossChainRouterV3: token not exist");
     }
 
     function pause() external onlyOwner {

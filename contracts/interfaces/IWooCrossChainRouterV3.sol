@@ -129,8 +129,4 @@ interface IWooCrossChainRouterV3 {
         DstInfos calldata dstInfos,
         Dst1inch calldata dst1inch
     ) external view returns (uint256 nativeAmount, uint256 zroAmount);
-
-    function allDirectBridgeTokens() external view returns (address[] memory tokens);
-
-    function allDirectBridgeTokensLength() external view returns (uint256 length);
 }
