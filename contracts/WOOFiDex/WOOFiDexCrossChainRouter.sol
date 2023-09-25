@@ -12,7 +12,6 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 // Local Contracts
-import {IStargateEthVault} from "../interfaces/Stargate/IStargateEthVault.sol";
 import {IStargateRouter} from "../interfaces/Stargate/IStargateRouter.sol";
 import {INonceCounter} from "../interfaces/WOOFiDex/INonceCounter.sol";
 import {IWOOFiDexCrossChainRouter} from "../interfaces/WOOFiDex/IWOOFiDexCrossChainRouter.sol";
@@ -295,9 +294,7 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
 
         if (srcInfos.bridgeToken == weth) {
             IWETH(weth).withdraw(bridgeAmount);
-            address sgETH = sgETHs[sgChainIdLocal];
-            IStargateEthVault(sgETH).deposit{value: bridgeAmount}(); // logic from Stargate RouterETH.sol
-            TransferHelper.safeApprove(sgETH, address(stargateRouter), bridgeAmount);
+            nativeAmount += bridgeAmount;
         } else {
             TransferHelper.safeApprove(srcInfos.bridgeToken, address(stargateRouter), bridgeAmount);
         }

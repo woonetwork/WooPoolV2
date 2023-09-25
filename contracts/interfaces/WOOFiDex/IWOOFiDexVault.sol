@@ -9,5 +9,13 @@ interface IWOOFiDexVault {
         uint128 tokenAmount;
     }
 
+    event AccountDepositTo(
+        bytes32 indexed accountId,
+        address indexed userAddress,
+        uint64 indexed depositNonce,
+        bytes32 tokenHash,
+        uint128 tokenAmount
+    );
+
     function depositTo(address receiver, VaultDepositFE calldata data) external;
 }
