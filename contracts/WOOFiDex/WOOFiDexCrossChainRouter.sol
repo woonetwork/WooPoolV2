@@ -89,7 +89,7 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         );
         require(
             woofiDexVaults[dstInfos.chainId][dstInfos.toToken] != address(0),
-            "WOOFiDexCrossChainRouter: dstInfos.chainId not allow"
+            "WOOFiDexCrossChainRouter: woofiDexVault not allow"
         );
 
         address sender = _msgSender();
