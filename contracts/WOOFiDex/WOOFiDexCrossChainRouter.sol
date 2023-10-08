@@ -164,20 +164,22 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
 
         (uint256 nonce, address to, address toToken, uint256 minToAmount, DstVaultDeposit memory dstVaultDeposit) = abi
             .decode(payload, (uint256, address, address, uint256, DstVaultDeposit));
-        address woofiDexVault = woofiDexVaults[sgChainIdLocal][toToken];
 
-        _handleERC20Received(
-            srcChainId,
-            nonce,
-            sender,
-            to,
-            bridgedToken,
-            bridgedAmount,
-            toToken,
-            minToAmount,
-            woofiDexVault,
-            dstVaultDeposit
-        );
+        if (bridgedToken == sgETHs[sgChainIdLocal]) {
+            _handleNativeReceived(srcChainId, nonce, sender, to, bridgedAmount, toToken, minToAmount, dstVaultDeposit);
+        } else {
+            _handleERC20Received(
+                srcChainId,
+                nonce,
+                sender,
+                to,
+                bridgedToken,
+                bridgedAmount,
+                toToken,
+                minToAmount,
+                dstVaultDeposit
+            );
+        }
     }
 
     function quoteLayerZeroFee(
@@ -316,7 +318,6 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
     function _depositTo(
         address to,
         address toToken,
-        address woofiDexVault,
         DstVaultDeposit memory dstVaultDeposit,
         uint256 tokenAmount
     ) internal returns (IWOOFiDexVault.VaultDepositFE memory) {
@@ -326,10 +327,103 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
             dstVaultDeposit.tokenHash,
             uint128(tokenAmount)
         );
-        TransferHelper.safeApprove(toToken, woofiDexVault, tokenAmount);
-        IWOOFiDexVault(woofiDexVault).depositTo(to, vaultDepositFE);
+        address woofiDexVault = woofiDexVaults[sgChainIdLocal][toToken];
+        if (toToken == NATIVE_PLACEHOLDER) {
+            IWOOFiDexVault(woofiDexVault).depositTo{value: tokenAmount}(to, vaultDepositFE);
+        } else {
+            TransferHelper.safeApprove(toToken, woofiDexVault, tokenAmount);
+            IWOOFiDexVault(woofiDexVault).depositTo(to, vaultDepositFE);
+        }
 
         return vaultDepositFE;
+    }
+
+    function _handleNativeReceived(
+        uint16 srcChainId,
+        uint256 nonce,
+        address sender,
+        address to,
+        uint256 bridgedAmount,
+        address toToken,
+        uint256 minToAmount,
+        DstVaultDeposit memory dstVaultDeposit
+    ) internal {
+        if (toToken == NATIVE_PLACEHOLDER) {
+            IWOOFiDexVault.VaultDepositFE memory vaultDepositFE = _depositTo(
+                to,
+                toToken,
+                dstVaultDeposit,
+                bridgedAmount
+            );
+            emit WOOFiDexCrossSwapOnDstChain(
+                srcChainId,
+                nonce,
+                sender,
+                to,
+                weth,
+                bridgedAmount,
+                toToken,
+                minToAmount,
+                toToken,
+                bridgedAmount,
+                vaultDepositFE.accountId,
+                vaultDepositFE.brokerHash,
+                vaultDepositFE.tokenHash,
+                vaultDepositFE.tokenAmount
+            );
+        } else {
+            try
+                wooRouter.swap{value: bridgedAmount}(
+                    NATIVE_PLACEHOLDER,
+                    toToken,
+                    bridgedAmount,
+                    minToAmount,
+                    payable(address(this)),
+                    to
+                )
+            returns (uint256 realToAmount) {
+                IWOOFiDexVault.VaultDepositFE memory vaultDepositFE = _depositTo(
+                    to,
+                    toToken,
+                    dstVaultDeposit,
+                    realToAmount
+                );
+                emit WOOFiDexCrossSwapOnDstChain(
+                    srcChainId,
+                    nonce,
+                    sender,
+                    to,
+                    weth,
+                    bridgedAmount,
+                    toToken,
+                    minToAmount,
+                    toToken,
+                    realToAmount,
+                    vaultDepositFE.accountId,
+                    vaultDepositFE.brokerHash,
+                    vaultDepositFE.tokenHash,
+                    vaultDepositFE.tokenAmount
+                );
+            } catch {
+                TransferHelper.safeTransferETH(to, bridgedAmount);
+                emit WOOFiDexCrossSwapOnDstChain(
+                    srcChainId,
+                    nonce,
+                    sender,
+                    to,
+                    weth,
+                    bridgedAmount,
+                    toToken,
+                    minToAmount,
+                    NATIVE_PLACEHOLDER,
+                    bridgedAmount,
+                    bytes32(0),
+                    bytes32(0),
+                    bytes32(0),
+                    0
+                );
+            }
+        }
     }
 
     function _handleERC20Received(
@@ -341,14 +435,12 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
         uint256 bridgedAmount,
         address toToken,
         uint256 minToAmount,
-        address woofiDexVault,
         DstVaultDeposit memory dstVaultDeposit
     ) internal {
         if (toToken == bridgedToken) {
             IWOOFiDexVault.VaultDepositFE memory vaultDepositFE = _depositTo(
                 to,
                 toToken,
-                woofiDexVault,
                 dstVaultDeposit,
                 bridgedAmount
             );
@@ -376,7 +468,6 @@ contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausabl
                 IWOOFiDexVault.VaultDepositFE memory vaultDepositFE = _depositTo(
                     to,
                     toToken,
-                    woofiDexVault,
                     dstVaultDeposit,
                     realToAmount
                 );

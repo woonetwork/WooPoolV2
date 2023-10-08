@@ -22,8 +22,12 @@ contract WOOFiDexTestVault is IWOOFiDexVault, Ownable, Pausable {
         token = _token;
     }
 
-    function depositTo(address receiver, VaultDepositFE calldata data) external whenNotPaused {
-        TransferHelper.safeTransferFrom(token, _msgSender(), receiver, data.tokenAmount);
+    function depositTo(address receiver, VaultDepositFE calldata data) external payable whenNotPaused {
+        if (token == NATIVE_PLACEHOLDER) {
+            TransferHelper.safeTransferETH(receiver, msg.value);
+        } else {
+            TransferHelper.safeTransferFrom(token, _msgSender(), receiver, data.tokenAmount);
+        }
         _newDepositId();
         emit AccountDepositTo(data.accountId, receiver, depositId, data.tokenHash, data.tokenAmount);
     }
