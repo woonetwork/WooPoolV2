@@ -41,45 +41,49 @@ contract WOOFiDexRouter is IWOOFiDexRouter, Ownable, Pausable, ReentrancyGuard {
 
     function swap(
         address payable to,
-        address fromToken,
-        uint256 fromAmount,
-        address toToken,
-        uint256 minToAmount,
+        Infos calldata infos,
         VaultDeposit calldata vaultDeposit
     ) external payable whenNotPaused nonReentrant {
         require(to != address(0), "WOOFiDexRouter: to not allow");
-        require(fromToken != address(0) && toToken != address(0), "WOOFiDexRouter: token not allow");
-        require(woofiDexVaults[toToken] != address(0), "WOOFiDexRouter: woofiDexVault not allow");
+        require(infos.fromToken != address(0) && infos.toToken != address(0), "WOOFiDexRouter: infos.token not allow");
+        require(woofiDexVaults[infos.toToken] != address(0), "WOOFiDexRouter: woofiDexVault not allow");
 
         address sender = _msgSender();
         uint256 toAmount;
 
-        if (fromToken == NATIVE_PLACEHOLDER) {
+        if (infos.fromToken == NATIVE_PLACEHOLDER) {
             uint256 nativeAmount = msg.value;
-            require(fromAmount == nativeAmount, "WOOFiDexRouter: fromAmount not equal to value");
+            require(infos.fromAmount == nativeAmount, "WOOFiDexRouter: infos.fromAmount not equal to value");
             toAmount = wooRouter.swap{value: nativeAmount}(
-                fromToken,
-                toToken,
-                fromAmount,
-                minToAmount,
+                infos.fromToken,
+                infos.toToken,
+                infos.fromAmount,
+                infos.minToAmount,
                 payable(address(this)),
                 to
             );
         } else {
-            TransferHelper.safeTransferFrom(fromToken, sender, address(this), fromAmount);
-            TransferHelper.safeApprove(fromToken, address(wooRouter), fromAmount);
-            toAmount = wooRouter.swap(fromToken, toToken, fromAmount, minToAmount, payable(address(this)), to);
+            TransferHelper.safeTransferFrom(infos.fromToken, sender, address(this), infos.fromAmount);
+            TransferHelper.safeApprove(infos.fromToken, address(wooRouter), infos.fromAmount);
+            toAmount = wooRouter.swap(
+                infos.fromToken,
+                infos.toToken,
+                infos.fromAmount,
+                infos.minToAmount,
+                payable(address(this)),
+                to
+            );
         }
 
-        IWOOFiDexVault.VaultDepositFE memory vaultDepositFE = _depositTo(to, toToken, vaultDeposit, toAmount);
+        IWOOFiDexVault.VaultDepositFE memory vaultDepositFE = _depositTo(to, infos.toToken, vaultDeposit, toAmount);
 
         emit WOOFiDexSwap(
             sender,
             to,
-            fromToken,
-            fromAmount,
-            toToken,
-            minToAmount,
+            infos.fromToken,
+            infos.fromAmount,
+            infos.toToken,
+            infos.minToAmount,
             toAmount,
             vaultDepositFE.accountId,
             vaultDepositFE.brokerHash,

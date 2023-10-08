@@ -4,6 +4,13 @@ pragma solidity =0.8.14;
 interface IWOOFiDexRouter {
     /* ----- Structs ----- */
 
+    struct Infos {
+        address fromToken;
+        uint256 fromAmount;
+        address toToken;
+        uint256 minToAmount;
+    }
+
     struct VaultDeposit {
         bytes32 accountId;
         bytes32 brokerHash;
@@ -36,10 +43,7 @@ interface IWOOFiDexRouter {
 
     function swap(
         address payable to,
-        address fromToken,
-        uint256 fromAmount,
-        address toToken,
-        uint256 minToAmount,
+        Infos calldata infos,
         VaultDeposit calldata vaultDeposit
     ) external payable;
 }
