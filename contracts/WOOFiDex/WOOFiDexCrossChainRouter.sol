@@ -19,7 +19,7 @@ import {IWOOFiDexVault} from "../interfaces/WOOFiDex/IWOOFiDexVault.sol";
 import {IWETH} from "../interfaces/IWETH.sol";
 import {IWooRouterV2} from "../interfaces/IWooRouterV2.sol";
 
-/// @title WOOFi Dex Router for Cross Chain and Same Chain Swap to Deposit
+/// @title WOOFi Dex Router for Cross Chain Swap to Deposit
 /// @custom:stargate-contracts https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses
 contract WOOFiDexCrossChainRouter is IWOOFiDexCrossChainRouter, Ownable, Pausable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
