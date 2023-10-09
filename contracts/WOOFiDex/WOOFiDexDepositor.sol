@@ -11,12 +11,12 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 // Local Contracts
-import {IWOOFiDexRouter} from "../interfaces/WOOFiDex/IWOOFiDexRouter.sol";
+import {IWOOFiDexDepositor} from "../interfaces/WOOFiDex/IWOOFiDexDepositor.sol";
 import {IWOOFiDexVault} from "../interfaces/WOOFiDex/IWOOFiDexVault.sol";
 import {IWooRouterV2} from "../interfaces/IWooRouterV2.sol";
 
-/// @title WOOFi Dex Router for Local Chain Swap to Deposit
-contract WOOFiDexRouter is IWOOFiDexRouter, Ownable, Pausable, ReentrancyGuard {
+/// @title WOOFi Dex Depositor for Local Chain Swap to Deposit
+contract WOOFiDexDepositor is IWOOFiDexDepositor, Ownable, Pausable, ReentrancyGuard {
     /* ----- Constants ----- */
 
     address public constant NATIVE_PLACEHOLDER = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -31,10 +31,10 @@ contract WOOFiDexRouter is IWOOFiDexRouter, Ownable, Pausable, ReentrancyGuard {
 
     receive() external payable {}
 
-    constructor(address _weth, address _wooRouter) {
+    constructor(address _wooRouter) {
         wooRouter = IWooRouterV2(_wooRouter);
 
-        weth = _weth;
+        weth = wooRouter.WETH();
     }
 
     /* ----- Functions ----- */
@@ -44,16 +44,19 @@ contract WOOFiDexRouter is IWOOFiDexRouter, Ownable, Pausable, ReentrancyGuard {
         Infos calldata infos,
         VaultDeposit calldata vaultDeposit
     ) external payable whenNotPaused nonReentrant {
-        require(to != address(0), "WOOFiDexRouter: to not allow");
-        require(infos.fromToken != address(0) && infos.toToken != address(0), "WOOFiDexRouter: infos.token not allow");
-        require(woofiDexVaults[infos.toToken] != address(0), "WOOFiDexRouter: woofiDexVault not allow");
+        require(to != address(0), "WOOFiDexDepositor: to not allow");
+        require(
+            infos.fromToken != address(0) && infos.toToken != address(0),
+            "WOOFiDexDepositor: infos.token not allow"
+        );
+        require(woofiDexVaults[infos.toToken] != address(0), "WOOFiDexDepositor: woofiDexVault not allow");
 
         address sender = _msgSender();
         uint256 toAmount;
 
         if (infos.fromToken == NATIVE_PLACEHOLDER) {
             uint256 nativeAmount = msg.value;
-            require(infos.fromAmount == nativeAmount, "WOOFiDexRouter: infos.fromAmount not equal to value");
+            require(infos.fromAmount == nativeAmount, "WOOFiDexDepositor: infos.fromAmount not equal to value");
             toAmount = wooRouter.swap{value: nativeAmount}(
                 infos.fromToken,
                 infos.toToken,
@@ -118,12 +121,12 @@ contract WOOFiDexRouter is IWOOFiDexRouter, Ownable, Pausable, ReentrancyGuard {
     /* ----- Owner & Admin Functions ----- */
 
     function setWooRouter(address _wooRouter) external onlyOwner {
-        require(_wooRouter != address(0), "WOOFiDexRouter: _wooRouter cant be zero");
+        require(_wooRouter != address(0), "WOOFiDexDepositor: _wooRouter cant be zero");
         wooRouter = IWooRouterV2(_wooRouter);
     }
 
     function setWOOFiDexVault(address token, address woofiDexVault) external onlyOwner {
-        require(woofiDexVault != address(0), "WOOFiDexRouter: woofiDexVault cant be zero");
+        require(woofiDexVault != address(0), "WOOFiDexDepositor: woofiDexVault cant be zero");
         woofiDexVaults[token] = woofiDexVault;
     }
 
