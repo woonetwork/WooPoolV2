@@ -17,5 +17,5 @@ interface IWOOFiDexVault {
         uint128 tokenAmount
     );
 
-    function depositTo(address receiver, VaultDepositFE calldata data) external;
+    function depositTo(address receiver, VaultDepositFE calldata data) external payable;
 }
