@@ -25,16 +25,12 @@ contract WOOFiDexDepositor is IWOOFiDexDepositor, Ownable, Pausable, ReentrancyG
 
     IWooRouterV2 public wooRouter;
 
-    address public immutable weth;
-
     mapping(address => address) public woofiDexVaults; // token address => WOOFiDexVault address
 
     receive() external payable {}
 
     constructor(address _wooRouter) {
         wooRouter = IWooRouterV2(_wooRouter);
-
-        weth = wooRouter.WETH();
     }
 
     /* ----- Functions ----- */

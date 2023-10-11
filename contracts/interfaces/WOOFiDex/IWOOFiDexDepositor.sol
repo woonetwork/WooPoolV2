@@ -35,8 +35,6 @@ interface IWOOFiDexDepositor {
 
     /* ----- State Variables ----- */
 
-    function weth() external view returns (address);
-
     function woofiDexVaults(address token) external view returns (address woofiDexVault);
 
     /* ----- Functions ----- */
