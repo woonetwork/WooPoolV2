@@ -48,8 +48,6 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
     mapping(uint16 => address) public sgETHs; // chainId => SGETH token address
     mapping(uint16 => mapping(address => uint256)) public sgPoolIds; // chainId => token address => Stargate poolId
 
-    EnumerableSet.AddressSet private directBridgeTokens;
-
     receive() external payable {}
 
     constructor(
@@ -158,7 +156,7 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
             }
 
             // Step 2: local swap by 1inch router
-            if (!directBridgeTokens.contains(srcInfos.fromToken) && srcInfos.fromToken != srcInfos.bridgeToken) {
+            if (srcInfos.fromToken != srcInfos.bridgeToken) {
                 TransferHelper.safeApprove(srcInfos.fromToken, address(wooRouter), srcInfos.fromAmount);
                 if (src1inch.swapRouter != address(0)) {
                     // external swap via 1inch
@@ -275,21 +273,6 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         }
     }
 
-    function allDirectBridgeTokens() external view returns (address[] memory) {
-        uint256 length = directBridgeTokens.length();
-        address[] memory tokens = new address[](length);
-        unchecked {
-            for (uint256 i = 0; i < length; ++i) {
-                tokens[i] = directBridgeTokens.at(i);
-            }
-        }
-        return tokens;
-    }
-
-    function allDirectBridgeTokensLength() external view returns (uint256) {
-        return directBridgeTokens.length();
-    }
-
     function _getDstGasForCall(DstInfos memory dstInfos) internal view returns (uint256) {
         return (dstInfos.toToken == dstInfos.bridgeToken) ? dstGasForNoSwapCall : dstGasForSwapCall;
     }
@@ -342,9 +325,7 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
 
         if (srcInfos.bridgeToken == weth) {
             IWETH(weth).withdraw(bridgeAmount);
-            address sgETH = sgETHs[sgChainIdLocal];
-            IStargateEthVault(sgETH).deposit{value: bridgeAmount}(); // logic from Stargate RouterETH.sol
-            TransferHelper.safeApprove(sgETH, address(stargateRouter), bridgeAmount);
+            msgValue += bridgeAmount;
         } else {
             TransferHelper.safeApprove(srcInfos.bridgeToken, address(stargateRouter), bridgeAmount);
         }
@@ -371,6 +352,7 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         Dst1inch memory dst1inch
     ) internal {
         address msgSender = _msgSender();
+
         if (toToken == ETH_PLACEHOLDER_ADDR) {
             // Directly transfer ETH
             TransferHelper.safeTransferETH(to, bridgedAmount);
@@ -387,94 +369,92 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
                 dst1inch.swapRouter == address(0) ? 0 : 1,
                 0
             );
+            return;
+        }
+
+        // Swap required!
+        IWETH(weth).deposit{value: bridgedAmount}();
+
+        if (dst1inch.swapRouter != address(0)) {
+            uint256 fee = (bridgedAmount * dstExternalFeeRate) / FEE_BASE;
+            uint256 swapAmount = bridgedAmount - fee;
+            TransferHelper.safeApprove(weth, address(wooRouter), swapAmount);
+            try
+                wooRouter.externalSwap(
+                    dst1inch.swapRouter,
+                    dst1inch.swapRouter,
+                    weth,
+                    toToken,
+                    swapAmount,
+                    minToAmount,
+                    payable(to),
+                    dst1inch.data
+                )
+            returns (uint256 realToAmount) {
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msgSender,
+                    to,
+                    weth,
+                    swapAmount,
+                    toToken,
+                    toToken,
+                    minToAmount,
+                    realToAmount,
+                    dst1inch.swapRouter == address(0) ? 0 : 1,
+                    fee
+                );
+            } catch {
+                TransferHelper.safeApprove(weth, address(wooRouter), 0);
+                TransferHelper.safeTransfer(weth, to, bridgedAmount);
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msgSender,
+                    to,
+                    weth,
+                    bridgedAmount,
+                    toToken,
+                    weth,
+                    minToAmount,
+                    bridgedAmount,
+                    dst1inch.swapRouter == address(0) ? 0 : 1,
+                    0
+                );
+            }
         } else {
-            if (dst1inch.swapRouter != address(0)) {
-                IWETH(weth).deposit{value: bridgedAmount}();
-                uint256 fee = (bridgedAmount * dstExternalFeeRate) / FEE_BASE;
-                uint256 swapAmount = bridgedAmount - fee;
-                TransferHelper.safeApprove(weth, address(wooRouter), swapAmount);
-                try
-                    wooRouter.externalSwap(
-                        dst1inch.swapRouter,
-                        dst1inch.swapRouter,
-                        weth,
-                        toToken,
-                        swapAmount,
-                        minToAmount,
-                        payable(to),
-                        dst1inch.data
-                    )
-                returns (uint256 realToAmount) {
-                    emit WooCrossSwapOnDstChain(
-                        refId,
-                        msgSender,
-                        to,
-                        weth,
-                        bridgedAmount,
-                        toToken,
-                        toToken,
-                        minToAmount,
-                        realToAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1,
-                        fee
-                    );
-                } catch {
-                    IWETH(weth).withdraw(bridgedAmount);
-                    TransferHelper.safeTransferETH(to, bridgedAmount);
-                    emit WooCrossSwapOnDstChain(
-                        refId,
-                        msgSender,
-                        to,
-                        weth,
-                        bridgedAmount,
-                        toToken,
-                        ETH_PLACEHOLDER_ADDR,
-                        minToAmount,
-                        bridgedAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1,
-                        0
-                    );
-                }
-            } else {
-                try
-                    wooRouter.swap{value: bridgedAmount}(
-                        ETH_PLACEHOLDER_ADDR,
-                        toToken,
-                        bridgedAmount,
-                        minToAmount,
-                        payable(to),
-                        to
-                    )
-                returns (uint256 realToAmount) {
-                    emit WooCrossSwapOnDstChain(
-                        refId,
-                        msgSender,
-                        to,
-                        weth,
-                        bridgedAmount,
-                        toToken,
-                        toToken,
-                        minToAmount,
-                        realToAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1,
-                        0
-                    );
-                } catch {
-                    TransferHelper.safeTransferETH(to, bridgedAmount);
-                    emit WooCrossSwapOnDstChain(
-                        refId,
-                        msgSender,
-                        to,
-                        weth,
-                        bridgedAmount,
-                        toToken,
-                        ETH_PLACEHOLDER_ADDR,
-                        minToAmount,
-                        bridgedAmount,
-                        dst1inch.swapRouter == address(0) ? 0 : 1,
-                        0
-                    );
-                }
+            TransferHelper.safeApprove(weth, address(wooRouter), bridgedAmount);
+            try wooRouter.swap(weth, toToken, bridgedAmount, minToAmount, payable(to), to) returns (
+                uint256 realToAmount
+            ) {
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msgSender,
+                    to,
+                    weth,
+                    bridgedAmount,
+                    toToken,
+                    toToken,
+                    minToAmount,
+                    realToAmount,
+                    dst1inch.swapRouter == address(0) ? 0 : 1,
+                    0
+                );
+            } catch {
+                TransferHelper.safeApprove(weth, address(wooRouter), 0);
+                TransferHelper.safeTransfer(weth, to, bridgedAmount);
+                emit WooCrossSwapOnDstChain(
+                    refId,
+                    msgSender,
+                    to,
+                    weth,
+                    bridgedAmount,
+                    toToken,
+                    weth,
+                    minToAmount,
+                    bridgedAmount,
+                    dst1inch.swapRouter == address(0) ? 0 : 1,
+                    0
+                );
             }
         }
     }
@@ -631,16 +611,6 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
     function setWooCrossRouter(uint16 _chainId, address _crossRouter) external onlyOwner {
         require(_crossRouter != address(0), "WooCrossChainRouterV3: !_crossRouter");
         wooCrossRouters[_chainId] = _crossRouter;
-    }
-
-    function addDirectBridgeToken(address token) external onlyOwner {
-        bool success = directBridgeTokens.add(token);
-        require(success, "WooCrossChainRouterV3: token exist");
-    }
-
-    function removeDirectBridgeToken(address token) external onlyOwner {
-        bool success = directBridgeTokens.remove(token);
-        require(success, "WooCrossChainRouterV3: token not exist");
     }
 
     function pause() external onlyOwner {
