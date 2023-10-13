@@ -423,16 +423,9 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
             }
         } else {
             TransferHelper.safeApprove(weth, address(wooRouter), bridgedAmount);
-            try
-                wooRouter.swap(
-                    weth,
-                    toToken,
-                    bridgedAmount,
-                    minToAmount,
-                    payable(to),
-                    to
-                )
-            returns (uint256 realToAmount) {
+            try wooRouter.swap(weth, toToken, bridgedAmount, minToAmount, payable(to), to) returns (
+                uint256 realToAmount
+            ) {
                 emit WooCrossSwapOnDstChain(
                     refId,
                     msgSender,
