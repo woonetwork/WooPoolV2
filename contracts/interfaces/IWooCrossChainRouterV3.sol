@@ -57,6 +57,7 @@ interface IWooCrossChainRouterV3 {
         address bridgeToken;
         uint256 minToAmount;
         uint256 airdropNativeAmount;
+        uint256 dstGasForCall;
     }
 
     struct Dst1inch {
@@ -96,10 +97,6 @@ interface IWooCrossChainRouterV3 {
     /* ----- State Variables ----- */
 
     function bridgeSlippage() external view returns (uint256);
-
-    function dstGasForSwapCall() external view returns (uint256);
-
-    function dstGasForNoSwapCall() external view returns (uint256);
 
     function wooCrossRouters(uint16 chainId) external view returns (address wooCrossRouter);
 

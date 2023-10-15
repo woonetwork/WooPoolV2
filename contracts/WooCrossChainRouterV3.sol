@@ -36,8 +36,6 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
     address public immutable weth;
     address public feeAddr;
     uint256 public bridgeSlippage; // 1 in 10000th: default 1%
-    uint256 public dstGasForSwapCall;
-    uint256 public dstGasForNoSwapCall;
 
     uint16 public sgChainIdLocal; // Stargate chainId on local chain
     uint16 public srcExternalFeeRate; // unit: 0.1 bps (1e6 = 100%, 25 = 2.5 bps)
@@ -62,8 +60,6 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         sgChainIdLocal = _sgChainIdLocal;
 
         bridgeSlippage = 100;
-        dstGasForSwapCall = 660000;
-        dstGasForNoSwapCall = 80000;
 
         srcExternalFeeRate = 25;
         dstExternalFeeRate = 25;
@@ -249,7 +245,11 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         Dst1inch calldata dst1inch
     ) external view returns (uint256, uint256) {
         bytes memory payload = abi.encode(refId, to, dstInfos.toToken, dstInfos.minToAmount, dst1inch);
-        IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
+        IStargateRouter.lzTxObj memory obj = IStargateRouter.lzTxObj(
+            dstInfos.dstGasForCall,
+            dstInfos.airdropNativeAmount,
+            abi.encodePacked(to)
+        );
         return
             stargateRouter.quoteLayerZeroFee(
                 dstInfos.chainId,
@@ -273,37 +273,6 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         }
     }
 
-    function _getDstGasForCall(DstInfos memory dstInfos) internal view returns (uint256) {
-        return (dstInfos.toToken == dstInfos.bridgeToken) ? dstGasForNoSwapCall : dstGasForSwapCall;
-    }
-
-    function _getAdapterParams(
-        address to,
-        address oft,
-        uint256 dstGasForCall,
-        DstInfos memory dstInfos
-    ) internal view returns (bytes memory) {
-        // OFT src logic: require(providedGasLimit >= minGasLimit)
-        // uint256 minGasLimit = minDstGasLookup[_dstChainId][_type] + dstGasForCall;
-        // _type: 0(send), 1(send_and_call)
-        uint256 providedGasLimit = ILzApp(oft).minDstGasLookup(dstInfos.chainId, 1) + dstGasForCall;
-
-        // https://layerzero.gitbook.io/docs/evm-guides/advanced/relayer-adapter-parameters#airdrop
-        return
-            abi.encodePacked(
-                uint16(2), // version: 2 is able to airdrop native token on destination but 1 is not
-                providedGasLimit, // gasAmount: destination transaction gas for LayerZero to delivers
-                dstInfos.airdropNativeAmount, // nativeForDst: airdrop native token amount
-                to // addressOnDst: address to receive airdrop native token on destination
-            );
-    }
-
-    function _getLzTxObj(address to, DstInfos memory dstInfos) internal view returns (IStargateRouter.lzTxObj memory) {
-        uint256 dstGasForCall = _getDstGasForCall(dstInfos);
-
-        return IStargateRouter.lzTxObj(dstGasForCall, dstInfos.airdropNativeAmount, abi.encodePacked(to));
-    }
-
     function _bridgeByStargate(
         uint256 refId,
         address payable to,
@@ -321,7 +290,11 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         uint256 dstMinBridgeAmount = (bridgeAmount * (10000 - bridgeSlippage)) / 10000;
         bytes memory dstWooCrossChainRouter = abi.encodePacked(wooCrossRouters[dstInfos.chainId]);
 
-        IStargateRouter.lzTxObj memory obj = _getLzTxObj(to, dstInfos);
+        IStargateRouter.lzTxObj memory obj = IStargateRouter.lzTxObj(
+            dstInfos.dstGasForCall,
+            dstInfos.airdropNativeAmount,
+            abi.encodePacked(to)
+        );
 
         if (srcInfos.bridgeToken == weth) {
             IWETH(weth).withdraw(bridgeAmount);
@@ -594,14 +567,6 @@ contract WooCrossChainRouterV3 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
     function setBridgeSlippage(uint256 _bridgeSlippage) external onlyOwner {
         require(_bridgeSlippage <= 10000, "WooCrossChainRouterV3: !_bridgeSlippage");
         bridgeSlippage = _bridgeSlippage;
-    }
-
-    function setDstGasForSwapCall(uint256 _dstGasForSwapCall) external onlyOwner {
-        dstGasForSwapCall = _dstGasForSwapCall;
-    }
-
-    function setDstGasForNoSwapCall(uint256 _dstGasForNoSwapCall) external onlyOwner {
-        dstGasForNoSwapCall = _dstGasForNoSwapCall;
     }
 
     function setSgChainIdLocal(uint16 _sgChainIdLocal) external onlyOwner {
