@@ -9,14 +9,14 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {ICommonOFT, IOFTWithFee} from "@layerzerolabs/solidity-examples/contracts/token/oft/v2/fee/IOFTWithFee.sol";
 
 // Local Contracts
-import {IWETH} from "./interfaces/IWETH.sol";
-import {IWooCrossChainRouterV2} from "./interfaces/IWooCrossChainRouterV2.sol";
-import {IWooRouterV2} from "./interfaces/IWooRouterV2.sol";
-import {IStargateEthVault} from "./interfaces/Stargate/IStargateEthVault.sol";
-import {IStargateRouter} from "./interfaces/Stargate/IStargateRouter.sol";
-import {ILzApp} from "./interfaces/LayerZero/ILzApp.sol";
+import {IWETH} from "../interfaces/IWETH.sol";
+import {IWooCrossChainRouterV2} from "../interfaces/CrossChain/IWooCrossChainRouterV2.sol";
+import {IWooRouterV2} from "../interfaces/IWooRouterV2.sol";
+import {IStargateEthVault} from "../interfaces/Stargate/IStargateEthVault.sol";
+import {IStargateRouter} from "../interfaces/Stargate/IStargateRouter.sol";
+import {ILzApp} from "../interfaces/LayerZero/ILzApp.sol";
 
-import {TransferHelper} from "./libraries/TransferHelper.sol";
+import {TransferHelper} from "../libraries/TransferHelper.sol";
 
 /// @title WOOFi cross chain router implementation.
 /// @notice Router for stateless execution of cross chain swap against WOOFi private pool.

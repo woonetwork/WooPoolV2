@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.14;
 
-import "./interfaces/IWooRouterV2.sol";
-import "./interfaces/IWETH.sol";
+import "../interfaces/IWooRouterV2.sol";
+import "../interfaces/IWETH.sol";
 
-import "./interfaces/Stargate/IStargateRouter.sol";
-import "./interfaces/Stargate/IStargateReceiver.sol";
+import "../interfaces/Stargate/IStargateRouter.sol";
+import "../interfaces/Stargate/IStargateReceiver.sol";
 
-import "./libraries/TransferHelper.sol";
+import "../libraries/TransferHelper.sol";
 
 // OpenZeppelin contracts
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";

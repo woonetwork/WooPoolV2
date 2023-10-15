@@ -42,7 +42,7 @@ import TestERC20TokenArtifact from "../../artifacts/contracts/test/TestERC20Toke
 import TestUsdtTokenArtifact from "../../artifacts/contracts/test/TestUsdtToken.sol/TestUsdtToken.json";
 import WooracleV2_1Artifact from "../../artifacts/contracts/wooracle/WooracleV2_1.sol/WooracleV2_1.json";
 import WooPPV3Artifact from "../../artifacts/contracts/WooPPV3/WooPPV3.sol/WooPPV3.json";
-import WooCrossFeeArtifact from "../../artifacts/contracts/WooPPV3/WooCrossFee.sol/WooCrossFee.json";
+import WooCrossFeeArtifact from "../../artifacts/contracts/CrossChain/WooCrossFee.sol/WooCrossFee.json";
 import WooUsdOFTArtifact from "../../artifacts/contracts/WooPPV3/WooUsdOFT.sol/WooUsdOFT.json";
 import IntegrationHelperArtifact from "../../artifacts/contracts/IntegrationHelper.sol/IntegrationHelper.json";
 
