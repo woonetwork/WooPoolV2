@@ -16,10 +16,10 @@ contract SgInfo is ISgInfo, Ownable {
     uint16 public sgChainIdLocal; // Stargate chainId on local chain
 
     constructor(address _stargateRouter, uint16 _sgChainIdLocal) {
-        _initSgETHs();
-        _initSgPoolIds();
         stargateRouter = _stargateRouter;
         sgChainIdLocal = _sgChainIdLocal;
+        _initSgETHs();
+        _initSgPoolIds();
     }
 
     function _initSgETHs() internal {
@@ -74,7 +74,6 @@ contract SgInfo is ISgInfo, Ownable {
     }
 
     function setSgETH(uint16 chainId, address token) external onlyOwner {
-        require(token != address(0), "SgInfo: token cant be zero");
         sgETHs[chainId] = token;
     }
 
@@ -87,7 +86,6 @@ contract SgInfo is ISgInfo, Ownable {
     }
 
     function setStargateRouter(address _stargateRouter) external onlyOwner {
-        require(_stargateRouter != address(0), "SgInfo: !_stargateRouter");
         stargateRouter = _stargateRouter;
     }
 

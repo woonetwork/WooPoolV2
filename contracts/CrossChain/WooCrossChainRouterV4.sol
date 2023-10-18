@@ -32,14 +32,12 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
     /* ----- Variables ----- */
 
     IWooRouterV2 public wooRouter;
-    IStargateRouter public stargateRouter;
     ISgInfo public sgInfo;
 
     address public immutable weth;
     address public feeAddr;
     uint256 public bridgeSlippage; // 1 in 10000th: default 1%
 
-    uint16 public sgChainIdLocal; // Stargate chainId on local chain
     uint16 public srcExternalFeeRate; // unit: 0.1 bps (1e6 = 100%, 25 = 2.5 bps)
     uint16 public dstExternalFeeRate; // unit: 0.1 bps (1e6 = 100%, 25 = 2.5 bps)
     uint256 public constant FEE_BASE = 1e5;
@@ -56,8 +54,6 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         weth = _weth;
         wooRouter = IWooRouterV2(_wooRouter);
         sgInfo = ISgInfo(_sgInfo);
-        sgChainIdLocal = sgInfo.sgChainIdLocal();
-        stargateRouter = IStargateRouter(sgInfo.stargateRouter());
 
         bridgeSlippage = 100;
 
@@ -166,7 +162,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         uint256 amountLD,
         bytes memory payload
     ) external {
-        require(msg.sender == address(stargateRouter), "WooCrossChainRouterV3: INVALID_CALLER");
+        require(msg.sender == sgInfo.stargateRouter(), "WooCrossChainRouterV3: INVALID_CALLER");
 
         // make sure the same order to abi.encode when decode payload
         (uint256 refId, address to, address toToken, uint256 minToAmount, Dst1inch memory dst1inch) = abi.decode(
@@ -175,7 +171,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         );
 
         // toToken won't be SGETH, and bridgedToken won't be ETH_PLACEHOLDER_ADDR
-        if (bridgedToken == sgInfo.sgETHs(sgChainIdLocal)) {
+        if (bridgedToken == sgInfo.sgETHs(sgInfo.sgChainIdLocal())) {
             // bridgedToken is SGETH, received native token
             _handleNativeReceived(refId, to, toToken, amountLD, minToAmount, dst1inch);
         } else {
@@ -196,6 +192,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
             dstInfos.airdropNativeAmount,
             abi.encodePacked(to)
         );
+        IStargateRouter stargateRouter = IStargateRouter(sgInfo.stargateRouter());
         return
             stargateRouter.quoteLayerZeroFee(
                 dstInfos.chainId,
@@ -229,7 +226,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         Dst1inch calldata dst1inch
     ) internal {
         require(
-            sgInfo.sgPoolIds(sgChainIdLocal, srcInfos.bridgeToken) > 0,
+            sgInfo.sgPoolIds(sgInfo.sgChainIdLocal(), srcInfos.bridgeToken) > 0,
             "WooCrossChainRouterV3: !srcInfos.bridgeToken"
         );
         require(
@@ -247,17 +244,18 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
             dstInfos.airdropNativeAmount,
             abi.encodePacked(to)
         );
+        IStargateRouter stargateRouter = IStargateRouter(sgInfo.stargateRouter());
 
         if (srcInfos.bridgeToken == weth) {
             IWETH(weth).withdraw(bridgeAmount);
             msgValue += bridgeAmount;
         } else {
-            TransferHelper.safeApprove(srcInfos.bridgeToken, address(stargateRouter), bridgeAmount);
+            TransferHelper.safeApprove(srcInfos.bridgeToken, sgInfo.stargateRouter(), bridgeAmount);
         }
 
         stargateRouter.swap{value: msgValue}(
             dstInfos.chainId, // dst chain id
-            sgInfo.sgPoolIds(sgChainIdLocal, srcInfos.bridgeToken), // bridge token's pool id on src chain
+            sgInfo.sgPoolIds(sgInfo.sgChainIdLocal(), srcInfos.bridgeToken), // bridge token's pool id on src chain
             sgInfo.sgPoolIds(dstInfos.chainId, dstInfos.bridgeToken), // bridge token's pool id on dst chain
             payable(_msgSender()), // rebate address
             bridgeAmount, // swap amount on src chain
