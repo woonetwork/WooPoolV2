@@ -162,7 +162,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         uint256 amountLD,
         bytes memory payload
     ) external {
-        require(msg.sender == sgInfo.stargateRouter(), "WooCrossChainRouterV3: INVALID_CALLER");
+        require(msg.sender == sgInfo.sgRouter(), "WooCrossChainRouterV3: INVALID_CALLER");
 
         // make sure the same order to abi.encode when decode payload
         (uint256 refId, address to, address toToken, uint256 minToAmount, Dst1inch memory dst1inch) = abi.decode(
@@ -192,7 +192,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
             dstInfos.airdropNativeAmount,
             abi.encodePacked(to)
         );
-        IStargateRouter stargateRouter = IStargateRouter(sgInfo.stargateRouter());
+        IStargateRouter stargateRouter = IStargateRouter(sgInfo.sgRouter());
         return
             stargateRouter.quoteLayerZeroFee(
                 dstInfos.chainId,
@@ -244,13 +244,13 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
             dstInfos.airdropNativeAmount,
             abi.encodePacked(to)
         );
-        IStargateRouter stargateRouter = IStargateRouter(sgInfo.stargateRouter());
+        IStargateRouter stargateRouter = IStargateRouter(sgInfo.sgRouter());
 
         if (srcInfos.bridgeToken == weth) {
             IWETH(weth).withdraw(bridgeAmount);
             msgValue += bridgeAmount;
         } else {
-            TransferHelper.safeApprove(srcInfos.bridgeToken, sgInfo.stargateRouter(), bridgeAmount);
+            TransferHelper.safeApprove(srcInfos.bridgeToken, sgInfo.sgRouter(), bridgeAmount);
         }
 
         stargateRouter.swap{value: msgValue}(

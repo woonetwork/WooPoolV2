@@ -38,7 +38,7 @@ pragma solidity =0.8.14;
 interface ISgInfo {
     /* ----- State Variables ----- */
 
-    function stargateRouter() external view returns (address stargateRouter);
+    function sgRouter() external view returns (address sgRouter);
 
     function sgChainIdLocal() external view returns (uint16 sgChainIdLocal);
 

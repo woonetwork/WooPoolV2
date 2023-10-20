@@ -12,11 +12,11 @@ contract SgInfo is ISgInfo, Ownable {
 
     mapping(uint16 => mapping(address => uint256)) public sgPoolIds; // chainId => token address => Stargate poolId
 
-    address public stargateRouter;
+    address public sgRouter;
     uint16 public sgChainIdLocal; // Stargate chainId on local chain
 
-    constructor(address _stargateRouter, uint16 _sgChainIdLocal) {
-        stargateRouter = _stargateRouter;
+    constructor(address _sgRouter, uint16 _sgChainIdLocal) {
+        sgRouter = _sgRouter;
         sgChainIdLocal = _sgChainIdLocal;
         _initSgETHs();
         _initSgPoolIds();
@@ -85,8 +85,8 @@ contract SgInfo is ISgInfo, Ownable {
         sgPoolIds[chainId][token] = poolId;
     }
 
-    function setStargateRouter(address _stargateRouter) external onlyOwner {
-        stargateRouter = _stargateRouter;
+    function setSgRouter(address _sgRouter) external onlyOwner {
+        sgRouter = _sgRouter;
     }
 
     function setSgChainIdLocal(uint16 _sgChainIdLocal) external onlyOwner {
