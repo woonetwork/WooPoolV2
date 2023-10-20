@@ -9,14 +9,14 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 // Local Contracts
-import {IWETH} from "./interfaces/IWETH.sol";
-import {IWooCrossChainRouterV3} from "./interfaces/IWooCrossChainRouterV3.sol";
-import {IWooRouterV2} from "./interfaces/IWooRouterV2.sol";
-import {IStargateEthVault} from "./interfaces/Stargate/IStargateEthVault.sol";
-import {IStargateRouter} from "./interfaces/Stargate/IStargateRouter.sol";
-import {ILzApp} from "./interfaces/LayerZero/ILzApp.sol";
+import {IWETH} from "../interfaces/IWETH.sol";
+import {IWooCrossChainRouterV3} from "../interfaces/CrossChain/IWooCrossChainRouterV3.sol";
+import {IWooRouterV2} from "../interfaces/IWooRouterV2.sol";
+import {IStargateEthVault} from "../interfaces/Stargate/IStargateEthVault.sol";
+import {IStargateRouter} from "../interfaces/Stargate/IStargateRouter.sol";
+import {ILzApp} from "../interfaces/LayerZero/ILzApp.sol";
 
-import {TransferHelper} from "./libraries/TransferHelper.sol";
+import {TransferHelper} from "../libraries/TransferHelper.sol";
 
 /// @title cross chain router implementation, version 3.
 /// @notice Router for stateless execution of cross chain swap against WOOFi or 1inch swap.

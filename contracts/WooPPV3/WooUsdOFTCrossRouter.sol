@@ -11,10 +11,10 @@ import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
 // Local Contracts
 import {IWETH} from "../interfaces/IWETH.sol";
-import {IWooUsdOFTCrossRouter} from "../interfaces/IWooUsdOFTCrossRouter.sol";
+import {IWooUsdOFTCrossRouter} from "../interfaces/CrossChain/IWooUsdOFTCrossRouter.sol";
 import {IWooRouterV3} from "../interfaces/IWooRouterV3.sol";
 import {ILzApp} from "../interfaces/LayerZero/ILzApp.sol";
-import {IWooCrossFee} from "../interfaces/IWooCrossFee.sol";
+import {IWooCrossFee} from "../interfaces/CrossChain/IWooCrossFee.sol";
 
 import {TransferHelper} from "../libraries/TransferHelper.sol";
 

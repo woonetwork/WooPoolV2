@@ -36,7 +36,7 @@ pragma solidity =0.8.14;
 
 import "../interfaces/IWooracleV2.sol";
 import "../interfaces/IWooPPV3.sol";
-import "../interfaces/IWooCrossFee.sol";
+import "../interfaces/CrossChain/IWooCrossFee.sol";
 
 import "../libraries/TransferHelper.sol";
 import "../IntegrationHelper.sol";
