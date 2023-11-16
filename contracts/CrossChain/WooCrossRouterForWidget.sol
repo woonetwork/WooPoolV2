@@ -78,8 +78,6 @@ contract WooCrossRouterForWidget is IWooCrossRouterForWidget, Ownable, Pausable,
             TransferHelper.safeApprove(infoWOOFi.fromToken, address(wooRouter), infoWOOFi.fromAmount);
         }
 
-        infoWOOFi.minToAmount = (infoWOOFi.minToAmount * (FEE_BASE - feeInfo.feeRate)) / FEE_BASE;
-
         if (info1inch.swapRouter == address(0)) {
             realToAmount = wooRouter.swap{value: msgValue}(
                 infoWOOFi.fromToken,
@@ -129,8 +127,6 @@ contract WooCrossRouterForWidget is IWooCrossRouterForWidget, Ownable, Pausable,
             srcInfos.fromAmount -= fee;
             TransferHelper.safeApprove(srcInfos.fromToken, address(crossRouter), srcInfos.fromAmount);
         }
-
-        dstInfos.minToAmount = (dstInfos.minToAmount * (FEE_BASE - feeInfo.feeRate)) / FEE_BASE;
 
         uint256 refId = nonceCounter.increment(dstInfos.chainId);
 
