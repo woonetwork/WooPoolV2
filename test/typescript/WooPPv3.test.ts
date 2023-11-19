@@ -95,6 +95,14 @@ describe("WooPPV3 Integration Tests", () => {
       await wooPP.setCapBals(
         [btcToken.address, wooToken.address, usdtToken.address],
         [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
+      
+        await wooPP.setTargetBals(
+          [btcToken.address, wooToken.address, usdtToken.address],
+          [ONE.mul(1e2), ONE.mul(1e6), ONE_USD.mul(1e7)]);
+
+      await wooPP.setShiftMaxes(
+          [btcToken.address, wooToken.address, usdtToken.address],
+          [0, 0, 0]);
 
       await usdtToken.setWooPP(wooPP.address, true);
       await wooPP.setFeeRate(btcToken.address, 100);
@@ -208,6 +216,15 @@ describe("WooPPV3 Integration Tests", () => {
       await wooPP.setCapBals(
         [btcToken.address, wooToken.address, usdtToken.address],
         [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
+      
+        await wooPP.setTargetBals(
+          [btcToken.address, wooToken.address, usdtToken.address],
+          [ONE.mul(1e2), ONE.mul(1e6), ONE_USD.mul(1e7)]);
+
+      await wooPP.setShiftMaxes(
+          [btcToken.address, wooToken.address, usdtToken.address],
+          [0, 0, 0]);
+
 
       await usdtToken.setWooPP(wooPP.address, true);
 
@@ -523,6 +540,14 @@ describe("WooPPV3 Integration Tests", () => {
       await wooPP.setCapBals(
         [btcToken.address, wooToken.address, usdtToken.address],
         [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
+      
+        await wooPP.setTargetBals(
+          [btcToken.address, wooToken.address, usdtToken.address],
+          [ONE.mul(1e2), ONE.mul(1e6), ONE_USD.mul(1e7)]);
+
+      await wooPP.setShiftMaxes(
+          [btcToken.address, wooToken.address, usdtToken.address],
+          [0, 0, 0]);
 
       await usdtToken.setWooPP(wooPP.address, true);
 
@@ -656,6 +681,14 @@ describe("WooPPV3 Integration Tests", () => {
       await wooPP.setCapBals(
         [btcToken.address, wooToken.address, usdtToken.address],
         [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
+      
+        await wooPP.setTargetBals(
+          [btcToken.address, wooToken.address, usdtToken.address],
+          [ONE.mul(1e2), ONE.mul(1e6), ONE_USD.mul(1e7)]);
+
+      await wooPP.setShiftMaxes(
+          [btcToken.address, wooToken.address, usdtToken.address],
+          [0, 0, 0]);
 
       await usdtToken.setWooPP(wooPP.address, true);
 
