@@ -113,12 +113,12 @@ contract WooCrossRouterForWidget is IWooCrossRouterForWidget, Ownable, Pausable,
         require(dstInfos.toToken != address(0), "WooCrossRouterForWidget: !dstInfos.toToken");
         require(to != address(0), "WooCrossRouterForWidget: !to");
 
-        uint256 msgValue = 0;
+        uint256 msgValue = msg.value;
         if (srcInfos.fromToken == ETH_PLACEHOLDER_ADDR) {
             require(msg.value >= srcInfos.fromAmount, "WooCrossRouterForWidget: !msg.value");
             uint256 fee = (srcInfos.fromAmount * feeInfo.feeRate) / FEE_BASE;
             TransferHelper.safeTransferETH(feeInfo.feeAddr, fee);
-            msgValue = msg.value - fee;
+            msgValue -= fee;
             srcInfos.fromAmount -= fee;
         } else {
             TransferHelper.safeTransferFrom(srcInfos.fromToken, msg.sender, address(this), srcInfos.fromAmount);
