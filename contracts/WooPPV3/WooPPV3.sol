@@ -344,7 +344,8 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
 
             uint256 newBase1Price;
             (usdAmount, newBase1Price) = _calcUsdAmountSellBase(baseToken1, base1Amount, state1);
-            // TODO: uncomment it in prod version
+
+            // TODO: for v3 wooracle, posting back the price is not needed or allowed anymore.
             // IWooracleV2(wooracle).postPrice(baseToken1, uint128(newBase1Price));
             // console.log('Post new base1 price:', newBase1Price, newBase1Price/1e8);
 
@@ -359,7 +360,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         {
             uint256 newBase2Price;
             (base2Amount, newBase2Price) = _calcBaseAmountSellUsd(baseToken2, usdAmount, state2);
-            // TODO: uncomment it in prod version
+            // TODO: for v3 wooracle, posting back the price is not needed or allowed anymore.
             // IWooracleV2(wooracle).postPrice(baseToken2, uint128(newBase2Price));
             // console.log('Post new base2 price:', newBase2Price, newBase2Price/1e8);
             require(base2Amount >= minBase2Amount, "WooPPV3: base2Amount_LT_minBase2Amount");
@@ -401,7 +402,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
             uint256 newPrice;
             IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
             (quoteAmount, newPrice) = _calcUsdAmountSellBase(baseToken, baseAmount, state);
-            // TODO: uncomment it in prod version
+            // TODO: for v3 wooracle, posting back the price is not needed or allowed anymore.
             // IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
             // console.log('Post new price:', newPrice, newPrice/1e8);
         }
@@ -458,7 +459,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
             IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
             (baseAmount, newPrice) = _calcBaseAmountSellUsd(baseToken, quoteAmount, state);
 
-            // TODO: uncomment it in prod version
+            // TODO: for v3 wooracle, posting back the price is not needed or allowed anymore.
             // IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
             // console.log('Post new price:', newPrice, newPrice/1e8);
             require(baseAmount >= minBaseAmount, "WooPPV3: baseAmount_LT_minBaseAmount");

@@ -74,12 +74,12 @@ contract WooracleV2_1_ZipInherit is WooracleV2_1 {
 
             post prices:
                [price] -->
-                  base token: 8 bites (1 byte)
+                  base token: 8 bits (1 byte)
                   price data: 32 bits = (27, 5)
 
             post states:
                [states] -->
-                  base token: 8 bites (1 byte)
+                  base token: 8 bits (1 byte)
                   price:      32 bits (4 bytes) = (27, 5)
                   k coeff:    16 bits (2 bytes) = (11, 5)
                   s spread:   16 bits (2 bytes) = (11, 5)
