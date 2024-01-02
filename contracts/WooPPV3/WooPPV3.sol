@@ -108,8 +108,6 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
             toAmount = _tryQuerySellBase(fromToken, fromAmount);
         } else {
             (toAmount, ) = _tryQueryBaseToBase(fromToken, toToken, fromAmount);
-            // TODO: double check it
-            // require(swapFee <= tokenInfos[quoteToken].reserve, "WooPPV3: INSUFF_QUOTE_FOR_SWAPFEE");
             require(toAmount <= tokenInfos[toToken].reserve, "WooPPV3: INSUFF_BALANCE");
         }
     }
@@ -357,7 +355,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
             uint256 newBase1Price;
             (usdAmount, newBase1Price) = _calcUsdAmountSellBase(baseToken1, base1Amount, state1);
 
-            // TODO: for v3 wooracle, posting back the price is not needed or allowed anymore.
+            // NOTE: for v3 wooracle, posting back the price is not needed or allowed anymore.
             // IWooracleV2(wooracle).postPrice(baseToken1, uint128(newBase1Price));
             // console.log('Post new base1 price:', newBase1Price, newBase1Price/1e8);
 
@@ -372,7 +370,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         {
             uint256 newBase2Price;
             (base2Amount, newBase2Price) = _calcBaseAmountSellUsd(baseToken2, usdAmount, state2);
-            // TODO: for v3 wooracle, posting back the price is not needed or allowed anymore.
+            // NOTE: for v3 wooracle, posting back the price is not needed or allowed anymore.
             // IWooracleV2(wooracle).postPrice(baseToken2, uint128(newBase2Price));
             // console.log('Post new base2 price:', newBase2Price, newBase2Price/1e8);
             require(base2Amount >= minBase2Amount, "WooPPV3: base2Amount_LT_minBase2Amount");
@@ -414,7 +412,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
             uint256 newPrice;
             IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
             (quoteAmount, newPrice) = _calcUsdAmountSellBase(baseToken, baseAmount, state);
-            // TODO: for v3 wooracle, posting back the price is not needed or allowed anymore.
+            // NOTE: for v3 wooracle, posting back the price is not needed or allowed anymore.
             // IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
             // console.log('Post new price:', newPrice, newPrice/1e8);
         }
@@ -453,10 +451,6 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         require(to != address(0), "WooPPV3: !to");
 
         require(balance(usdOFT) <= tokenInfos[usdOFT].capBal, "WooPPV3: CAP_EXCEEDS");
-
-        // TODO: double check this logic
-        // or: require(balance(usdOFT) - tokenInfos[usdOFT].reserve >= quoteAmount, "WooPPV3: USD_BALANCE_NOT_ENOUGH");
-        // require(balance(usdOFT) >= quoteAmount, "WooPPV3: USD_BALANCE_NOT_ENOUGH");
         require(balance(usdOFT) - tokenInfos[usdOFT].reserve >= quoteAmount, "WooPPV3: USD_BALANCE_NOT_ENOUGH");
 
         // ATTENTION: for cross swap, usdOFT will be burnt in usd->base swap
@@ -471,7 +465,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
             IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
             (baseAmount, newPrice) = _calcBaseAmountSellUsd(baseToken, quoteAmount, state);
 
-            // TODO: for v3 wooracle, posting back the price is not needed or allowed anymore.
+            // NOTE: for v3 wooracle, posting back the price is not needed or allowed anymore.
             // IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
             // console.log('Post new price:', newPrice, newPrice/1e8);
             require(baseAmount >= minBaseAmount, "WooPPV3: baseAmount_LT_minBaseAmount");
@@ -502,13 +496,13 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
 
         uint256 Bt = tokenInfos[baseToken].tgtBal;
         uint256 Bmax = tokenInfos[baseToken].capBal;
-        uint256 B = balance(baseToken);
-        uint256 Smax = tokenInfos[baseToken].shiftMax;
+        uint256 B = tokenInfos[baseToken].reserve;
+        uint256 Smax = tokenInfos[baseToken].shiftMax; // decimal = 18 ?
 
         if (B < Bt) {
-            p = state.price * (1 + (Smax * (Bt - B)) / Bt);
+            p = state.price * (1e18 + (Smax * (Bt - B)) / Bt) / 1e18;
         } else {
-            p = state.price * (1 - (Smax * (B - Bt)) / _maxUInt256(Bt, B * (Bmax - Bt)));
+            p = state.price * (1e18 - (Smax * (B - Bt)) / _maxUInt256(Bt, B * (Bmax - Bt) / Bmax)) / 1e18;
         }
     }
 
@@ -516,7 +510,8 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         uint256 Smax = tokenInfos[baseToken].shiftMax;
         uint256 Bt = tokenInfos[baseToken].tgtBal;
 
-        k = _maxUInt64(state.coeff, uint64((Smax * 1e18) / Bt)); // TODO: spread BASE 1e18?
+        DecimalInfo memory decs = decimalInfo(baseToken);
+        k = _maxUInt64(state.coeff, uint64(Smax * decs.baseDec * decs.priceDec / Bt / state.price));
     }
 
     function _calcUsdAmountSellBase(
@@ -531,9 +526,11 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         uint256 k = _adjustK(baseToken, state);
 
         {
+            // 1 - k * B * p - s
             uint256 coef = uint256(1e18) -
                 ((uint256(k) * baseAmount * p) / decs.baseDec / decs.priceDec) -
-                state.spread;
+                state.spread;   // spread decimal = 18
+            // usd amount = B * p * (1 - k * B * p - s)
             usdAmount = (((baseAmount * decs.quoteDec * p) / decs.priceDec) * coef) / 1e18 / decs.baseDec;
         }
 
