@@ -50,6 +50,7 @@ interface IWooPPV3 {
         uint192 reserve; // balance reserve
         uint16 feeRate; // 1 in 100000; 10 = 1bp = 0.01%; max = 65535
         uint192 capBal; // maximum balance cap in token amount
+        uint16 shiftMax; // 1 in 100000, 0.1 bps  max = 65535
         uint192 tgtBal; // target balance for swap fee
     }
 

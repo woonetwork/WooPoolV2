@@ -97,7 +97,7 @@ describe("WooCrossFee Integration Tests", () => {
     let wooPP: WooPPV3;
 
     beforeEach("Deploy WooCrossFee", async () => {
-      wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdOFT.address])) as WooPPV3;
+      wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdOFT.address, ZERO_ADDR])) as WooPPV3;
 
       await usdOFT.setWooPP(wooPP.address, true);
 
