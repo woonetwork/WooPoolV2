@@ -36,6 +36,7 @@ pragma solidity =0.8.14;
 
 import "../interfaces/IWooracleV2.sol";
 import "../interfaces/IWooPPV3.sol";
+import "../interfaces/IWooPPV2ForTest.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/IWooLendingManager.sol";
 
@@ -67,15 +68,20 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
     // int256 public usdReserve;    // USD (virtual quote) balance
     address public usdOFT;
 
+    /// @dev TODO: comment out this part once tests finished
+    address public wooPPv2;
+
     // token address --> fee rate
     mapping(address => TokenInfo) public tokenInfos;
 
     constructor(
         address _wooracle,
         address _feeAddr,
-        address _usdOFT
+        address _usdOFT,
+        address _wooPPv2
     ) WooPPBase(_wooracle, _feeAddr) {
         usdOFT = _usdOFT;
+        wooPPv2 = _wooPPv2;
     }
 
     /* ----- External Functions ----- */
@@ -154,6 +160,11 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
     /// @dev pool size = tokenInfo.reserve
     function poolSize(address token) public view override returns (uint256) {
         return tokenInfos[token].reserve;
+    }
+
+    /// @dev TODO: comment out this part once tests finished
+    function balance(address token) public view override returns (uint256) {
+        return wooPPv2 != address(0) ? IWooPPV2ForTest(wooPPv2).balance(token) : super.balance(token);
     }
 
     function decimalInfo(address baseToken) public view returns (DecimalInfo memory) {
@@ -500,9 +511,9 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         uint256 Smax = tokenInfos[baseToken].shiftMax; // decimal = 18 ?
 
         if (B < Bt) {
-            p = state.price * (1e18 + (Smax * (Bt - B)) / Bt) / 1e18;
+            p = (state.price * (1e18 + (Smax * (Bt - B)) / Bt)) / 1e18;
         } else {
-            p = state.price * (1e18 - (Smax * (B - Bt)) / _maxUInt256(Bt, B * (Bmax - Bt) / Bmax)) / 1e18;
+            p = (state.price * (1e18 - (Smax * (B - Bt)) / _maxUInt256(Bt, (B * (Bmax - Bt)) / Bmax))) / 1e18;
         }
     }
 
@@ -511,7 +522,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
         uint256 Bt = tokenInfos[baseToken].tgtBal;
 
         DecimalInfo memory decs = decimalInfo(baseToken);
-        k = _maxUInt64(state.coeff, uint64(Smax * decs.baseDec * decs.priceDec / Bt / state.price));
+        k = _maxUInt64(state.coeff, uint64((Smax * decs.baseDec * decs.priceDec) / Bt / state.price));
     }
 
     function _calcUsdAmountSellBase(
@@ -529,7 +540,7 @@ contract WooPPV3 is WooPPBase, IWooPPV3 {
             // 1 - k * B * p - s
             uint256 coef = uint256(1e18) -
                 ((uint256(k) * baseAmount * p) / decs.baseDec / decs.priceDec) -
-                state.spread;   // spread decimal = 18
+                state.spread; // spread decimal = 18
             // usd amount = B * p * (1 - k * B * p - s)
             usdAmount = (((baseAmount * decs.quoteDec * p) / decs.priceDec) * coef) / 1e18 / decs.baseDec;
         }

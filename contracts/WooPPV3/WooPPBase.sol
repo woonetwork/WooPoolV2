@@ -87,7 +87,7 @@ abstract contract WooPPBase is Pausable, Ownable, ReentrancyGuard {
     }
 
     /// @dev User pool balance (substracted unclaimed fee)
-    function balance(address token) public view returns (uint256) {
+    function balance(address token) public view virtual returns (uint256) {
         // WooPP V2 code:
         // return token == quoteToken ? _rawBalance(token) - unclaimedFee : _rawBalance(token);
         return _rawBalance(token);

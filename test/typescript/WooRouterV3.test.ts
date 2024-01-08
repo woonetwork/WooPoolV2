@@ -88,7 +88,7 @@ describe("WooRouterV3 Integration Tests", () => {
     let wooRouter: WooRouterV3;
 
     beforeEach("Deploy WooRouter", async () => {
-      wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
+      wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address, ZERO_ADDR])) as WooPPV3;
 
       await wooPP.setCapBals(
         [btcToken.address, wooToken.address, usdtToken.address],
@@ -205,12 +205,12 @@ describe("WooRouterV3 Integration Tests", () => {
     let wooRouter: WooRouterV3;
 
     beforeEach("Deploy WooRouterV3", async () => {
-      wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
+      wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address, ZERO_ADDR])) as WooPPV3;
 
       await wooPP.setCapBals(
         [btcToken.address, wooToken.address, usdtToken.address],
         [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
-      
+
       await wooPP.setTargetBals(
         [btcToken.address, wooToken.address, usdtToken.address],
         [ONE.mul(1e2), ONE.mul(1e6), ONE_USD.mul(1e7)]);
@@ -432,12 +432,12 @@ describe("WooRouterV3 Integration Tests", () => {
     let wooRouter: WooRouterV3;
 
     beforeEach("Deploy WooRouter", async () => {
-      wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address])) as WooPPV3;
+      wooPP = (await deployContract(owner, WooPPV3Artifact, [wooracle.address, feeAddr.address, usdtToken.address, ZERO_ADDR])) as WooPPV3;
 
       await wooPP.setCapBals(
         [btcToken.address, wooToken.address, usdtToken.address],
         [ONE.mul(1e3), ONE.mul(1e7), ONE_USD.mul(1e8)]);
-      
+
       await wooPP.setTargetBals(
         [btcToken.address, wooToken.address, usdtToken.address],
         [ONE.mul(1e2), ONE.mul(1e6), ONE_USD.mul(1e7)]);
