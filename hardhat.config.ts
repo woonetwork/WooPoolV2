@@ -84,7 +84,7 @@ const config: HardhatUserConfig = {
       url: "https://rpc.ankr.com/eth",
       accounts: accounts,
     },
-    goerli: { 
+    goerli: {
       url: "https://rpc.ankr.com/eth_goerli",
       accounts: accounts,
     },
@@ -203,7 +203,7 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: "0.8.14",
+        version: "0.8.22",
         settings: { optimizer: { enabled: true, runs: 20000 } },
       },
       {

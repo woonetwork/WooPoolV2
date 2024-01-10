@@ -75,6 +75,8 @@
   },
   "dependencies": {
     "@layerzerolabs/solidity-examples": "^0.0.13",
+    "@layerzerolabs/lz-evm-oapp-v2": "^2.0.9",
+    "@layerzerolabs/lz-evm-protocol-v2": "^2.0.9",
     "@openzeppelin/contracts": "^4.9.3",
     "@uniswap/v3-periphery": "^1.4.3"
   }

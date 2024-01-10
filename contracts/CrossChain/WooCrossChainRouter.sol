@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.14;
+pragma solidity ^0.8.14;
 
 import "../interfaces/IWooRouterV2.sol";
 import "../interfaces/IWETH.sol";

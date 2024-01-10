@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.14;
+pragma solidity ^0.8.22;
 
 /*
 
@@ -33,10 +33,10 @@ pragma solidity =0.8.14;
 * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-import {OFTV2} from "@layerzerolabs/solidity-examples/contracts/token/oft/v2/OFTV2.sol";
+import "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/OFT.sol";
 
 /// @title Woo Cross Chain Router
-contract WooUsdOFT is OFTV2 {
+contract WooUsdOFT is OFT {
     event WooPPUpdated(address indexed addr, bool flag);
 
     mapping(address => bool) public isWooPP;
@@ -50,10 +50,11 @@ contract WooUsdOFT is OFTV2 {
     }
 
     constructor(
-        string memory _name,
-        string memory _symbol,
-        address _lzEndpoint
-    ) OFTV2(_name, _symbol, decimals(), _lzEndpoint) {
+        string memory _name, // token name
+        string memory _symbol, // token symbol
+        address _lzEndpoint, // LayerZero Endpoint address
+        address _owner // token owner
+    ) OFT(_name, _symbol, _lzEndpoint, _owner) {
         mintAllowed = true;
         burnAllowed = true;
     }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.14;
+pragma solidity ^0.8.14;
 
 import '../interfaces/AggregatorV3Interface.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.14;
+pragma solidity ^0.8.14;
 
 interface IVaultInfo {
     function costSharePrice(address user) external view returns (uint256 sharePrice);
