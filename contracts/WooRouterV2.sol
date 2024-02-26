@@ -202,6 +202,20 @@ contract WooRouterV2 is IWooRouterV2, Ownable, ReentrancyGuard {
         }
     }
 
+    /// @dev Rescue the specified funds when stuck happen
+    /// @param stuckTokens the stuck tokens address
+    function inCaseTokensGotStuck(address[] calldata stuckTokens) external onlyOwner {
+        for (uint256 i = 0; i < stuckTokens.length; ++i) {
+            address stuckToken = stuckTokens[i];
+            if (stuckToken == ETH_PLACEHOLDER_ADDR) {
+                TransferHelper.safeTransferETH(msg.sender, address(this).balance);
+            } else {
+                uint256 amount = IERC20(stuckToken).balanceOf(address(this));
+                TransferHelper.safeTransfer(stuckToken, msg.sender, amount);
+            }
+        }
+    }
+
     /// @dev Set wooPool from newPool
     /// @param newPool Wooracle address
     function setPool(address newPool) public onlyOwner {
