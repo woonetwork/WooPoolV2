@@ -232,12 +232,14 @@ contract WooRouterV3 is IWooRouterV3, Ownable, ReentrancyGuard {
         if (fromToken != ETH_PLACEHOLDER_ADDR) {
             TransferHelper.safeTransferFrom(fromToken, msg.sender, address(this), fromAmount);
             TransferHelper.safeApprove(fromToken, approveTarget, fromAmount);
+            (bool success, ) = swapTarget.call{value: 0}(data);
+            TransferHelper.safeApprove(fromToken, approveTarget, 0);
+            require(success, "WooRouterV3: FALLBACK_SWAP_FAILED");
         } else {
             require(fromAmount <= msg.value, "WooRouterV3: fromAmount_INVALID");
+            (bool success, ) = swapTarget.call{value: fromAmount}(data);
+            require(success, "WooRouterV3: FALLBACK_SWAP_FAILED");
         }
-
-        (bool success, ) = swapTarget.call{value: fromToken == ETH_PLACEHOLDER_ADDR ? fromAmount : 0}(data);
-        require(success, "WooRouterV3: FALLBACK_SWAP_FAILED");
     }
 
     function _generalTransfer(

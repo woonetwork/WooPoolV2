@@ -234,12 +234,14 @@ contract WooRouterV2 is IWooRouterV2, Ownable, ReentrancyGuard {
         if (fromToken != ETH_PLACEHOLDER_ADDR) {
             TransferHelper.safeTransferFrom(fromToken, msg.sender, address(this), fromAmount);
             TransferHelper.safeApprove(fromToken, approveTarget, fromAmount);
+            (bool success, ) = swapTarget.call{value: 0}(data);
+            TransferHelper.safeApprove(fromToken, approveTarget, 0);
+            require(success, "WooRouter: FALLBACK_SWAP_FAILED");
         } else {
             require(fromAmount <= msg.value, "WooRouter: fromAmount_INVALID");
+            (bool success, ) = swapTarget.call{value: fromAmount}(data);
+            require(success, "WooRouter: FALLBACK_SWAP_FAILED");
         }
-
-        (bool success, ) = swapTarget.call{value: fromToken == ETH_PLACEHOLDER_ADDR ? fromAmount : 0}(data);
-        require(success, "WooRouter: FALLBACK_SWAP_FAILED");
     }
 
     function _generalTransfer(
