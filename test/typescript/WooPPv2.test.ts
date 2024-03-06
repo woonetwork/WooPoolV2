@@ -32,7 +32,7 @@
 */
 
 import { expect, use } from "chai";
-import { Contract, utils } from "ethers";
+import { BigNumber, Contract, utils } from "ethers";
 import { ethers } from "hardhat";
 import { deployContract, solidity } from "ethereum-waffle";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -178,14 +178,19 @@ describe("WooPPV2 Integration tests", () => {
 
   describe("wooPP swap", () => {
     let wooPP: WooPPV2;
+    let btcCapBal: BigNumber;
+    let usdtCapBal: BigNumber;
 
     beforeEach("Deploy WooPPV2", async () => {
       wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2;
 
       await wooPP.init(wooracle.address, feeAddr.address);
       await wooPP.setFeeRate(btcToken.address, 100);
-      await wooPP.setCapBal(btcToken.address, ONE.mul(100));
-      await wooPP.setCapBal(usdtToken.address, ONE.mul(1000000));
+      btcCapBal = ONE.mul(100);
+      usdtCapBal = ONE.mul(1000000);
+
+      await wooPP.setCapBal(btcToken.address, btcCapBal);
+      await wooPP.setCapBal(usdtToken.address, usdtCapBal);
 
       await btcToken.mint(owner.address, ONE.mul(10));
       await usdtToken.mint(owner.address, ONE.mul(300000));
@@ -305,6 +310,12 @@ describe("WooPPV2 Integration tests", () => {
     });
 
     it("sellBase fail1", async () => {
+      await wooPP.setCapBal(btcToken.address, ONE.div(2));
+      await expect(wooPP.swap(btcToken.address, quote.address, ONE, 0, user2.address, ZERO_ADDR)).to.be.revertedWith(
+        "WooPPV2: CAP_EXCEEDS"
+      );
+      await wooPP.setCapBal(btcToken.address, btcCapBal);
+
       await expect(wooPP.swap(btcToken.address, quote.address, ONE, 0, user2.address, ZERO_ADDR)).to.be.revertedWith(
         "WooPPV2: BASE_BALANCE_NOT_ENOUGH"
       );
@@ -430,9 +441,12 @@ describe("WooPPV2 Integration tests", () => {
 
     it("sellQuote fail1", async () => {
       const quoteAmount = ONE.mul(20000);
-      // await expect(wooPP.swap(quote.address, btcToken.address, quoteAmount, 0, user2.address, ZERO_ADDR)).to.be.revertedWith(
-      //   "WooPPV2: QUOTE_BALANCE_NOT_ENOUGH"
-      // );
+
+      await wooPP.setCapBal(quote.address, quoteAmount.div(2));
+      await expect(wooPP.swap(quote.address, btcToken.address, quoteAmount, 0, user2.address, ZERO_ADDR)).to.be.revertedWith(
+        "WooPPV2: CAP_EXCEEDS"
+      );
+      await wooPP.setCapBal(quote.address, usdtCapBal);
       await expect(wooPP.swap(quote.address, btcToken.address, quoteAmount, 0, user2.address, ZERO_ADDR)).to.be.revertedWith(
         "WooPPV2: !QUOTE_BALANCE"
       );
@@ -627,15 +641,22 @@ describe("WooPPV2 Integration tests", () => {
 
   describe("BaseToBase Functions", () => {
     let wooPP: WooPPV2;
+    let btcCapBal: BigNumber;
+    let usdtCapBal: BigNumber;
+    let wooCapBal: BigNumber;
 
     beforeEach("Deploy wooPPV2", async () => {
       wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2;
 
       await wooPP.init(wooracle.address, feeAddr.address);
       await wooPP.setFeeRate(btcToken.address, 100);
-      await wooPP.setCapBal(btcToken.address, ONE.mul(100));
-      await wooPP.setCapBal(usdtToken.address, ONE.mul(1000000));
-      await wooPP.setCapBal(wooToken.address, ONE.mul(2000000));
+
+      btcCapBal = ONE.mul(100);
+      usdtCapBal = ONE.mul(1000000);
+      wooCapBal = ONE.mul(2000000);
+      await wooPP.setCapBal(btcToken.address, btcCapBal);
+      await wooPP.setCapBal(usdtToken.address, usdtCapBal);
+      await wooPP.setCapBal(wooToken.address, wooCapBal);
 
       // await btcToken.approve(wooPP.address, ONE.mul(10))
       // await wooPP.deposit(btcToken.address, ONE.mul(10))
@@ -901,6 +922,14 @@ describe("WooPPV2 Integration tests", () => {
 
       await wooToken.connect(user1).approve(wooPP.address, base1Amount);
       await wooToken.connect(user1).transfer(wooPP.address, base1Amount);
+
+      await wooPP.setCapBal(wooToken.address, base1Amount.div(2));
+      await expect(
+        wooPP
+          .connect(user1)
+          .swap(wooToken.address, btcToken.address, base1Amount, minBase2Amount, user1.address, ZERO_ADDR)
+      ).to.be.revertedWith("WooPPV2: CAP_EXCEEDS");
+      await wooPP.setCapBal(wooToken.address, wooCapBal);
       await expect(
         wooPP
           .connect(user1)
