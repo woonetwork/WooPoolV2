@@ -184,6 +184,8 @@ describe("WooPPV2 Integration tests", () => {
 
       await wooPP.init(wooracle.address, feeAddr.address);
       await wooPP.setFeeRate(btcToken.address, 100);
+      await wooPP.setCapBal(btcToken.address, ONE.mul(100));
+      await wooPP.setCapBal(usdtToken.address, ONE.mul(1000000));
 
       await btcToken.mint(owner.address, ONE.mul(10));
       await usdtToken.mint(owner.address, ONE.mul(300000));
@@ -206,6 +208,7 @@ describe("WooPPV2 Integration tests", () => {
     });
 
     it("sellBase accuracy1", async () => {
+
       await btcToken.mint(user1.address, ONE.mul(3));
       const preUserUsdt = await usdtToken.balanceOf(user1.address);
       const preUserBtc = await btcToken.balanceOf(user1.address);
@@ -427,8 +430,11 @@ describe("WooPPV2 Integration tests", () => {
 
     it("sellQuote fail1", async () => {
       const quoteAmount = ONE.mul(20000);
+      // await expect(wooPP.swap(quote.address, btcToken.address, quoteAmount, 0, user2.address, ZERO_ADDR)).to.be.revertedWith(
+      //   "WooPPV2: QUOTE_BALANCE_NOT_ENOUGH"
+      // );
       await expect(wooPP.swap(quote.address, btcToken.address, quoteAmount, 0, user2.address, ZERO_ADDR)).to.be.revertedWith(
-        "WooPPV2: QUOTE_BALANCE_NOT_ENOUGH"
+        "WooPPV2: !QUOTE_BALANCE"
       );
 
       await expect(wooPP.swap(quote.address, ZERO_ADDR, quoteAmount, 0, user2.address, ZERO_ADDR)).to.be.revertedWith(
@@ -492,6 +498,8 @@ describe("WooPPV2 Integration tests", () => {
 
       await wooPP.init(wooracle.address, feeAddr.address);
       await wooPP.setFeeRate(btcToken.address, 100);
+      await wooPP.setCapBal(btcToken.address, ONE.mul(100));
+      await wooPP.setCapBal(usdtToken.address, ONE.mul(1000000));
 
       await btcToken.mint(owner.address, ONE.mul(10));
       await usdtToken.mint(owner.address, ONE.mul(300000));
@@ -625,6 +633,9 @@ describe("WooPPV2 Integration tests", () => {
 
       await wooPP.init(wooracle.address, feeAddr.address);
       await wooPP.setFeeRate(btcToken.address, 100);
+      await wooPP.setCapBal(btcToken.address, ONE.mul(100));
+      await wooPP.setCapBal(usdtToken.address, ONE.mul(1000000));
+      await wooPP.setCapBal(wooToken.address, ONE.mul(2000000));
 
       // await btcToken.approve(wooPP.address, ONE.mul(10))
       // await wooPP.deposit(btcToken.address, ONE.mul(10))

@@ -160,6 +160,10 @@ describe("Rebate Fee Vault Integration Test", () => {
     await wooPP.setFeeRate(btcToken.address, BASE_FEE_RATE);
     await wooPP.setFeeRate(wooToken.address, BASE_FEE_RATE);
 
+    await wooPP.setCapBal(btcToken.address, ONE.mul(200));
+    await wooPP.setCapBal(usdtToken.address, ONE.mul(20000000));
+    await wooPP.setCapBal(wooToken.address, ONE.mul(20000000));
+
     wooRouter = (await deployContract(owner, WooRouterV2Artifact, [wethToken.address, wooPP.address])) as WooRouterV2;
 
     await rebateManager.setWooRouter(wooRouter.address);

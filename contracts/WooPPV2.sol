@@ -431,7 +431,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         require(to != address(0), "WooPPV2: !to");
         require(baseToken != quoteToken, "WooPPV2: baseToken==quoteToken");
 
-        require(balance(quoteToken) <= tokenInfos[quoteToken].capBal, "WooPPV3: CAP_EXCEEDS");
+        require(balance(quoteToken) <= tokenInfos[quoteToken].capBal, "WooPPV2: CAP_EXCEEDS");
         require(balance(quoteToken) - tokenInfos[quoteToken].reserve >= quoteAmount, "WooPPV2: !QUOTE_BALANCE");
 
         uint256 swapFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
