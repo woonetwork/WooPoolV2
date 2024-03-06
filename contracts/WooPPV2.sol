@@ -383,8 +383,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         require(to != address(0), "WooPPV2: !to");
         require(baseToken != quoteToken, "WooPPV2: baseToken==quoteToken");
 
-        require(balance(baseToken) <= tokenInfos[baseToken].capBal, "WooPPV2: CAP_EXCEEDS");
-        require(balance(baseToken) - tokenInfos[baseToken].reserve >= baseAmount, "WooPPV2: BASE_BALANCE_NOT_ENOUGH");
+        require(balance(baseToken) <= tokenInfos[baseToken].capBal, "WooPPV2: !CAP");
+        require(balance(baseToken) - tokenInfos[baseToken].reserve >= baseAmount, "WooPPV2: !BASE");
 
         {
             uint256 newPrice;
@@ -431,8 +431,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         require(to != address(0), "WooPPV2: !to");
         require(baseToken != quoteToken, "WooPPV2: baseToken==quoteToken");
 
-        require(balance(quoteToken) <= tokenInfos[quoteToken].capBal, "WooPPV2: CAP_EXCEEDS");
-        require(balance(quoteToken) - tokenInfos[quoteToken].reserve >= quoteAmount, "WooPPV2: !QUOTE_BALANCE");
+        require(balance(quoteToken) <= tokenInfos[quoteToken].capBal, "WooPPV2: !CAP");
+        require(balance(quoteToken) - tokenInfos[quoteToken].reserve >= quoteAmount, "WooPPV2: !QUOTE");
 
         uint256 swapFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
         quoteAmount = quoteAmount - swapFee;
@@ -479,7 +479,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         require(baseToken2 != address(0) && baseToken2 != quoteToken, "WooPPV2: !baseToken2");
         require(to != address(0), "WooPPV2: !to");
 
-        require(balance(baseToken1) <= tokenInfos[baseToken1].capBal, "WooPPV2: CAP_EXCEEDS");
+        require(balance(baseToken1) <= tokenInfos[baseToken1].capBal, "WooPPV2: !CAP");
         require(balance(baseToken1) - tokenInfos[baseToken1].reserve >= base1Amount, "WooPPV2: !BASE1_BALANCE");
 
         IWooracleV2.State memory state1 = IWooracleV2(wooracle).state(baseToken1);
