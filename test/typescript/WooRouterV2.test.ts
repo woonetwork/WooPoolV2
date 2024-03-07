@@ -194,6 +194,9 @@ describe("WooRouterV2 Integration Tests", () => {
       wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2;
 
       await wooPP.init(wooracle.address, feeAddr.address);
+      await wooPP.setCapBal(btcToken.address, ONE.mul(100));
+      await wooPP.setCapBal(usdtToken.address, ONE.mul(10000000));
+      await wooPP.setCapBal(wooToken.address, ONE.mul(10000000));
 
       wooRouter = (await deployContract(owner, WooRouterV2Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV2;
 
