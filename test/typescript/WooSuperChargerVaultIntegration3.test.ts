@@ -112,6 +112,11 @@ describe("WooSuperChargerVault WFTM", () => {
     await wooPP2.init(wooracle.address, treasury.address);
     await wooPP2.setFeeRate(wftm.address, 100);
 
+    await wooPP.setMaxGamma(wftm.address, utils.parseEther("0.1"));
+    await wooPP.setMaxGamma(usdcToken.address, utils.parseEther("0.1"));
+    await wooPP.setMaxNotionalSwap(wftm.address, utils.parseEther("5000000"));
+    await wooPP.setMaxNotionalSwap(usdcToken.address, utils.parseEther("5000000"));
+
     await wooracle.setAdmin(wooPP.address, true);
     await wooracle.setAdmin(wooPP2.address, true);
   });
