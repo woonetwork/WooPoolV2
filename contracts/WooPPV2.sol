@@ -39,7 +39,7 @@ import "./interfaces/IWooPPV2.sol";
 import "./interfaces/AggregatorV3Interface.sol";
 import "./interfaces/IWooLendingManager.sol";
 
-import "./libraries/TransferHelper.sol";
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 // OpenZeppelin contracts
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
