@@ -16,7 +16,7 @@ import {IWooCrossChainRouterV3} from "../interfaces/CrossChain/IWooCrossChainRou
 import {ISgInfo} from "../interfaces/CrossChain/ISgInfo.sol";
 import {INonceCounter} from "../interfaces/WOOFiDex/INonceCounter.sol";
 
-import {TransferHelper} from "../libraries/TransferHelper.sol";
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 /// @title cross chain router implementation, version 3.
 /// @notice Router for stateless execution of cross chain swap against WOOFi or 1inch swap.

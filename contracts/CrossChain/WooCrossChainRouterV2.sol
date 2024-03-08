@@ -16,7 +16,7 @@ import {IStargateEthVault} from "../interfaces/Stargate/IStargateEthVault.sol";
 import {IStargateRouter} from "../interfaces/Stargate/IStargateRouter.sol";
 import {ILzApp} from "../interfaces/LayerZero/ILzApp.sol";
 
-import {TransferHelper} from "../libraries/TransferHelper.sol";
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 /// @title WOOFi cross chain router implementation.
 /// @notice Router for stateless execution of cross chain swap against WOOFi private pool.

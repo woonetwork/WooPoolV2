@@ -37,7 +37,7 @@ pragma solidity =0.8.14;
 import {WooracleV2} from "./WooracleV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../libraries/TransferHelper.sol";
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 /// @title Wooracle V2 contract for L2 chains for calldata zip.
 contract WooracleV2ZipInherit is WooracleV2 {

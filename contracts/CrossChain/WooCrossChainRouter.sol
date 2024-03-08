@@ -7,7 +7,7 @@ import "../interfaces/IWETH.sol";
 import "../interfaces/Stargate/IStargateRouter.sol";
 import "../interfaces/Stargate/IStargateReceiver.sol";
 
-import "../libraries/TransferHelper.sol";
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 // OpenZeppelin contracts
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";

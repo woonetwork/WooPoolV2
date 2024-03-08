@@ -36,7 +36,8 @@ pragma solidity =0.8.14;
 
 import "../interfaces/IWooracleV3.sol";
 import "../interfaces/AggregatorV3Interface.sol";
-import "../libraries/TransferHelper.sol";
+
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 // OpenZeppelin contracts
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";

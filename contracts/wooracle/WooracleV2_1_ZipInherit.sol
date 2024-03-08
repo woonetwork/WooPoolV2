@@ -37,7 +37,7 @@ pragma solidity =0.8.14;
 import {WooracleV2_1} from "./WooracleV2_1.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../libraries/TransferHelper.sol";
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 /// @title Wooracle V2.1 contract for L2 chains for calldata zip.
 /// subversion 1 change: no timestamp update for posting price from WooPP.
