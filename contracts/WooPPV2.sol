@@ -75,6 +75,9 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     // wallet address --> is admin
     mapping(address => bool) public isAdmin;
 
+    // wallet address --> is pause role
+    mapping(address => bool) public isPauseRole;
+
     // token address --> fee rate
     mapping(address => TokenInfo) public tokenInfos;
 
@@ -91,6 +94,11 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
     modifier onlyAdmin() {
         require(msg.sender == owner() || isAdmin[msg.sender], "WooPPV2: !admin");
+        _;
+    }
+
+    modifier onlyAdminOrPauseRole() {
+        require(msg.sender == owner() || isAdmin[msg.sender] || isPauseRole[msg.sender], "WooPPV2: !isPauseRole");
         _;
     }
 
@@ -218,7 +226,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         tokenInfos[token].capBal = _capBal;
     }
 
-    function pause() external onlyAdmin {
+    function pause() external onlyAdminOrPauseRole {
         super._pause();
     }
 
@@ -230,6 +238,11 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         require(addr != address(0), "WooPPV2: !admin");
         isAdmin[addr] = flag;
         emit AdminUpdated(addr, flag);
+    }
+
+    function setPauseRole(address addr, bool flag) external onlyAdmin {
+        isPauseRole[addr] = flag;
+        emit PauseRoleUpdated(addr, flag);
     }
 
     function deposit(address token, uint256 amount) public override nonReentrant onlyAdmin {

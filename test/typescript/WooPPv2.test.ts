@@ -562,6 +562,32 @@ describe("WooPPV2 Integration tests", () => {
       await wooracle.setAdmin(wooPP.address, true);
     });
 
+    it("pause accuracy", async () => {
+      expect(await wooPP.paused()).to.be.eq(false);
+      await wooPP.pause();
+      expect(await wooPP.paused()).to.be.eq(true);
+      await wooPP.unpause();
+      expect(await wooPP.paused()).to.be.eq(false);
+    });
+
+    it("pause role control", async () => {
+
+      expect(await wooPP.paused()).to.be.eq(false);
+      await expect(wooPP.connect(user1).pause()).to.be.revertedWith("WooPPV2: !isPauseRole");
+
+      await wooPP.setPauseRole(user1.address, true);
+
+      expect(await wooPP.paused()).to.be.eq(false);
+      await wooPP.connect(user1).pause();
+      expect(await wooPP.paused()).to.be.eq(true);
+
+      await expect(wooPP.connect(user1).unpause()).to.be.revertedWith("WooPPV2: !admin");
+
+      await wooPP.setAdmin(user1.address, true);
+      await wooPP.connect(user1).unpause();
+      expect(await wooPP.paused()).to.be.eq(false);
+    });
+
     it("deposit accuracy", async () => {
       expect(await wooPP.balance(btcToken.address)).to.be.eq(ONE.mul(10));
       expect(await wooPP.balance(usdtToken.address)).to.be.eq(ONE.mul(300000));
@@ -983,6 +1009,7 @@ describe("WooPPV2 Integration tests", () => {
           .swap(wooToken.address, btcToken.address, base1Amount, minBase2Amount, user1.address, ZERO_ADDR)
       ).to.be.reverted;
     });
+
     it("swapBaseToBase cap fail", async () => {
       _clearUser1Balance();
 
