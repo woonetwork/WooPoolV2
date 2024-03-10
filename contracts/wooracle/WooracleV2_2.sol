@@ -166,9 +166,6 @@ contract WooracleV2_2 is Ownable, IWooracleV2 {
         uint256 length = _bases.length;
         require(length == _prices.length, "WooracleV2_2: length_INVALID");
 
-        // TODO: gas optimization:
-        // https://ethereum.stackexchange.com/questions/113221/what-is-the-purpose-of-unchecked-in-solidity
-        // https://forum.openzeppelin.com/t/a-collection-of-gas-optimisation-tricks/19966
         unchecked {
             for (uint256 i = 0; i < length; i++) {
                 infos[_bases[i]].price = _prices[i];
