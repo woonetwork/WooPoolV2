@@ -38,8 +38,9 @@ import "../interfaces/IWooracleV2.sol";
 import "../interfaces/IWooPPV3.sol";
 import "../interfaces/CrossChain/IWooCrossFee.sol";
 
-import "../libraries/TransferHelper.sol";
 import "../IntegrationHelper.sol";
+
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";

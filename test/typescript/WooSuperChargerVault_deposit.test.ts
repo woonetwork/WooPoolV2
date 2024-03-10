@@ -257,7 +257,7 @@ describe("WooSuperChargerVault deposit USDC", () => {
 
       let amount1 = utils.parseEther("10");
 
-      await expect(superChargerVault["requestWithdraw(uint256)"](amount1)).to.be.revertedWith("TransferHelper::transferFrom: transferFrom failed");
+      await expect(superChargerVault["requestWithdraw(uint256)"](amount1)).to.be.revertedWith("STF");
       await expect(superChargerVault["requestWithdraw(uint256)"](0)).to.be.revertedWith("WooSuperChargerVault: !amount");
 
       await superChargerVault.connect(user1).approve(superChargerVault.address, amount);
@@ -531,7 +531,7 @@ describe("WooSuperChargerVault deposit WFTM", () => {
 
       let amount1 = utils.parseEther("10");
 
-      await expect(superChargerVault["requestWithdraw(uint256)"](amount1)).to.be.revertedWith("TransferHelper::transferFrom: transferFrom failed");
+      await expect(superChargerVault["requestWithdraw(uint256)"](amount1)).to.be.revertedWith("STF");
       await expect(superChargerVault["requestWithdraw(uint256)"](0)).to.be.revertedWith("WooSuperChargerVault: !amount");
 
       await superChargerVault.connect(user1).approve(superChargerVault.address, amount);

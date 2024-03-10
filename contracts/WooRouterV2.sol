@@ -38,7 +38,7 @@ import "./interfaces/IWooPPV2.sol";
 import "./interfaces/IWETH.sol";
 import "./interfaces/IWooRouterV2.sol";
 
-import "./libraries/TransferHelper.sol";
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
