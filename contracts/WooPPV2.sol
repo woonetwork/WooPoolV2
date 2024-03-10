@@ -97,7 +97,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         _;
     }
 
-    modifier onlyPauseRole() {
+    modifier onlyAdminOrPauseRole() {
         require(msg.sender == owner() || isAdmin[msg.sender] || isPauseRole[msg.sender], "WooPPV2: !isPauseRole");
         _;
     }
@@ -226,7 +226,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         tokenInfos[token].capBal = _capBal;
     }
 
-    function pause() external onlyPauseRole {
+    function pause() external onlyAdminOrPauseRole {
         super._pause();
     }
 
@@ -241,7 +241,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     }
 
     function setPauseRole(address addr, bool flag) external onlyAdmin {
-        require(addr != address(0), "WooPPV2: !admin");
         isPauseRole[addr] = flag;
         emit PauseRoleUpdated(addr, flag);
     }
