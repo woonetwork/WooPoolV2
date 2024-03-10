@@ -64,7 +64,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     struct TokenInfo {
         uint192 reserve; // balance reserve
         uint16 feeRate; // 1 in 100000; 10 = 1bp = 0.01%; max = 65535
-        uint192 capBal; // balance cap
+        uint256 maxGamma; // max range of `balance * k`
+        uint256 maxNotionalSwap; // max volume per swap
     }
 
     /* ----- State variables ----- */
@@ -213,17 +214,23 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         tokenInfos[token].feeRate = rate;
     }
 
-    function setCapBal(address token, uint192 capBal) external onlyAdmin {
-        tokenInfos[token].capBal = capBal;
+    function setMaxGamma(address token, uint256 maxGamma) external onlyAdmin {
+        tokenInfos[token].maxGamma = maxGamma;
+    }
+
+    function setMaxNotionalSwap(address token, uint256 maxNotionalSwap) external onlyAdmin {
+        tokenInfos[token].maxNotionalSwap = maxNotionalSwap;
     }
 
     function setTokenInfo(
         address token,
         uint16 _feeRate,
-        uint192 _capBal
+        uint256 _maxGamma,
+        uint256 _maxNotionalSwap
     ) external onlyAdmin {
         tokenInfos[token].feeRate = _feeRate;
-        tokenInfos[token].capBal = _capBal;
+        tokenInfos[token].maxGamma = _maxGamma;
+        tokenInfos[token].maxNotionalSwap = _maxNotionalSwap;
     }
 
     function pause() external onlyAdminOrPauseRole {
@@ -396,7 +403,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         require(to != address(0), "WooPPV2: !to");
         require(baseToken != quoteToken, "WooPPV2: baseToken==quoteToken");
 
-        require(balance(baseToken) <= tokenInfos[baseToken].capBal, "WooPPV2: !CAP");
         require(balance(baseToken) - tokenInfos[baseToken].reserve >= baseAmount, "WooPPV2: !BASE");
 
         {
@@ -444,7 +450,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         require(to != address(0), "WooPPV2: !to");
         require(baseToken != quoteToken, "WooPPV2: baseToken==quoteToken");
 
-        require(balance(quoteToken) <= tokenInfos[quoteToken].capBal, "WooPPV2: !CAP");
         require(balance(quoteToken) - tokenInfos[quoteToken].reserve >= quoteAmount, "WooPPV2: !QUOTE");
 
         uint256 swapFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
@@ -492,7 +497,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         require(baseToken2 != address(0) && baseToken2 != quoteToken, "WooPPV2: !baseToken2");
         require(to != address(0), "WooPPV2: !to");
 
-        require(balance(baseToken1) <= tokenInfos[baseToken1].capBal, "WooPPV2: !CAP");
         require(balance(baseToken1) - tokenInfos[baseToken1].reserve >= base1Amount, "WooPPV2: !BASE1_BALANCE");
 
         IWooracleV2.State memory state1 = IWooracleV2(wooracle).state(baseToken1);
@@ -568,18 +572,25 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
         DecimalInfo memory decs = decimalInfo(baseToken);
 
-        // quoteAmount = baseAmount * oracle.price * (1 - oracle.k * baseAmount * oracle.price - oracle.spread)
+        // gamma = k * price * base_amount; and decimal 18
+        uint256 gamma;
         {
-            uint256 coef = uint256(1e18) -
-                ((uint256(state.coeff) * baseAmount * state.price) / decs.baseDec / decs.priceDec) -
-                state.spread;
-            quoteAmount = (((baseAmount * decs.quoteDec * state.price) / decs.priceDec) * coef) / 1e18 / decs.baseDec;
+            uint256 notionalSwap = (baseAmount * state.price * decs.quoteDec) / decs.baseDec / decs.priceDec;
+            require(notionalSwap <= tokenInfos[baseToken].maxNotionalSwap, "WooPPV2: !maxNotionalValue");
+
+            gamma = (baseAmount * state.price * state.coeff) / decs.priceDec / decs.baseDec;
+            require(gamma <= tokenInfos[baseToken].maxGamma, "WooPPV2: !gamma");
+
+            // Formula: quoteAmount = baseAmount * oracle.price * (1 - oracle.k * baseAmount * oracle.price - oracle.spread)
+            quoteAmount =
+                (((baseAmount * state.price * decs.quoteDec) / decs.priceDec) *
+                    (uint256(1e18) - gamma - state.spread)) /
+                1e18 /
+                decs.baseDec;
         }
 
         // newPrice = oracle.price * (1 - k * oracle.price * baseAmount)
-        newPrice =
-            ((uint256(1e18) - (state.coeff * state.price * baseAmount) / decs.priceDec / decs.baseDec) * state.price) /
-            1e18;
+        newPrice = ((uint256(1e18) - gamma) * state.price) / 1e18;
     }
 
     function _calcBaseAmountSellQuote(
@@ -591,14 +602,24 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
         DecimalInfo memory decs = decimalInfo(baseToken);
 
-        // baseAmount = quoteAmount / oracle.price * (1 - oracle.k * quoteAmount - oracle.spread)
+        // gamma = k * quote_amount; and decimal 18
+        uint256 gamma;
         {
-            uint256 coef = uint256(1e18) - (quoteAmount * state.coeff) / decs.quoteDec - state.spread;
-            baseAmount = (((quoteAmount * decs.baseDec * decs.priceDec) / state.price) * coef) / 1e18 / decs.quoteDec;
+            require(quoteAmount <= tokenInfos[baseToken].maxNotionalSwap, "WooPPV2: !maxNotionalValue");
+
+            gamma = (quoteAmount * state.coeff) / decs.quoteDec;
+            require(gamma <= tokenInfos[baseToken].maxGamma, "WooPPV2: !gamma");
+
+            // Formula: baseAmount = quoteAmount / oracle.price * (1 - oracle.k * quoteAmount - oracle.spread)
+            baseAmount =
+                (((quoteAmount * decs.baseDec * decs.priceDec) / state.price) *
+                    (uint256(1e18) - gamma - state.spread)) /
+                1e18 /
+                decs.quoteDec;
         }
 
-        // new_price = oracle.price * (1 + k * quoteAmount)
-        newPrice = ((uint256(1e18) * decs.quoteDec + state.coeff * quoteAmount) * state.price) / decs.quoteDec / 1e18;
+        // new_price = oracle.price / (1 - k * quoteAmount)
+        newPrice = (uint256(1e18) * state.price) / (uint256(1e18) - gamma);
     }
 
     function _maxUInt16(uint16 a, uint16 b) private pure returns (uint16) {

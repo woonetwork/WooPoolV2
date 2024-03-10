@@ -113,6 +113,11 @@ describe("WooSuperChargerVault deposit USDC", () => {
     await wooPP.init(wooracle.address, treasury.address);
     await wooPP.setFeeRate(wftm.address, 100);
 
+    await wooPP.setMaxGamma(wftm.address, utils.parseEther("0.1"));
+    await wooPP.setMaxGamma(usdcToken.address, utils.parseEther("0.1"));
+    await wooPP.setMaxNotionalSwap(wftm.address, utils.parseEther("5000000"));
+    await wooPP.setMaxNotionalSwap(usdcToken.address, utils.parseEther("5000000"));
+
     await wooracle.setAdmin(wooPP.address, true);
   });
 
@@ -394,6 +399,11 @@ describe("WooSuperChargerVault deposit WFTM", () => {
 
     await wooPP.init(wooracle.address, treasury.address);
     await wooPP.setFeeRate(wftm.address, 100);
+
+    await wooPP.setMaxGamma(wftm.address, utils.parseEther("0.1"));
+    await wooPP.setMaxGamma(usdcToken.address, utils.parseEther("0.1"));
+    await wooPP.setMaxNotionalSwap(wftm.address, utils.parseEther("5000000"));
+    await wooPP.setMaxNotionalSwap(usdcToken.address, utils.parseEther("5000000"));
 
     await wooracle.setAdmin(wooPP.address, true);
   });

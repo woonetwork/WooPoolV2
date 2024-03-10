@@ -86,6 +86,12 @@ describe("WooRouterV2 Integration Tests", () => {
       wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2;
 
       await wooPP.init(wooracle.address, feeAddr.address);
+      await wooPP.setMaxGamma(btcToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(wooToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(usdtToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxNotionalSwap(btcToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(wooToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(usdtToken.address, utils.parseEther("5000000"));
 
       wooRouter = (await deployContract(owner, WooRouterV2Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV2;
 
@@ -194,9 +200,12 @@ describe("WooRouterV2 Integration Tests", () => {
       wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2;
 
       await wooPP.init(wooracle.address, feeAddr.address);
-      await wooPP.setCapBal(btcToken.address, ONE.mul(100));
-      await wooPP.setCapBal(usdtToken.address, ONE.mul(10000000));
-      await wooPP.setCapBal(wooToken.address, ONE.mul(10000000));
+      await wooPP.setMaxGamma(btcToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(wooToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(usdtToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxNotionalSwap(btcToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(wooToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(usdtToken.address, utils.parseEther("5000000"));
 
       wooRouter = (await deployContract(owner, WooRouterV2Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV2;
 
@@ -407,6 +416,13 @@ describe("WooRouterV2 Integration Tests", () => {
 
       await wooPP.init(wooracle.address, feeAddr.address);
       await wooPP.setFeeRate(btcToken.address, 100);
+
+      await wooPP.setMaxGamma(btcToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(wooToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(usdtToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxNotionalSwap(btcToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(wooToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(usdtToken.address, utils.parseEther("5000000"));
 
       wooRouter = (await deployContract(owner, WooRouterV2Artifact, [WBNB_ADDR, wooPP.address])) as WooRouterV2;
 

@@ -96,6 +96,14 @@ describe("WooPPV2 Integration tests", () => {
       await usdtToken.approve(wooPP.address, ONE.mul(300000));
       await wooPP.deposit(usdtToken.address, ONE.mul(300000));
 
+      await wooPP.setMaxGamma(btcToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(wooToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(usdtToken.address, utils.parseEther("0.1"));
+
+      await wooPP.setMaxNotionalSwap(btcToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(wooToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(usdtToken.address, utils.parseEther("5000000"));
+
       await wooracle.postState(
         btcToken.address,
         PRICE_DEC.mul(BTC_PRICE), // price
@@ -178,19 +186,20 @@ describe("WooPPV2 Integration tests", () => {
 
   describe("wooPP swap", () => {
     let wooPP: WooPPV2;
-    let btcCapBal: BigNumber;
-    let usdtCapBal: BigNumber;
 
     beforeEach("Deploy WooPPV2", async () => {
       wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2;
 
       await wooPP.init(wooracle.address, feeAddr.address);
       await wooPP.setFeeRate(btcToken.address, 100);
-      btcCapBal = ONE.mul(100);
-      usdtCapBal = ONE.mul(1000000);
 
-      await wooPP.setCapBal(btcToken.address, btcCapBal);
-      await wooPP.setCapBal(usdtToken.address, usdtCapBal);
+      await wooPP.setMaxGamma(btcToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(wooToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(usdtToken.address, utils.parseEther("0.1"));
+
+      await wooPP.setMaxNotionalSwap(btcToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(wooToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(usdtToken.address, utils.parseEther("5000000"));
 
       await btcToken.mint(owner.address, ONE.mul(10));
       await usdtToken.mint(owner.address, ONE.mul(300000));
@@ -335,26 +344,6 @@ describe("WooPPV2 Integration tests", () => {
       ).to.be.revertedWith("WooPPV2: quoteAmount_LT_minQuoteAmount");
     });
 
-    it("sellBase cap fail", async() => {
-      const bal = await wooPP.balance(btcToken.address);
-      const addAmount = ONE.mul(2);
-      await btcToken.mint(user2.address, addAmount);
-
-      const baseAmount = ONE;
-      await wooPP.setCapBal(btcToken.address, bal.add(baseAmount));
-
-      await btcToken.connect(user2).approve(wooPP.address, baseAmount);
-      await btcToken.connect(user2).transfer(wooPP.address, baseAmount);
-      await wooPP.swap(btcToken.address, quote.address, baseAmount, 0, user2.address, ZERO_ADDR);
-
-      await btcToken.connect(user2).approve(wooPP.address, baseAmount);
-      await btcToken.connect(user2).transfer(wooPP.address, baseAmount);
-      await expect(wooPP.swap(btcToken.address, quote.address, baseAmount, 0, user2.address, ZERO_ADDR)).to.be.revertedWith(
-        "WooPPV2: !CAP"
-      );
-      await wooPP.setCapBal(btcToken.address, btcCapBal);
-    });
-
     it("sellQuote accuracy1", async () => {
       await btcToken.mint(user1.address, ONE.mul(3));
       await usdtToken.mint(user1.address, ONE.mul(100000));
@@ -481,25 +470,6 @@ describe("WooPPV2 Integration tests", () => {
       ).to.be.revertedWith("WooPPV2: baseAmount_LT_minBaseAmount");
     });
 
-    it("sellQuote cap fail", async() => {
-      const bal = await wooPP.balance(quote.address);
-      const quoteAmount = ONE.mul(100);
-      const addAmount = quoteAmount.mul(2);
-      await usdtToken.mint(user1.address, addAmount);
-
-      await wooPP.setCapBal(quote.address, bal.add(quoteAmount));
-      await usdtToken.connect(user1).approve(wooPP.address, quoteAmount);
-      await usdtToken.connect(user1).transfer(wooPP.address, quoteAmount);
-      await wooPP.swap(quote.address, btcToken.address, quoteAmount, 0, user1.address, ZERO_ADDR);
-
-      await usdtToken.connect(user1).approve(wooPP.address, quoteAmount);
-      await usdtToken.connect(user1).transfer(wooPP.address, quoteAmount);
-      await expect(wooPP.swap(quote.address, btcToken.address, quoteAmount, 0, user1.address, ZERO_ADDR)).to.be.revertedWith(
-          "WooPPV2: !CAP"
-      );
-      await wooPP.setCapBal(usdtToken.address, usdtCapBal);
-    });
-
     it("balance accuracy", async () => {
       const bal1 = await wooPP.balance(usdtToken.address);
       const bal2 = await wooPP.balance(btcToken.address);
@@ -539,8 +509,12 @@ describe("WooPPV2 Integration tests", () => {
 
       await wooPP.init(wooracle.address, feeAddr.address);
       await wooPP.setFeeRate(btcToken.address, 100);
-      await wooPP.setCapBal(btcToken.address, ONE.mul(100));
-      await wooPP.setCapBal(usdtToken.address, ONE.mul(1000000));
+      await wooPP.setMaxGamma(btcToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(wooToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(usdtToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxNotionalSwap(btcToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(wooToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(usdtToken.address, utils.parseEther("5000000"));
 
       await btcToken.mint(owner.address, ONE.mul(10));
       await usdtToken.mint(owner.address, ONE.mul(300000));
@@ -694,9 +668,6 @@ describe("WooPPV2 Integration tests", () => {
 
   describe("BaseToBase Functions", () => {
     let wooPP: WooPPV2;
-    let btcCapBal: BigNumber;
-    let usdtCapBal: BigNumber;
-    let wooCapBal: BigNumber;
 
     beforeEach("Deploy wooPPV2", async () => {
       wooPP = (await deployContract(owner, WooPPV2Artifact, [usdtToken.address])) as WooPPV2;
@@ -704,12 +675,12 @@ describe("WooPPV2 Integration tests", () => {
       await wooPP.init(wooracle.address, feeAddr.address);
       await wooPP.setFeeRate(btcToken.address, 100);
 
-      btcCapBal = ONE.mul(100);
-      usdtCapBal = ONE.mul(1000000);
-      wooCapBal = ONE.mul(2000000);
-      await wooPP.setCapBal(btcToken.address, btcCapBal);
-      await wooPP.setCapBal(usdtToken.address, usdtCapBal);
-      await wooPP.setCapBal(wooToken.address, wooCapBal);
+      await wooPP.setMaxGamma(btcToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(wooToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxGamma(usdtToken.address, utils.parseEther("0.1"));
+      await wooPP.setMaxNotionalSwap(btcToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(wooToken.address, utils.parseEther("5000000"));
+      await wooPP.setMaxNotionalSwap(usdtToken.address, utils.parseEther("5000000"));
 
       // await btcToken.approve(wooPP.address, ONE.mul(10))
       // await wooPP.deposit(btcToken.address, ONE.mul(10))
@@ -1010,6 +981,7 @@ describe("WooPPV2 Integration tests", () => {
       ).to.be.reverted;
     });
 
+    /*
     it("swapBaseToBase cap fail", async () => {
       _clearUser1Balance();
 
@@ -1040,6 +1012,7 @@ describe("WooPPV2 Integration tests", () => {
           );
       await wooPP.setCapBal(wooToken.address, wooCapBal);
     });
+    */
   });
 
   async function _clearUser1Balance() {
