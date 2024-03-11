@@ -267,7 +267,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         deposit(token, IERC20(token).balanceOf(msg.sender));
     }
 
-    function repayWeeklyLending(address wantToken) external nonReentrant onlyAdmin {
+    function repayWeeklyLending(address wantToken) external nonReentrant onlyAdmin returns (uint256 repaidAmount) {
         IWooLendingManager lendManager = lendManagers[wantToken];
         lendManager.accureInterest();
         uint256 amount = lendManager.weeklyRepayment();
@@ -275,7 +275,32 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         if (amount > 0) {
             tokenInfos[repaidToken].reserve = uint192(tokenInfos[repaidToken].reserve - amount);
             TransferHelper.safeApprove(repaidToken, address(lendManager), amount);
-            lendManager.repayWeekly();
+            repaidAmount = lendManager.repayWeekly();
+            TransferHelper.safeApprove(repaidToken, address(lendManager), 0);
+        }
+        emit Withdraw(repaidToken, address(lendManager), amount);
+    }
+
+    function repayPrincipal(address wantToken, uint256 principalAmount)
+        external
+        nonReentrant
+        onlyAdmin
+        returns (uint256 repaidAmount)
+    {
+        IWooLendingManager lendManager = lendManagers[wantToken];
+        lendManager.accureInterest();
+
+        uint256 interest = lendManager.borrowedInterest();
+        uint256 perfFee = (lendManager.perfRate() * interest) / 10000;
+
+        uint256 amount = principalAmount + interest + perfFee;
+
+        address repaidToken = lendManager.want();
+        if (amount > 0) {
+            tokenInfos[repaidToken].reserve = uint192(tokenInfos[repaidToken].reserve - amount);
+            TransferHelper.safeApprove(repaidToken, address(lendManager), amount);
+            repaidAmount = lendManager.repayPrincipal(principalAmount);
+            TransferHelper.safeApprove(repaidToken, address(lendManager), 0);
         }
         emit Withdraw(repaidToken, address(lendManager), amount);
     }

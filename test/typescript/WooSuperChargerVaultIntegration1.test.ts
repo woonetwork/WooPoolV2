@@ -782,7 +782,88 @@ describe("WooSuperChargerVault USDC", () => {
       expect(poolSizeDelta.mul(1e5).div(ONE)).to.be.eq(weeklyRepayAmount.mul(1e5).div(ONE))
     })
 
-    it("usdc Integration Test5: multiple deposits and request all", async () => {
+    it("Integration Test5: repay principal in WooPPV2", async () => {
+      // Steps:
+      // 1. user deposits 100 usdc
+      // 2. request withdraw 10 usdc
+      // 3. borrow 20 + 10 usdc
+      // 4. WooPP repay
+
+      const amount = utils.parseEther("100");
+      await want.approve(superChargerVault.address, amount);
+      await superChargerVault["deposit(uint256)"](amount);
+
+      // Check lending manager status
+      await lendingManager.setBorrower(owner.address, true);
+      await lendingManager.setInterestRate(1000); // APR - 10%
+      expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
+      expect(await lendingManager.borrowedPrincipal()).to.eq(0);
+      expect(await lendingManager.borrowedInterest()).to.eq(0);
+      expect(await lendingManager.debt()).to.eq(0);
+      expect(await lendingManager.interestRate()).to.eq(1000);
+      expect(await lendingManager.isBorrower(owner.address)).to.eq(true);
+      expect(await lendingManager.isBorrower(user1.address)).to.eq(false);
+
+      // Borrow
+      await expect(lendingManager.connect(user1.address).borrow(100)).to.be.revertedWith(
+        "WooLendingManager: !borrower"
+      );
+
+      let borrowAmount = utils.parseEther("20");
+      const bal1 = await wooPP.poolSize(want.address);
+      await lendingManager.borrow(borrowAmount); // borrow 20 want token
+      const bal2 = await wooPP.poolSize(want.address);
+      expect(bal2.sub(bal1)).to.eq(borrowAmount);
+
+      expect(await superChargerVault.weeklyNeededAmountForWithdraw()).to.eq(0);
+      expect(await lendingManager.borrowedPrincipal()).to.eq(borrowAmount);
+      expect(await lendingManager.borrowedInterest()).to.eq(0);
+      expect(await lendingManager.debt()).to.eq(borrowAmount);
+
+      expect(await superChargerVault.balance()).to.eq(amount);
+      expect(await superChargerVault.reserveBalance()).to.eq(amount.sub(borrowAmount));
+      expect(await superChargerVault.lendingBalance()).to.eq(borrowAmount);
+      expect(await superChargerVault.available()).to.eq(0);
+
+      const borrowAmount1 = utils.parseEther("10");
+      borrowAmount = borrowAmount.add(borrowAmount1);
+      await lendingManager.borrow(borrowAmount1); // borrow 10 want token
+      const wooppSize = await wooPP.poolSize(want.address);
+      console.log('wooPP size', utils.formatEther(wooppSize));
+      expect(wooppSize.sub(bal2)).to.eq(borrowAmount1);
+
+      // Emit a few blocks for accruing interest
+      const blocksToPass = 5;
+      for (let i = 0; i < blocksToPass; i++) {
+        await ethers.provider.send("evm_mine", []);
+      }
+
+      // Repay Admin Check
+      await expect(wooPP.connect(user1).repayPrincipal(want.address, utils.parseEther("8"))).to.be.revertedWith("WooPPV2: !admin");
+
+      // Repay
+      let prePoolSize = await wooPP.poolSize(want.address);
+      let prinAmount = utils.parseEther("8"); // repay 8 in principal
+      await wooPP.repayPrincipal(want.address, prinAmount);
+      let poolSizeDelta = prePoolSize.sub(await wooPP.poolSize(want.address));
+
+      console.log("principal to repay: ", utils.formatEther(prinAmount));
+      console.log("pool size delta: ", utils.formatEther(poolSizeDelta));
+      console.log("wooPP size: ", utils.formatEther(await wooPP.poolSize(want.address)));
+      expect(poolSizeDelta.mul(1e5).div(ONE)).to.be.eq(prinAmount.mul(1e5).div(ONE))
+
+      prePoolSize = await wooPP.poolSize(want.address);
+      let prinAmount2 = utils.parseEther("21"); // repay 22 in principal
+      await wooPP.repayPrincipal(want.address, prinAmount2);
+      poolSizeDelta = prePoolSize.sub(await wooPP.poolSize(want.address));
+
+      console.log("principal to repay: ", utils.formatEther(prinAmount));
+      console.log("pool size delta: ", utils.formatEther(poolSizeDelta));
+      console.log("wooPP size in the end: ", utils.formatEther(await wooPP.poolSize(want.address)));
+      expect(poolSizeDelta.mul(1e5).div(ONE)).to.be.eq(prinAmount2.mul(1e5).div(ONE))
+    })
+
+    it("usdc Integration Test6: multiple deposits and request all", async () => {
       // Steps:
       // multiple deposits and multiple withdrawals; verify the result.
 
