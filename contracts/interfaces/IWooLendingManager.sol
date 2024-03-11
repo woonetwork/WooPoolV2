@@ -61,4 +61,10 @@ interface IWooLendingManager {
             uint256 interest,
             uint256 perfFee
         );
+
+    function borrowedInterest() external view returns (uint256);
+
+    function perfRate() external view returns (uint256);
+
+    function repayPrincipal(uint256 _principal) external returns (uint256 repaidAmount);
 }
