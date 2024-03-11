@@ -64,8 +64,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     struct TokenInfo {
         uint192 reserve; // balance reserve
         uint16 feeRate; // 1 in 100000; 10 = 1bp = 0.01%; max = 65535
-        uint256 maxGamma; // max range of `balance * k`
-        uint256 maxNotionalSwap; // max volume per swap
+        uint128 maxGamma; // max range of `balance * k`
+        uint128 maxNotionalSwap; // max volume per swap
     }
 
     /* ----- State variables ----- */
@@ -214,19 +214,19 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         tokenInfos[token].feeRate = rate;
     }
 
-    function setMaxGamma(address token, uint256 maxGamma) external onlyAdmin {
+    function setMaxGamma(address token, uint128 maxGamma) external onlyAdmin {
         tokenInfos[token].maxGamma = maxGamma;
     }
 
-    function setMaxNotionalSwap(address token, uint256 maxNotionalSwap) external onlyAdmin {
+    function setMaxNotionalSwap(address token, uint128 maxNotionalSwap) external onlyAdmin {
         tokenInfos[token].maxNotionalSwap = maxNotionalSwap;
     }
 
     function setTokenInfo(
         address token,
         uint16 _feeRate,
-        uint256 _maxGamma,
-        uint256 _maxNotionalSwap
+        uint128 _maxGamma,
+        uint128 _maxNotionalSwap
     ) external onlyAdmin {
         tokenInfos[token].feeRate = _feeRate;
         tokenInfos[token].maxGamma = _maxGamma;
