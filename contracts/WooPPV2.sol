@@ -281,25 +281,37 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         emit Withdraw(repaidToken, address(lendManager), amount);
     }
 
-    function repayPrincipal(address wantToken, uint256 principalAmount)
+    function repayPrincipal(address repaidToken, uint256 principalAmount)
         external
         nonReentrant
         onlyAdmin
         returns (uint256 repaidAmount)
     {
-        IWooLendingManager lendManager = lendManagers[wantToken];
+        IWooLendingManager lendManager = lendManagers[repaidToken];
         lendManager.accureInterest();
 
         uint256 interest = lendManager.borrowedInterest();
         uint256 perfFee = (lendManager.perfRate() * interest) / 10000;
 
         uint256 amount = principalAmount + interest + perfFee;
-
-        address repaidToken = lendManager.want();
         if (amount > 0) {
             tokenInfos[repaidToken].reserve = uint192(tokenInfos[repaidToken].reserve - amount);
             TransferHelper.safeApprove(repaidToken, address(lendManager), amount);
             repaidAmount = lendManager.repayPrincipal(principalAmount);
+            TransferHelper.safeApprove(repaidToken, address(lendManager), 0);
+        }
+        emit Withdraw(repaidToken, address(lendManager), amount);
+    }
+
+    /// NOTE: Used for legacy lending manager only support `repay(amount)` method.
+    /// e.g. lending managers on arbitrum, OP and etc
+    ///   https://arbiscan.io/address/0x5c7ff24fa7af62bc25ad6747a6193183b4bb7bc5#code
+    function repayLegacy(address repaidToken, uint256 amount) external nonReentrant onlyAdmin {
+        IWooLendingManager lendManager = lendManagers[repaidToken];
+        if (amount > 0) {
+            tokenInfos[repaidToken].reserve = uint192(tokenInfos[repaidToken].reserve - amount);
+            TransferHelper.safeApprove(repaidToken, address(lendManager), amount);
+            lendManager.repay(amount);
             TransferHelper.safeApprove(repaidToken, address(lendManager), 0);
         }
         emit Withdraw(repaidToken, address(lendManager), amount);

@@ -45,7 +45,7 @@ const BN_1E18 = BigNumber.from(10).pow(18);
 const BN_2E18 = BN_1E18.mul(2);
 const BN_1E8 = BigNumber.from(10).pow(8);
 
-const BN_1E16 = BigNumber.from(10).pow(18);
+const BN_1E16 = BigNumber.from(10).pow(18); // BUG HERE
 const BN_2E16 = BN_1E16.mul(2);
 const ZERO = 0;
 
