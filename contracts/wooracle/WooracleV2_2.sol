@@ -34,7 +34,7 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import "../interfaces/IWooracleV2.sol";
+import "../interfaces/IWooracleV2_2.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 
 import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
@@ -47,7 +47,7 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 /// @title Wooracle V2.2 contract for WooPPV2
 /// subversion 1 change: no timestamp update for posting price from WooPP.
 /// subversion 2 change: support legacy postState utilizing block.timestamp
-contract WooracleV2_2 is Ownable, IWooracleV2 {
+contract WooracleV2_2 is Ownable, IWooracleV2_2 {
     /* ----- State variables ----- */
 
     // 128 + 64 + 64 = 256 bits (slot size)
@@ -146,6 +146,7 @@ contract WooracleV2_2 is Ownable, IWooracleV2 {
     /// @dev Update the base token prices.
     /// @param _base the baseToken address
     /// @param _price the new prices for the base token
+    /// @param _ts the manual updated TS
     function postPrice(
         address _base,
         uint128 _price,
@@ -240,7 +241,7 @@ contract WooracleV2_2 is Ownable, IWooracleV2 {
         when !woFeasible && clo_preferred       -> cloPrice, feasible
         when !woFeasible && !clo_preferred      -> cloPrice, infeasible
     */
-    function price(address _base) public view override returns (uint256 priceOut, bool feasible) {
+    function price(address _base) public view returns (uint256 priceOut, bool feasible) {
         uint256 woPrice_ = uint256(infos[_base].price);
         uint256 woPriceTimestamp = timestamp;
 
@@ -260,11 +261,11 @@ contract WooracleV2_2 is Ownable, IWooracleV2 {
     }
 
     /// @notice the price decimal for the specified base token
-    function decimals(address) external pure override returns (uint8) {
+    function decimals(address) external pure returns (uint8) {
         return 8;
     }
 
-    function cloPrice(address _base) external view override returns (uint256 refPrice, uint256 refTimestamp) {
+    function cloPrice(address _base) external view returns (uint256 refPrice, uint256 refTimestamp) {
         return _cloPriceInQuote(_base, quoteToken);
     }
 
@@ -272,45 +273,12 @@ contract WooracleV2_2 is Ownable, IWooracleV2 {
         return infos[_base].price != 0 && block.timestamp <= (timestamp + staleDuration);
     }
 
-    function syncTS() external onlyAdmin {
-        timestamp = block.timestamp;
-    }
-
-    function syncTS(uint256 _ts) external onlyAdmin {
-        timestamp = _ts;
-    }
-
-    function debugTS()
-        external
-        view
-        returns (
-            uint256 n,
-            uint256 bs,
-            uint256 ts,
-            bool f
-        )
-    {
-        n = block.number;
-        bs = block.timestamp;
-        ts = timestamp;
-        f = block.timestamp <= (timestamp + staleDuration);
-    }
-
-    function woSpread(address _base) external view override returns (uint64) {
-        return infos[_base].spread;
-    }
-
-    function woCoeff(address _base) external view override returns (uint64) {
-        return infos[_base].coeff;
-    }
-
-    // Wooracle price of the base token
-    function woPrice(address _base) external view override returns (uint128 priceOut, uint256 priceTimestampOut) {
+    function woPrice(address _base) external view returns (uint128 priceOut, uint256 priceTimestampOut) {
         priceOut = infos[_base].price;
         priceTimestampOut = timestamp;
     }
 
-    function woState(address _base) external view override returns (State memory) {
+    function woState(address _base) external view returns (State memory) {
         TokenInfo memory info = infos[_base];
         return
             State({
@@ -321,17 +289,13 @@ contract WooracleV2_2 is Ownable, IWooracleV2 {
             });
     }
 
-    function state(address _base) external view override returns (State memory) {
+    function state(address _base) external view returns (State memory) {
         TokenInfo memory info = infos[_base];
         (uint256 basePrice, bool feasible) = price(_base);
         return State({price: uint128(basePrice), spread: info.spread, coeff: info.coeff, woFeasible: feasible});
     }
 
-    function cloAddress(address _base) external view override returns (address clo) {
-        clo = clOracles[_base].oracle;
-    }
-
-    /* ----- Private Functions ----- */
+    /* ----- Internal Functions ----- */
 
     function _setState(
         address _base,
@@ -375,7 +339,7 @@ contract WooracleV2_2 is Ownable, IWooracleV2 {
         basesMap[_id] = _base;
     }
 
-    function getBase(uint8 _id) public view returns (address) {
+    function getBase(uint8 _id) internal view returns (address) {
         address[5] memory CONST_BASES = [
             // mload
             // NOTE: Update token address for different chains
