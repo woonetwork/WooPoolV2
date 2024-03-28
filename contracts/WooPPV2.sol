@@ -34,7 +34,7 @@ pragma solidity =0.8.14;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import "./interfaces/IWooracleV2.sol";
+import "./interfaces/IWooracleV2_2.sol";
 import "./interfaces/IWooPPV2.sol";
 import "./interfaces/AggregatorV3Interface.sol";
 import "./interfaces/IWooLendingManager.sol";
@@ -85,7 +85,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     /// @inheritdoc IWooPPV2
     address public immutable override quoteToken;
 
-    IWooracleV2 public wooracle;
+    IWooracleV2_2 public wooracle;
 
     address public feeAddr;
 
@@ -109,7 +109,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
     function init(address _wooracle, address _feeAddr) external onlyOwner {
         require(address(wooracle) == address(0), "WooPPV2: INIT_INVALID");
-        wooracle = IWooracleV2(_wooracle);
+        wooracle = IWooracleV2_2(_wooracle);
         feeAddr = _feeAddr;
     }
 
@@ -191,7 +191,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     function decimalInfo(address baseToken) public view returns (DecimalInfo memory) {
         return
             DecimalInfo({
-                priceDec: uint64(10)**(IWooracleV2(wooracle).decimals(baseToken)), // 8
+                priceDec: uint64(10)**(IWooracleV2_2(wooracle).decimals(baseToken)), // 8
                 quoteDec: uint64(10)**(IERC20Metadata(quoteToken).decimals()), // 18 or 6
                 baseDec: uint64(10)**(IERC20Metadata(baseToken).decimals()) // 18 or 8
             });
@@ -200,7 +200,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     /* ----- Admin Functions ----- */
 
     function setWooracle(address _wooracle) external onlyAdmin {
-        wooracle = IWooracleV2(_wooracle);
+        wooracle = IWooracleV2_2(_wooracle);
         emit WooracleUpdated(_wooracle);
     }
 
@@ -371,7 +371,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         whenNotPaused
         returns (uint256 quoteAmount)
     {
-        IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+        IWooracleV2_2.State memory state = IWooracleV2_2(wooracle).state(baseToken);
         (quoteAmount, ) = _calcQuoteAmountSellBase(baseToken, baseAmount, state);
         uint256 fee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
         quoteAmount = quoteAmount - fee;
@@ -385,7 +385,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     {
         uint256 swapFee = (quoteAmount * tokenInfos[baseToken].feeRate) / 1e5;
         quoteAmount = quoteAmount - swapFee;
-        IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+        IWooracleV2_2.State memory state = IWooracleV2_2(wooracle).state(baseToken);
         (baseAmount, ) = _calcBaseAmountSellQuote(baseToken, quoteAmount, state);
     }
 
@@ -400,8 +400,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             return (0, 0);
         }
 
-        IWooracleV2.State memory state1 = IWooracleV2(wooracle).state(baseToken1);
-        IWooracleV2.State memory state2 = IWooracleV2(wooracle).state(baseToken2);
+        IWooracleV2_2.State memory state1 = IWooracleV2_2(wooracle).state(baseToken1);
+        IWooracleV2_2.State memory state2 = IWooracleV2_2(wooracle).state(baseToken2);
 
         uint64 spread = _maxUInt64(state1.spread, state2.spread) / 2;
         uint16 feeRate = _maxUInt16(tokenInfos[baseToken1].feeRate, tokenInfos[baseToken2].feeRate);
@@ -432,9 +432,9 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
         {
             uint256 newPrice;
-            IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+            IWooracleV2_2.State memory state = IWooracleV2_2(wooracle).state(baseToken);
             (quoteAmount, newPrice) = _calcQuoteAmountSellBase(baseToken, baseAmount, state);
-            IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
+            IWooracleV2_2(wooracle).postPrice(baseToken, uint128(newPrice));
             // console.log('Post new price:', newPrice, newPrice/1e8);
         }
 
@@ -483,9 +483,9 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
         {
             uint256 newPrice;
-            IWooracleV2.State memory state = IWooracleV2(wooracle).state(baseToken);
+            IWooracleV2_2.State memory state = IWooracleV2_2(wooracle).state(baseToken);
             (baseAmount, newPrice) = _calcBaseAmountSellQuote(baseToken, quoteAmount, state);
-            IWooracleV2(wooracle).postPrice(baseToken, uint128(newPrice));
+            IWooracleV2_2(wooracle).postPrice(baseToken, uint128(newPrice));
             // console.log('Post new price:', newPrice, newPrice/1e8);
             require(baseAmount >= minBaseAmount, "WooPPV2: baseAmount_LT_minBaseAmount");
         }
@@ -524,8 +524,8 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
         require(balance(baseToken1) - tokenInfos[baseToken1].reserve >= base1Amount, "WooPPV2: !BASE1_BALANCE");
 
-        IWooracleV2.State memory state1 = IWooracleV2(wooracle).state(baseToken1);
-        IWooracleV2.State memory state2 = IWooracleV2(wooracle).state(baseToken2);
+        IWooracleV2_2.State memory state1 = IWooracleV2_2(wooracle).state(baseToken1);
+        IWooracleV2_2.State memory state2 = IWooracleV2_2(wooracle).state(baseToken2);
 
         uint256 swapFee;
         uint256 quoteAmount;
@@ -538,7 +538,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
 
             uint256 newBase1Price;
             (quoteAmount, newBase1Price) = _calcQuoteAmountSellBase(baseToken1, base1Amount, state1);
-            IWooracleV2(wooracle).postPrice(baseToken1, uint128(newBase1Price));
+            IWooracleV2_2(wooracle).postPrice(baseToken1, uint128(newBase1Price));
             // console.log('Post new base1 price:', newBase1Price, newBase1Price/1e8);
 
             swapFee = (quoteAmount * feeRate) / 1e5;
@@ -553,7 +553,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         {
             uint256 newBase2Price;
             (base2Amount, newBase2Price) = _calcBaseAmountSellQuote(baseToken2, quoteAmount, state2);
-            IWooracleV2(wooracle).postPrice(baseToken2, uint128(newBase2Price));
+            IWooracleV2_2(wooracle).postPrice(baseToken2, uint128(newBase2Price));
             // console.log('Post new base2 price:', newBase2Price, newBase2Price/1e8);
             require(base2Amount >= minBase2Amount, "WooPPV2: base2Amount_LT_minBase2Amount");
         }
@@ -591,9 +591,10 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     function _calcQuoteAmountSellBase(
         address baseToken,
         uint256 baseAmount,
-        IWooracleV2.State memory state
+        IWooracleV2_2.State memory state
     ) private view returns (uint256 quoteAmount, uint256 newPrice) {
         require(state.woFeasible, "WooPPV2: !ORACLE_FEASIBLE");
+        require(state.price > 0, "WooPPV2: !ORACE_PRICE");
 
         DecimalInfo memory decs = decimalInfo(baseToken);
 
@@ -621,9 +622,10 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     function _calcBaseAmountSellQuote(
         address baseToken,
         uint256 quoteAmount,
-        IWooracleV2.State memory state
+        IWooracleV2_2.State memory state
     ) private view returns (uint256 baseAmount, uint256 newPrice) {
         require(state.woFeasible, "WooPPV2: !ORACLE_FEASIBLE");
+        require(state.price > 0, "WooPPV2: !ORACE_PRICE");
 
         DecimalInfo memory decs = decimalInfo(baseToken);
 

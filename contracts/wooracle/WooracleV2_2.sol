@@ -63,8 +63,14 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         bool cloPreferred;
     }
 
+    struct PriceRange {
+        uint128 min;
+        uint128 max;
+    }
+
     mapping(address => TokenInfo) public infos;
     mapping(address => CLOracle) public clOracles;
+    mapping(address => PriceRange) public priceRanges;
 
     address public quoteToken;
     uint256 public timestamp;
@@ -75,11 +81,12 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
     address public wooPP;
 
     mapping(address => bool) public isAdmin;
+    mapping(address => bool) public isGuardian;
 
     mapping(uint8 => address) public basesMap;
 
     constructor() {
-        staleDuration = uint256(120); // default: 2 mins
+        staleDuration = uint256(300); // default: 5 mins
         bound = uint64(1e16); // 1%
     }
 
@@ -88,7 +95,22 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         _;
     }
 
+    modifier onlyGuardian() {
+        require(isGuardian[msg.sender], "WooracleV2_2: !Guardian");
+        _;
+    }
+
     /* ----- External Functions ----- */
+
+    function setRange(
+        address _base,
+        uint128 _min,
+        uint128 _max
+    ) external onlyGuardian {
+        PriceRange storage priceRange = priceRanges[_base];
+        priceRange.min = _min;
+        priceRange.max = _max;
+    }
 
     function setWooPP(address _wooPP) external onlyAdmin {
         wooPP = _wooPP;
@@ -96,6 +118,10 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
 
     function setAdmin(address _addr, bool _flag) external onlyOwner {
         isAdmin[_addr] = _flag;
+    }
+
+    function setGuardian(address _addr, bool _flag) external onlyOwner {
+        isGuardian[_addr] = _flag;
     }
 
     /// @dev Set the quote token address.
@@ -248,7 +274,10 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         (uint256 cloPrice_, ) = _cloPriceInQuote(_base, quoteToken);
 
         bool woFeasible = woPrice_ != 0 && block.timestamp <= (woPriceTimestamp + staleDuration);
-        bool woPriceInBound = cloPrice_ == 0 ||
+
+        // bool woPriceInBound = cloPrice_ == 0 ||
+        //     ((cloPrice_ * (1e18 - bound)) / 1e18 <= woPrice_ && woPrice_ <= (cloPrice_ * (1e18 + bound)) / 1e18);
+        bool woPriceInBound = cloPrice_ != 0 &&
             ((cloPrice_ * (1e18 - bound)) / 1e18 <= woPrice_ && woPrice_ <= (cloPrice_ * (1e18 + bound)) / 1e18);
 
         if (woFeasible) {
@@ -257,6 +286,13 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         } else {
             priceOut = clOracles[_base].cloPreferred ? cloPrice_ : 0;
             feasible = priceOut != 0;
+        }
+
+        // Guardian check: min-max
+        if (feasible) {
+            PriceRange memory range = priceRanges[_base];
+            require(priceOut > range.min, "WooracleV2_2: !min");
+            require(priceOut < range.max, "WooracleV2_2: !max");
         }
     }
 
@@ -271,11 +307,6 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
 
     function isWoFeasible(address _base) external view override returns (bool) {
         return infos[_base].price != 0 && block.timestamp <= (timestamp + staleDuration);
-    }
-
-    function woPrice(address _base) external view returns (uint128 priceOut, uint256 priceTimestampOut) {
-        priceOut = infos[_base].price;
-        priceTimestampOut = timestamp;
     }
 
     function woState(address _base) external view returns (State memory) {
@@ -315,9 +346,13 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         returns (uint256 refPrice, uint256 refTimestamp)
     {
         address baseOracle = clOracles[_fromToken].oracle;
-        if (baseOracle == address(0)) {
-            return (0, 0);
-        }
+
+        // NOTE: Only for chains where chainlink oracle is unavailable
+        // if (baseOracle == address(0)) {
+        //     return (0, 0);
+        // }
+        require(baseOracle != address(0), "WooracleV2_2: !oracle");
+
         address quoteOracle = clOracles[_toToken].oracle;
         uint8 quoteDecimal = clOracles[_toToken].decimal;
 
@@ -339,7 +374,7 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         basesMap[_id] = _base;
     }
 
-    function getBase(uint8 _id) internal view returns (address) {
+    function getBase(uint8 _id) public view returns (address) {
         address[5] memory CONST_BASES = [
             // mload
             // NOTE: Update token address for different chains

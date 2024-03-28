@@ -50,17 +50,17 @@ interface IWooracleV2_2 {
     // /// @notice Wooracle coeff value
     // function woCoeff(address base) external view returns (uint64);
 
-    /// @notice Wooracle state for the specified base token
-    function woState(address base) external view returns (State memory);
+    // /// @notice Wooracle state for the specified base token
+    // function woState(address base) external view returns (State memory);
 
     // /// @notice Chainlink oracle address for the specified base token
     // function cloAddress(address base) external view returns (address clo);
 
+    // /// @notice Wooracle price of the base token
+    // function woPrice(address base) external view returns (uint128 price, uint256 timestamp);
+
     /// @notice ChainLink price of the base token / quote token
     function cloPrice(address base) external view returns (uint256 price, uint256 timestamp);
-
-    // /// @notice Wooracle price of the base token
-    function woPrice(address base) external view returns (uint128 price, uint256 timestamp);
 
     /// @notice Returns Woooracle price if available, otherwise fallback to ChainLink
     function price(address base) external view returns (uint256 priceNow, bool feasible);
