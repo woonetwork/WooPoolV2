@@ -440,6 +440,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV4, Ownable, Pausable, Ree
                         fee
                     );
                 } catch {
+                    TransferHelper.safeApprove(bridgedToken, address(wooRouter), 0);
                     bridgedAmount += fee;
                     TransferHelper.safeTransfer(bridgedToken, to, bridgedAmount);
                     emit WooCrossSwapOnDstChain(
@@ -474,6 +475,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV4, Ownable, Pausable, Ree
                         0
                     );
                 } catch {
+                    TransferHelper.safeApprove(bridgedToken, address(wooRouter), 0);
                     TransferHelper.safeTransfer(bridgedToken, to, bridgedAmount);
                     emit WooCrossSwapOnDstChain(
                         refId,
