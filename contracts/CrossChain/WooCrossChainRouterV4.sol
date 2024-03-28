@@ -256,7 +256,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV4, Ownable, Pausable, Ree
             dstInfos.chainId, // dst chain id
             sgInfo.sgPoolIds(sgInfo.sgChainIdLocal(), srcInfos.bridgeToken), // bridge token's pool id on src chain
             sgInfo.sgPoolIds(dstInfos.chainId, dstInfos.bridgeToken), // bridge token's pool id on dst chain
-            payable(_msgSender()), // rebate address
+            payable(tx.origin), // rebate address
             bridgeAmount, // swap amount on src chain
             dstMinBridgeAmount, // min received amount on dst chain
             obj, // config: dstGasForCall, dstAirdropNativeAmount, dstReceiveAirdropNativeTokenAddr
