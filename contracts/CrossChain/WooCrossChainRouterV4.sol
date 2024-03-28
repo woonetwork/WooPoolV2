@@ -408,12 +408,10 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV4, Ownable, Pausable, Ree
                 0
             );
         } else {
-            // Deduct the external swap fee
-            uint256 fee = (bridgedAmount * dstExternalFeeRate) / FEE_BASE;
-            bridgedAmount -= fee;
-
-            TransferHelper.safeApprove(bridgedToken, address(wooRouter), bridgedAmount);
             if (dst1inch.swapRouter != address(0)) {
+                uint256 fee = (bridgedAmount * dstExternalFeeRate) / FEE_BASE;
+                bridgedAmount -= fee;
+                TransferHelper.safeApprove(bridgedToken, address(wooRouter), bridgedAmount);
                 try
                     wooRouter.externalSwap(
                         dst1inch.swapRouter,
@@ -458,6 +456,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV4, Ownable, Pausable, Ree
                     );
                 }
             } else {
+                TransferHelper.safeApprove(bridgedToken, address(wooRouter), bridgedAmount);
                 try wooRouter.swap(bridgedToken, toToken, bridgedAmount, minToAmount, payable(to), to) returns (
                     uint256 realToAmount
                 ) {
