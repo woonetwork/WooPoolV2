@@ -8,21 +8,20 @@ import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-// Local Contracts
-import {IWETH} from "../interfaces/IWETH.sol";
-import {IWooCrossChainRouterV3} from "../interfaces/CrossChain/IWooCrossChainRouterV3.sol";
-import {IWooRouterV2} from "../interfaces/IWooRouterV2.sol";
-import {IStargateEthVault} from "../interfaces/Stargate/IStargateEthVault.sol";
-import {IStargateRouter} from "../interfaces/Stargate/IStargateRouter.sol";
-import {ILzApp} from "../interfaces/LayerZero/ILzApp.sol";
-import {ISgInfo} from "../interfaces/CrossChain/ISgInfo.sol";
-
+// Uniswap Periphery Contracts
 import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
-/// @title cross chain router implementation, version 3.
+// Local Contracts
+import {IWETH} from "../interfaces/IWETH.sol";
+import {IWooCrossChainRouterV4} from "../interfaces/CrossChain/IWooCrossChainRouterV4.sol";
+import {IWooRouterV2} from "../interfaces/IWooRouterV2.sol";
+import {IStargateRouter} from "../interfaces/Stargate/IStargateRouter.sol";
+import {ISgInfo} from "../interfaces/CrossChain/ISgInfo.sol";
+
+/// @title cross chain router implementation, version 4.
 /// @notice Router for stateless execution of cross chain swap against WOOFi or 1inch swap.
 /// @custom:stargate-contracts https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
-contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, ReentrancyGuard {
+contract WooCrossChainRouterV4 is IWooCrossChainRouterV4, Ownable, Pausable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /* ----- Constants ----- */
@@ -42,7 +41,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
     uint16 public dstExternalFeeRate; // unit: 0.1 bps (1e6 = 100%, 25 = 2.5 bps)
     uint256 public constant FEE_BASE = 1e5;
 
-    mapping(uint16 => address) public wooCrossRouters; // chainId => WooCrossChainRouterV3 address
+    mapping(uint16 => address) public wooCrossRouters; // chainId => WooCrossChainRouterV4 address
 
     receive() external payable {}
 
@@ -71,12 +70,12 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         Src1inch calldata src1inch,
         Dst1inch calldata dst1inch
     ) external payable whenNotPaused nonReentrant {
-        require(srcInfos.fromToken != address(0), "WooCrossChainRouterV3: !srcInfos.fromToken");
+        require(srcInfos.fromToken != address(0), "WooCrossChainRouterV4: !srcInfos.fromToken");
         require(
             dstInfos.toToken != address(0) && dstInfos.toToken != sgInfo.sgETHs(dstInfos.chainId),
-            "WooCrossChainRouterV3: !dstInfos.toToken"
+            "WooCrossChainRouterV4: !dstInfos.toToken"
         );
-        require(to != address(0), "WooCrossChainRouterV3: !to");
+        require(to != address(0), "WooCrossChainRouterV4: !to");
 
         uint256 msgValue = msg.value;
         uint256 bridgeAmount;
@@ -85,7 +84,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         {
             // Step 1: transfer
             if (srcInfos.fromToken == ETH_PLACEHOLDER_ADDR) {
-                require(srcInfos.fromAmount <= msgValue, "WooCrossChainRouterV3: !srcInfos.fromAmount");
+                require(srcInfos.fromAmount <= msgValue, "WooCrossChainRouterV4: !srcInfos.fromAmount");
                 srcInfos.fromToken = weth;
                 IWETH(weth).deposit{value: srcInfos.fromAmount}();
                 msgValue -= srcInfos.fromAmount;
@@ -123,14 +122,14 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
             } else {
                 require(
                     srcInfos.fromAmount == srcInfos.minBridgeAmount,
-                    "WooCrossChainRouterV3: !srcInfos.minBridgeAmount"
+                    "WooCrossChainRouterV4: !srcInfos.minBridgeAmount"
                 );
                 bridgeAmount = srcInfos.fromAmount;
             }
 
             require(
                 bridgeAmount <= IERC20(srcInfos.bridgeToken).balanceOf(address(this)),
-                "WooCrossChainRouterV3: !bridgeAmount"
+                "WooCrossChainRouterV4: !bridgeAmount"
             );
         }
 
@@ -162,7 +161,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
         uint256 amountLD,
         bytes memory payload
     ) external {
-        require(msg.sender == sgInfo.sgRouter(), "WooCrossChainRouterV3: INVALID_CALLER");
+        require(msg.sender == sgInfo.sgRouter(), "WooCrossChainRouterV4: INVALID_CALLER");
 
         // make sure the same order to abi.encode when decode payload
         (uint256 refId, address to, address toToken, uint256 minToAmount, Dst1inch memory dst1inch) = abi.decode(
@@ -205,7 +204,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
 
     /// @dev OKAY to be public method
     function claimFee(address token) external nonReentrant {
-        require(feeAddr != address(0), "WooCrossChainRouterV3: !feeAddr");
+        require(feeAddr != address(0), "WooCrossChainRouterV4: !feeAddr");
         uint256 amount = _generalBalanceOf(token, address(this));
         if (amount > 0) {
             if (token == ETH_PLACEHOLDER_ADDR) {
@@ -227,11 +226,11 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
     ) internal {
         require(
             sgInfo.sgPoolIds(sgInfo.sgChainIdLocal(), srcInfos.bridgeToken) > 0,
-            "WooCrossChainRouterV3: !srcInfos.bridgeToken"
+            "WooCrossChainRouterV4: !srcInfos.bridgeToken"
         );
         require(
             sgInfo.sgPoolIds(dstInfos.chainId, dstInfos.bridgeToken) > 0,
-            "WooCrossChainRouterV3: !dstInfos.bridgeToken"
+            "WooCrossChainRouterV4: !dstInfos.bridgeToken"
         );
 
         bytes memory payload = abi.encode(refId, to, dstInfos.toToken, dstInfos.minToAmount, dst1inch);
@@ -505,17 +504,17 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV3, Ownable, Pausable, Ree
     }
 
     function setWooRouter(address _wooRouter) external onlyOwner {
-        require(_wooRouter != address(0), "WooCrossChainRouterV3: !_wooRouter");
+        require(_wooRouter != address(0), "WooCrossChainRouterV4: !_wooRouter");
         wooRouter = IWooRouterV2(_wooRouter);
     }
 
     function setBridgeSlippage(uint256 _bridgeSlippage) external onlyOwner {
-        require(_bridgeSlippage <= 10000, "WooCrossChainRouterV3: !_bridgeSlippage");
+        require(_bridgeSlippage <= 10000, "WooCrossChainRouterV4: !_bridgeSlippage");
         bridgeSlippage = _bridgeSlippage;
     }
 
     function setWooCrossRouter(uint16 _chainId, address _crossRouter) external onlyOwner {
-        require(_crossRouter != address(0), "WooCrossChainRouterV3: !_crossRouter");
+        require(_crossRouter != address(0), "WooCrossChainRouterV4: !_crossRouter");
         wooCrossRouters[_chainId] = _crossRouter;
     }
 
