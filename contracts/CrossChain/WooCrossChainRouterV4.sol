@@ -70,12 +70,20 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV4, Ownable, Pausable, Ree
         Src1inch calldata src1inch,
         Dst1inch calldata dst1inch
     ) external payable whenNotPaused nonReentrant {
+        require(to != address(0), "WooCrossChainRouterV4: !to");
         require(srcInfos.fromToken != address(0), "WooCrossChainRouterV4: !srcInfos.fromToken");
         require(
             dstInfos.toToken != address(0) && dstInfos.toToken != sgInfo.sgETHs(dstInfos.chainId),
             "WooCrossChainRouterV4: !dstInfos.toToken"
         );
-        require(to != address(0), "WooCrossChainRouterV4: !to");
+        require(
+            sgInfo.sgPoolIds(sgInfo.sgChainIdLocal(), srcInfos.bridgeToken) > 0,
+            "WooCrossChainRouterV4: !srcInfos.bridgeToken"
+        );
+        require(
+            sgInfo.sgPoolIds(dstInfos.chainId, dstInfos.bridgeToken) > 0,
+            "WooCrossChainRouterV4: !dstInfos.bridgeToken"
+        );
 
         uint256 msgValue = msg.value;
         uint256 bridgeAmount;
@@ -135,6 +143,7 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV4, Ownable, Pausable, Ree
 
         // Step 3: deduct the swap fee
         bridgeAmount -= fee;
+        require(bridgeAmount >= srcInfos.minBridgeAmount, "WooCrossChainRouterV4: !srcInfos.minBridgeAmount");
 
         // Step 4: cross chain swap by StargateRouter
         _bridgeByStargate(refId, to, msgValue, bridgeAmount, srcInfos, dstInfos, dst1inch);
@@ -224,15 +233,6 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV4, Ownable, Pausable, Ree
         DstInfos calldata dstInfos,
         Dst1inch calldata dst1inch
     ) internal {
-        require(
-            sgInfo.sgPoolIds(sgInfo.sgChainIdLocal(), srcInfos.bridgeToken) > 0,
-            "WooCrossChainRouterV4: !srcInfos.bridgeToken"
-        );
-        require(
-            sgInfo.sgPoolIds(dstInfos.chainId, dstInfos.bridgeToken) > 0,
-            "WooCrossChainRouterV4: !dstInfos.bridgeToken"
-        );
-
         bytes memory payload = abi.encode(refId, to, dstInfos.toToken, dstInfos.minToAmount, dst1inch);
 
         uint256 dstMinBridgeAmount = (bridgeAmount * (10000 - bridgeSlippage)) / 10000;
