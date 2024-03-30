@@ -926,7 +926,7 @@ describe("WooPPV2 Integration tests", () => {
       console.log("wooPP fee: ", utils.formatEther(preUnclaimedFee), utils.formatEther(unclaimedFee));
     });
 
-    it("swapBaseToBase revert1", async () => {
+    it("swapBaseToBase revert1 : no BTC deposit for swap", async () => {
       _clearUser1Balance();
 
       // await btcToken.approve(wooPP.address, ONE.mul(10))
@@ -954,7 +954,7 @@ describe("WooPPV2 Integration tests", () => {
       ).to.be.reverted;
     });
 
-    it("swapBaseToBase revert2", async () => {
+    it("swapBaseToBase revert2 : no USDT deposit as quote ", async () => {
       _clearUser1Balance();
 
       await btcToken.approve(wooPP.address, ONE.mul(10));
@@ -980,6 +980,34 @@ describe("WooPPV2 Integration tests", () => {
           .swap(wooToken.address, btcToken.address, base1Amount, minBase2Amount, user1.address, ZERO_ADDR)
       ).to.be.reverted;
     });
+
+    it("swapBaseToBase revert3 : base1 == base2", async () => {
+      _clearUser1Balance();
+
+      await btcToken.approve(wooPP.address, ONE.mul(10));
+      await wooPP.deposit(btcToken.address, ONE.mul(10));
+
+      await usdtToken.approve(wooPP.address, ONE.mul(300000))
+      await wooPP.deposit(usdtToken.address, ONE.mul(300000))
+
+      await wooToken.approve(wooPP.address, ONE.mul(1000000));
+      await wooPP.deposit(wooToken.address, ONE.mul(1000000));
+
+      await btcToken.mint(user1.address, ONE.mul(3));
+      await wooToken.mint(user1.address, ONE.mul(500000));
+
+      const base1Amount = ONE.mul(300000);
+      const minBase2Amount = base1Amount.div(BTC_PRICE).mul(15).div(100).mul(997).div(1000);
+
+      await wooToken.connect(user1).approve(wooPP.address, base1Amount);
+      await wooToken.connect(user1).transfer(wooPP.address, base1Amount);
+      await expect(
+        wooPP
+          .connect(user1)
+          .swap(wooToken.address, wooToken.address, base1Amount, minBase2Amount, user1.address, ZERO_ADDR)
+      ).to.be.revertedWith("WooPPV2: base1==base2");
+    });
+
 
     /*
     it("swapBaseToBase cap fail", async () => {

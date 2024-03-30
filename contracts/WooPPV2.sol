@@ -532,6 +532,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     ) private nonReentrant whenNotPaused returns (uint256 base2Amount) {
         require(baseToken1 != address(0) && baseToken1 != quoteToken, "WooPPV2: !baseToken1");
         require(baseToken2 != address(0) && baseToken2 != quoteToken, "WooPPV2: !baseToken2");
+        require(baseToken1 != baseToken2, "WooPPV2: base1==base2");
         require(to != address(0), "WooPPV2: !to");
 
         require(balance(baseToken1) - tokenInfos[baseToken1].reserve >= base1Amount, "WooPPV2: !BASE1_BALANCE");
