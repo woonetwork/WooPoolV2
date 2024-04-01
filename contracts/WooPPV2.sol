@@ -604,7 +604,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             require(notionalSwap <= tokenInfos[baseToken].maxNotionalSwap, "WooPPV2: !maxNotionalValue");
 
             gamma = (baseAmount * state.price * state.coeff) / decs.priceDec / decs.baseDec;
-            require(gamma <= tokenInfos[baseToken].maxGamma, "WooPPV2: !gamma");
+            require(gamma != 0 && gamma <= tokenInfos[baseToken].maxGamma, "WooPPV2: !gamma");
 
             // Formula: quoteAmount = baseAmount * oracle.price * (1 - oracle.k * baseAmount * oracle.price - oracle.spread)
             quoteAmount =
@@ -633,7 +633,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             require(quoteAmount <= tokenInfos[baseToken].maxNotionalSwap, "WooPPV2: !maxNotionalValue");
 
             gamma = (quoteAmount * state.coeff) / decs.quoteDec;
-            require(gamma <= tokenInfos[baseToken].maxGamma, "WooPPV2: !gamma");
+            require(gamma != 0 && gamma <= tokenInfos[baseToken].maxGamma, "WooPPV2: !gamma");
 
             // Formula: baseAmount = quoteAmount / oracle.price * (1 - oracle.k * quoteAmount - oracle.spread)
             baseAmount =
