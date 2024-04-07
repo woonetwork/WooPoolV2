@@ -210,7 +210,6 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
     }
 
     function setFeeRate(address token, uint16 rate) external onlyAdmin {
-        require(rate <= 1e5, "!rate");
         tokenInfos[token].feeRate = rate;
     }
 
