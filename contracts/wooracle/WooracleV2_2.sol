@@ -163,6 +163,8 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
     /// @param _base the baseToken address
     /// @param _price the new prices for the base token
     function postPrice(address _base, uint128 _price) external onlyAdmin {
+        // NOTE: update spread before setting a new price
+        _updateSpreadForNewPrice(_base, _price);
         infos[_base].price = _price;
         if (msg.sender != wooPP) {
             timestamp = block.timestamp;
@@ -178,6 +180,8 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         uint128 _price,
         uint256 _ts
     ) external onlyAdmin {
+        // NOTE: update spread before setting a new price
+        _updateSpreadForNewPrice(_base, _price);
         infos[_base].price = _price;
         timestamp = _ts;
     }
@@ -193,10 +197,10 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         uint256 length = _bases.length;
         require(length == _prices.length, "WooracleV2_2: length_INVALID");
 
-        unchecked {
-            for (uint256 i = 0; i < length; i++) {
-                infos[_bases[i]].price = _prices[i];
-            }
+        for (uint256 i = 0; i < length; i++) {
+            // NOTE: update spread before setting a new price
+            _updateSpreadForNewPrice(_bases[i], _prices[i]);
+            infos[_bases[i]].price = _prices[i];
         }
 
         timestamp = _ts;
@@ -247,10 +251,8 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         uint256 _ts
     ) external onlyAdmin {
         uint256 length = _bases.length;
-        unchecked {
-            for (uint256 i = 0; i < length; i++) {
-                _setState(_bases[i], _prices[i], _spreads[i], _coeffs[i]);
-            }
+        for (uint256 i = 0; i < length; i++) {
+            _setState(_bases[i], _prices[i], _spreads[i], _coeffs[i]);
         }
         timestamp = _ts;
     }
@@ -328,6 +330,51 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
 
     /* ----- Internal Functions ----- */
 
+    function _updateSpreadForNewPrice(address _base, uint128 _price) internal {
+        uint64 preS = infos[_base].spread;
+        uint128 preP = infos[_base].price;
+        if (preP == 0 || _price == 0 || preS >= 1e18) {
+            // previous price or current price is 0, no action is needed
+            return;
+        }
+
+        uint256 maxP = _price >= preP ? _price : preP;
+        uint256 minP = _price <= preP ? _price : preP;
+        uint256 antiS = (uint256(1e18) * 1e18 * minP) / maxP / (uint256(1e18) - preS);
+        if (antiS < 1e18) {
+            uint64 newS = uint64(1e18 - antiS);
+            if (newS > preS) {
+                infos[_base].spread = newS;
+            }
+        }
+    }
+
+    function _updateSpreadForNewPrice(
+        address _base,
+        uint128 _price,
+        uint64 _spread
+    ) internal {
+        require(_spread < 1e18, "!_spread");
+
+        uint64 preS = infos[_base].spread;
+        uint128 preP = infos[_base].price;
+        if (preP == 0 || _price == 0 || preS >= 1e18) {
+            // previous price or current price is 0, just use _spread
+            infos[_base].spread = _spread;
+            return;
+        }
+
+        uint256 maxP = _price >= preP ? _price : preP;
+        uint256 minP = _price <= preP ? _price : preP;
+        uint256 antiS = (uint256(1e18) * 1e18 * minP) / maxP / (uint256(1e18) - preS);
+        if (antiS < 1e18) {
+            uint64 newS = uint64(1e18 - antiS);
+            infos[_base].spread = newS > _spread ? newS : _spread;
+        } else {
+            infos[_base].spread = _spread;
+        }
+    }
+
     function _setState(
         address _base,
         uint128 _price,
@@ -335,8 +382,9 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         uint64 _coeff
     ) internal {
         TokenInfo storage info = infos[_base];
+        // NOTE: update spread before setting a new price
+        _updateSpreadForNewPrice(_base, _price, _spread);
         info.price = _price;
-        info.spread = _spread;
         info.coeff = _coeff;
     }
 
@@ -429,6 +477,9 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
             for (uint256 i = 0; i < len; ++i) {
                 base = getBase(uint8(bytes1(_input[1 + i * 5:1 + i * 5 + 1])));
                 p = _decodePrice(uint32(bytes4(_input[1 + i * 5 + 1:1 + i * 5 + 5])));
+
+                // NOTE: update spread before setting a new price
+                _updateSpreadForNewPrice(base, p);
                 infos[base].price = p;
             }
 
