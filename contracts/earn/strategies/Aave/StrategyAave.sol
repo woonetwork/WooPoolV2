@@ -17,6 +17,7 @@ contract StrategyAave is BaseStrategy {
     /* ----- State Variables ----- */
 
     address[] public rewardAssets;
+    address[] public aAssets = new address[](1);
     address public rewardTreasury;
     uint256 public lastHarvest;
 
@@ -37,6 +38,8 @@ contract StrategyAave is BaseStrategy {
         address _rewardTreasury
     ) BaseStrategy(_vault, _accessManager) {
         rewardAssets = IAaveV3Incentives(incentivesController).getRewardsList();
+        (address aToken, , ) = IAaveDataProvider(dataProvider).getReserveTokensAddresses(want);
+        aAssets[0] = aToken;
         rewardTreasury = _rewardTreasury;
 
         _giveAllowances();
@@ -50,7 +53,7 @@ contract StrategyAave is BaseStrategy {
         require(msg.sender == tx.origin || msg.sender == address(vault), "StrategyAave: EOA_or_vault");
 
         // claim all rewards to the vault
-        IAaveV3Incentives(incentivesController).claimAllRewards(rewardAssets, rewardTreasury);
+        IAaveV3Incentives(incentivesController).claimAllRewards(aAssets, rewardTreasury);
     }
 
     function deposit() public override whenNotPaused nonReentrant {
