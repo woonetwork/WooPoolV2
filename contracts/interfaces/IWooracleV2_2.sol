@@ -63,7 +63,14 @@ interface IWooracleV2_2 {
     function cloPrice(address base) external view returns (uint256 price, uint256 timestamp);
 
     /// @notice Returns Woooracle price if available, otherwise fallback to ChainLink
-    function price(address base) external view returns (uint256 priceNow, bool feasible);
+    function price(address base)
+        external
+        view
+        returns (
+            uint256 priceNow,
+            uint256 cloPriceOut,
+            bool feasible
+        );
 
     /// @notice Updates the Wooracle price for the specified base token
     function postPrice(address base, uint128 _price) external;
@@ -81,7 +88,7 @@ interface IWooracleV2_2 {
     ) external;
 
     /// @notice State of the specified base token.
-    function state(address base) external view returns (State memory);
+    function state(address base) external view returns (State memory, uint256 cloPrice);
 
     /// @notice The price decimal for the specified base token (e.g. 8)
     function decimals(address base) external view returns (uint8);

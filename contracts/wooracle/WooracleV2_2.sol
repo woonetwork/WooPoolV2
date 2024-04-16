@@ -269,7 +269,15 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         when !woFeasible && clo_preferred       -> cloPrice, feasible
         when !woFeasible && !clo_preferred      -> cloPrice, infeasible
     */
-    function price(address _base) public view returns (uint256 priceOut, bool feasible) {
+    function price(address _base)
+        public
+        view
+        returns (
+            uint256 priceOut,
+            uint256 cloPriceOut,
+            bool feasible
+        )
+    {
         uint256 woPrice_ = uint256(infos[_base].price);
         uint256 woPriceTimestamp = timestamp;
 
@@ -289,6 +297,7 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
             priceOut = clOracles[_base].cloPreferred ? cloPrice_ : 0;
             feasible = priceOut != 0;
         }
+        cloPriceOut = cloPrice_;
 
         // Guardian check: min-max
         if (feasible) {
@@ -322,10 +331,13 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
             });
     }
 
-    function state(address _base) external view returns (State memory) {
+    function state(address _base) external view returns (State memory, uint256 cloPrice) {
         TokenInfo memory info = infos[_base];
-        (uint256 basePrice, bool feasible) = price(_base);
-        return State({price: uint128(basePrice), spread: info.spread, coeff: info.coeff, woFeasible: feasible});
+        (uint256 basePrice, uint256 cloPrice, bool feasible) = price(_base);
+        return (
+            State({price: uint128(basePrice), spread: info.spread, coeff: info.coeff, woFeasible: feasible}),
+            cloPrice
+        );
     }
 
     /* ----- Internal Functions ----- */
