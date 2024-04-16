@@ -250,5 +250,14 @@ contract WOOFiVaultV2 is IVaultV2, ERC20, Ownable, ReentrancyGuard {
         }
     }
 
+    function claimRewards(address withdrawToken) external onlyAdmin {
+        require(withdrawToken != want, "WOOFiVaultV2: withdrawToken_NOT_WANT");
+        require(withdrawToken != address(0), "WOOFiVaultV2: !withdrawToken");
+        uint256 amount = IERC20(withdrawToken).balanceOf(address(this));
+        if (amount > 0) {
+            TransferHelper.safeTransfer(withdrawToken, msg.sender, amount);
+        }
+    }
+
     receive() external payable {}
 }
