@@ -17,6 +17,7 @@ contract StrategyAave is BaseStrategy {
     /* ----- State Variables ----- */
 
     address[] public rewardAssets;
+    address public rewardTreasury;
     uint256 public lastHarvest;
 
     /* ----- Constant Variables ----- */
@@ -27,12 +28,16 @@ contract StrategyAave is BaseStrategy {
 
     /* ----- Events ----- */
 
-    event StratHarvest(address indexed harvester, uint256 wantHarvested, uint256 tvl);
     event Deposit(uint256 tvl);
     event Withdraw(uint256 tvl);
 
-    constructor(address _vault, address _accessManager) BaseStrategy(_vault, _accessManager) {
+    constructor(
+        address _vault,
+        address _accessManager,
+        address _rewardTreasury
+    ) BaseStrategy(_vault, _accessManager) {
         rewardAssets = IAaveV3Incentives(incentivesController).getRewardsList();
+        rewardTreasury = _rewardTreasury;
 
         _giveAllowances();
     }
@@ -44,17 +49,8 @@ contract StrategyAave is BaseStrategy {
     function harvest() public override whenNotPaused {
         require(msg.sender == tx.origin || msg.sender == address(vault), "StrategyAave: EOA_or_vault");
 
-        uint256 beforeBal = balanceOfWant();
-
         // claim all rewards to the vault
-        IAaveV3Incentives(incentivesController).claimAllRewards(rewardAssets, address(vault));
-
-        uint256 wantHarvested = balanceOfWant() - beforeBal;
-        uint256 fee = chargePerformanceFee(wantHarvested);
-        deposit();
-
-        lastHarvest = block.timestamp;
-        emit StratHarvest(msg.sender, wantHarvested - fee, balanceOf());
+        IAaveV3Incentives(incentivesController).claimAllRewards(rewardAssets, rewardTreasury);
     }
 
     function deposit() public override whenNotPaused nonReentrant {
@@ -134,5 +130,10 @@ contract StrategyAave is BaseStrategy {
         if (wantBal > 0) {
             TransferHelper.safeTransfer(want, vault, wantBal);
         }
+    }
+
+    function updateRewardTreasury(address addr) external onlyAdmin {
+        require(addr != address(0), "StrategyAave: !rewardTreasury");
+        rewardTreasury = addr;
     }
 }
