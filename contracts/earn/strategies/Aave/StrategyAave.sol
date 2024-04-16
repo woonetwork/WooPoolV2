@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.12;
+pragma solidity 0.8.14;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import "../BaseStrategy.sol";
+import "../../../libraries/TransferHelper.sol";
 
 import "../../../interfaces/Aave/IAavePool.sol";
 import "../../../interfaces/Aave/IAaveV3Incentives.sol";
-import "../../../interfaces/Aave/IDataProvider.sol";
+import "../../../interfaces/Aave/IAaveDataProvider.sol";
 
-import "../BaseStrategy.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract StrategyAave is BaseStrategy {
     using SafeERC20 for IERC20;
-    using SafeMath for uint256;
 
     /* ----- State Variables ----- */
 
@@ -90,7 +89,7 @@ contract StrategyAave is BaseStrategy {
     }
 
     function userReserves() public view returns (uint256, uint256) {
-        (uint256 supplyBal, , uint256 borrowBal, , , , , , ) = IDataProvider(dataProvider).getUserReserveData(
+        (uint256 supplyBal, , uint256 borrowBal, , , , , , ) = IAaveDataProvider(dataProvider).getUserReserveData(
             want,
             address(this)
         );
@@ -105,7 +104,7 @@ contract StrategyAave is BaseStrategy {
     /* ----- Internal Functions ----- */
 
     function _giveAllowances() internal override {
-        TransferHelper.safeApprove(want, aavePool, uint256(-1));
+        TransferHelper.safeApprove(want, aavePool, type(uint256).max);
     }
 
     function _removeAllowances() internal override {
