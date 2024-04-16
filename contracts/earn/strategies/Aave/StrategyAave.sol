@@ -127,7 +127,7 @@ contract StrategyAave is BaseStrategy {
         }
     }
 
-    function emergencyExit() external override onlyAdmin {
+    function emergencyExit() external override onlyAdminOrPauseRole {
         _withdrawAll();
         uint256 wantBal = IERC20(want).balanceOf(address(this));
         if (wantBal > 0) {

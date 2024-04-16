@@ -75,8 +75,12 @@ abstract contract BaseStrategy is Ownable, Pausable, IStrategy, ReentrancyGuard 
 
     IWooAccessManager public accessManager;
 
+    mapping(address => bool) public isPauseRole;
+
     event PerformanceFeeUpdated(uint256 newFee);
     event WithdrawalFeeUpdated(uint256 newFee);
+
+    event PauseRoleUpdated(address indexed addr, bool flag);
 
     constructor(address _vault, address _accessManager) {
         require(_vault != address(0), "BaseStrategy: !_vault");
@@ -88,6 +92,14 @@ abstract contract BaseStrategy is Ownable, Pausable, IStrategy, ReentrancyGuard 
 
     modifier onlyAdmin() {
         require(owner() == _msgSender() || accessManager.isVaultAdmin(msg.sender), "BaseStrategy: NOT_ADMIN");
+        _;
+    }
+
+    modifier onlyAdminOrPauseRole() {
+        require(
+            msg.sender == owner() || accessManager.isVaultAdmin(msg.sender) || isPauseRole[msg.sender],
+            "BaseStrategy: !isPauseRole"
+        );
         _;
     }
 
@@ -153,25 +165,25 @@ abstract contract BaseStrategy is Ownable, Pausable, IStrategy, ReentrancyGuard 
 
     /* ----- Admin Functions ----- */
 
-    function setPerformanceFee(uint256 fee) external onlyAdmin {
+    function setPerformanceFee(uint256 fee) external onlyOwner {
         require(fee <= FEE_MAX, "BaseStrategy: fee_EXCCEEDS_MAX");
         performanceFee = fee;
         emit PerformanceFeeUpdated(fee);
     }
 
-    function setWithdrawalFee(uint256 fee) external onlyAdmin {
+    function setWithdrawalFee(uint256 fee) external onlyOwner {
         require(fee <= FEE_MAX, "BaseStrategy: fee_EXCCEEDS_MAX");
         require(fee <= 500, "BaseStrategy: fee_EXCCEEDS_5%"); // less than 5%
         withdrawalFee = fee;
         emit WithdrawalFeeUpdated(fee);
     }
 
-    function setPerformanceTreasury(address treasury) external onlyAdmin {
+    function setPerformanceTreasury(address treasury) external onlyOwner {
         require(treasury != address(0), "BaseStrategy: treasury_ZERO_ADDR");
         performanceTreasury = treasury;
     }
 
-    function setWithdrawalTreasury(address treasury) external onlyAdmin {
+    function setWithdrawalTreasury(address treasury) external onlyOwner {
         require(treasury != address(0), "BaseStrategy: treasury_ZERO_ADDR");
         withdrawalTreasury = treasury;
     }
@@ -184,7 +196,7 @@ abstract contract BaseStrategy is Ownable, Pausable, IStrategy, ReentrancyGuard 
         harvestOnWithdraw = newHarvestOnWithdraw;
     }
 
-    function pause() public onlyAdmin {
+    function pause() public onlyAdminOrPauseRole {
         _pause();
         _removeAllowances();
     }
@@ -195,25 +207,21 @@ abstract contract BaseStrategy is Ownable, Pausable, IStrategy, ReentrancyGuard 
         deposit();
     }
 
+    function setPauseRole(address addr, bool flag) external onlyAdmin {
+        isPauseRole[addr] = flag;
+        emit PauseRoleUpdated(addr, flag);
+    }
+
     function paused() public view override(IStrategy, Pausable) returns (bool) {
         return Pausable.paused();
     }
 
-    function inCaseTokensGetStuck(address stuckToken) external override onlyAdmin {
-        require(stuckToken != want, "BaseStrategy: stuckToken_NOT_WANT");
-        require(stuckToken != address(0), "BaseStrategy: stuckToken_ZERO_ADDR");
-
-        uint256 amount = IERC20(stuckToken).balanceOf(address(this));
-        if (amount > 0) {
-            TransferHelper.safeTransfer(stuckToken, msg.sender, amount);
-        }
-    }
-
-    function inCaseNativeTokensGetStuck() external onlyAdmin {
-        // NOTE: vault never needs native tokens to do the yield farming;
-        // This native token balance indicates a user's incorrect transfer.
-        if (address(this).balance > 0) {
+    function inCaseTokensGetStuck(address stuckToken) external onlyOwner {
+        if (stuckToken == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
             TransferHelper.safeTransferETH(msg.sender, address(this).balance);
+        } else {
+            uint256 amount = IERC20(stuckToken).balanceOf(address(this));
+            TransferHelper.safeTransfer(stuckToken, msg.sender, amount);
         }
     }
 }
