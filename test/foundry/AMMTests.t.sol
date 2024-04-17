@@ -23,7 +23,7 @@ contract AMMTests is TestHelpers {
     address private constant TAPIR = address(69);
 
     uint loopAm = 1000;
-    uint amountToSell = 1_000_000 * 1e6;
+    uint amountToSell = 200_000 * 1e6;
 
     function setUp() public {
         deal(USDC_TOKEN, TAPIR, amountToSell * 10); // 1M USDC
