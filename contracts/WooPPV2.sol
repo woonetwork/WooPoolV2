@@ -332,7 +332,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
         TransferHelper.safeTransfer(token, owner(), balance(token) - tokenInfos[token].reserve);
     }
 
-    function skimMulTokens(address[] memory tokens) external nonReentrant onlyAdmin {
+    function skimMulTokens(address[] memory tokens) external onlyAdmin {
         unchecked {
             uint256 len = tokens.length;
             for (uint256 i = 0; i < len; i++) {
