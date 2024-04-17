@@ -16,3 +16,6 @@ cache-zk/
 package-lock.json
 
 .vscode
+
+# Foundry 
+lib/
