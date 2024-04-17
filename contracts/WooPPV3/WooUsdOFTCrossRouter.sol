@@ -6,7 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {ICommonOFT, IOFTV2} from "@layerzerolabs/solidity-examples/contracts/token/oft/v2/IOFTV2.sol";
+import {ICommonOFT, IOFTV2} from "@layerzerolabs/solidity-examples/contracts/token/oft/v2/interfaces/IOFTV2.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
 // Local Contracts
@@ -44,13 +44,7 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, Pausable, Reent
 
     receive() external payable {}
 
-    constructor(
-        address _weth,
-        address _wooRouter,
-        address _crossFee,
-        address _feeAddr,
-        uint16 _lzChainIdLocal
-    ) {
+    constructor(address _weth, address _wooRouter, address _crossFee, address _feeAddr, uint16 _lzChainIdLocal) {
         weth = _weth;
         wooRouter = IWooRouterV3(_wooRouter);
         crossFee = IWooCrossFee(_crossFee);
