@@ -48,6 +48,8 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 /// subversion 1 change: no timestamp update for posting price from WooPP.
 /// subversion 2 change: support legacy postState utilizing block.timestamp
 contract WooracleV2_2 is Ownable, IWooracleV2_2 {
+    event Price(uint256 woPrice, uint256 cloPrice, address baseToken, address quoteToken);
+
     /* ----- State variables ----- */
 
     // 128 + 64 + 64 = 256 bits (slot size)
@@ -326,6 +328,43 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
         TokenInfo memory info = infos[_base];
         (uint256 basePrice, bool feasible) = price(_base);
         return State({price: uint128(basePrice), spread: info.spread, coeff: info.coeff, woFeasible: feasible});
+    }
+
+    function queryState(address _base) external returns (State memory) {
+        TokenInfo memory info = infos[_base];
+
+        uint256 woPrice_ = uint256(info.price);
+        uint256 woPriceTimestamp = timestamp;
+
+        (uint256 cloPrice_, ) = _cloPriceInQuote(_base, quoteToken);
+
+        bool woFeasible = woPrice_ != 0 && block.timestamp <= (woPriceTimestamp + staleDuration);
+
+        // bool woPriceInBound = cloPrice_ == 0 ||
+        //     ((cloPrice_ * (1e18 - bound)) / 1e18 <= woPrice_ && woPrice_ <= (cloPrice_ * (1e18 + bound)) / 1e18);
+        bool woPriceInBound = cloPrice_ != 0 &&
+            ((cloPrice_ * (1e18 - bound)) / 1e18 <= woPrice_ && woPrice_ <= (cloPrice_ * (1e18 + bound)) / 1e18);
+
+        uint256 priceOut;
+        bool feasible;
+        if (woFeasible) {
+            priceOut = woPrice_;
+            feasible = woPriceInBound;
+        } else {
+            priceOut = clOracles[_base].cloPreferred ? cloPrice_ : 0;
+            feasible = priceOut != 0;
+        }
+
+        // Guardian check: min-max
+        if (feasible) {
+            PriceRange memory range = priceRanges[_base];
+            require(priceOut > range.min, "WooracleV2_2: !min");
+            require(priceOut < range.max, "WooracleV2_2: !max");
+        }
+
+        emit Price(priceOut, cloPrice_, _base, quoteToken);
+
+        return State({price: uint128(priceOut), spread: info.spread, coeff: info.coeff, woFeasible: feasible});
     }
 
     /* ----- Internal Functions ----- */

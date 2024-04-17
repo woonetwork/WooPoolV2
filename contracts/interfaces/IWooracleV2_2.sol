@@ -83,6 +83,8 @@ interface IWooracleV2_2 {
     /// @notice State of the specified base token.
     function state(address base) external view returns (State memory);
 
+    function queryState(address _base) external returns (State memory);
+
     /// @notice The price decimal for the specified base token (e.g. 8)
     function decimals(address base) external view returns (uint8);
 

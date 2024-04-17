@@ -97,7 +97,7 @@ contract WooLendingManager is Ownable, ReentrancyGuard {
     }
 
     modifier onlyBorrower() {
-        require(isBorrower[msg.sender], "WooLendingManager: !borrower");
+        require(isBorrower[msg.sender] || msg.sender == wooPP, "WooLendingManager: !borrower");
         _;
     }
 
