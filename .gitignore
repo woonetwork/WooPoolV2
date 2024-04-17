@@ -19,3 +19,8 @@ package-lock.json
 
 # Foundry 
 lib/
+
+# Fuzzers
+echidna/
+medusa/
+crytic-export/
