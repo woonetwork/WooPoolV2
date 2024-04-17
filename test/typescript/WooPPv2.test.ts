@@ -37,9 +37,9 @@ import { ethers } from "hardhat";
 import { deployContract, solidity } from "ethereum-waffle";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-import { WooracleV2, WooPPV2 } from "../../typechain";
+import { WooracleV2_2, WooPPV2 } from "../../typechain";
 import TestERC20TokenArtifact from "../../artifacts/contracts/test/TestERC20Token.sol/TestERC20Token.json";
-import WooracleV2Artifact from "../../artifacts/contracts/wooracle/WooracleV2.sol/WooracleV2.json";
+import WooracleV2Artifact from "../../artifacts/contracts/wooracle/WooracleV2_2.sol/WooracleV2_2.json";
 import WooPPV2Artifact from "../../artifacts/contracts/WooPPV2.sol/WooPPV2.json";
 
 use(solidity);
@@ -61,7 +61,7 @@ describe("WooPPV2 Integration tests", () => {
   let user2: SignerWithAddress;
   let feeAddr: SignerWithAddress;
 
-  let wooracle: WooracleV2;
+  let wooracle: WooracleV2_2;
   let btcToken: Contract;
   let wooToken: Contract;
   let usdtToken: Contract;
@@ -74,7 +74,7 @@ describe("WooPPV2 Integration tests", () => {
     usdtToken = await deployContract(owner, TestERC20TokenArtifact, []);
     quote = usdtToken;
 
-    wooracle = (await deployContract(owner, WooracleV2Artifact, [])) as WooracleV2;
+    wooracle = (await deployContract(owner, WooracleV2Artifact, [])) as WooracleV2_2;
 
     await btcToken.mint(owner.address, ONE.mul(10000));
     await usdtToken.mint(owner.address, ONE.mul(500000000));

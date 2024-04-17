@@ -324,47 +324,17 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
             });
     }
 
-    function state(address _base) external view returns (State memory) {
+    function state(address _base) public view returns (State memory) {
         TokenInfo memory info = infos[_base];
         (uint256 basePrice, bool feasible) = price(_base);
         return State({price: uint128(basePrice), spread: info.spread, coeff: info.coeff, woFeasible: feasible});
     }
 
     function queryState(address _base) external returns (State memory) {
-        TokenInfo memory info = infos[_base];
-
-        uint256 woPrice_ = uint256(info.price);
-        uint256 woPriceTimestamp = timestamp;
-
+        State memory state_ = state(_base);
         (uint256 cloPrice_, ) = _cloPriceInQuote(_base, quoteToken);
-
-        bool woFeasible = woPrice_ != 0 && block.timestamp <= (woPriceTimestamp + staleDuration);
-
-        // bool woPriceInBound = cloPrice_ == 0 ||
-        //     ((cloPrice_ * (1e18 - bound)) / 1e18 <= woPrice_ && woPrice_ <= (cloPrice_ * (1e18 + bound)) / 1e18);
-        bool woPriceInBound = cloPrice_ != 0 &&
-            ((cloPrice_ * (1e18 - bound)) / 1e18 <= woPrice_ && woPrice_ <= (cloPrice_ * (1e18 + bound)) / 1e18);
-
-        uint256 priceOut;
-        bool feasible;
-        if (woFeasible) {
-            priceOut = woPrice_;
-            feasible = woPriceInBound;
-        } else {
-            priceOut = clOracles[_base].cloPreferred ? cloPrice_ : 0;
-            feasible = priceOut != 0;
-        }
-
-        // Guardian check: min-max
-        if (feasible) {
-            PriceRange memory range = priceRanges[_base];
-            require(priceOut > range.min, "WooracleV2_2: !min");
-            require(priceOut < range.max, "WooracleV2_2: !max");
-        }
-
-        emit Price(priceOut, cloPrice_, _base, quoteToken);
-
-        return State({price: uint128(priceOut), spread: info.spread, coeff: info.coeff, woFeasible: feasible});
+        emit Price(state_.price, cloPrice_, _base, quoteToken);
+        return state_;
     }
 
     /* ----- Internal Functions ----- */
