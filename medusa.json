@@ -77,7 +77,9 @@
       "solcVersion": "",
       "exportDirectory": "",
       "args": [
-        "--foundry-compile-all"
+        "--foundry-compile-all",
+        "--foundry-out-directory",
+        "artifacts"
       ]
     }
   },
