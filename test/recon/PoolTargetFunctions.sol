@@ -60,7 +60,7 @@ abstract contract PoolTargetFunctions is BaseTargetFunctions, Properties, Before
                 "price deviates more than 0.1%"
             );
         } catch {
-            // t(false, "swap reverted");
+            t(false, "swap reverted");
         }
     }
 
@@ -84,14 +84,13 @@ abstract contract PoolTargetFunctions is BaseTargetFunctions, Properties, Before
         uint256 boundedFromAmount = _boundTokenAmount(fromToken, address(this), fromAmount);
 
         try pool.swap(fromToken, toToken, boundedFromAmount, minToAmount, to, rebateTo) {
+        } catch {
             uint256 recipientBalanceAfter = IERC20(toToken).balanceOf(to);
 
             __after(fromToken, toToken);
 
             // WP-05: If swap for a given token A doesn’t lead to the payment of token A to the pool, it doesn’t lead to the receipt of token B
             t(recipientBalanceAfter == recipientBalanceBefore, "user receives toToken without paying");
-        } catch {
-            // t(false, "swap reverted");
         }
     }
 
@@ -118,7 +117,7 @@ abstract contract PoolTargetFunctions is BaseTargetFunctions, Properties, Before
                 t(reserveAfter - reserveBefore == boundedAmount, "transferred amount isn't fully accounted for");
             }
         } catch {
-            // t(false, "call to deposit reverted");
+            t(false, "call to deposit reverted");
         }
     }
 
@@ -135,7 +134,7 @@ abstract contract PoolTargetFunctions is BaseTargetFunctions, Properties, Before
             // WP-02: Making deposit of token always leads to an increase in tokenInfos[token].reserve
             t(reserveAfter == reserveBefore + tokenBalanceTestSender, "reserve value decreases after deposit");
         } catch {
-            // t(false, "call to deposit reverted");
+            t(false, "call to deposit reverted");
         }
     }
 
@@ -161,7 +160,7 @@ abstract contract PoolTargetFunctions is BaseTargetFunctions, Properties, Before
                 t(reserveBefore - reserveAfter == boundedAmount, "the amount withdrawn is less than was deposited");
             }
         } catch {
-            // t(false, "call to deposit reverted");
+            t(false, "call to deposit reverted");
         }
     }
 
@@ -184,7 +183,7 @@ abstract contract PoolTargetFunctions is BaseTargetFunctions, Properties, Before
                 t(reserveAfter == reserveBefore - poolSize, "reserve value increases after withdraw");
             }
         } catch {
-            // t(false, "call to deposit reverted");
+            t(false, "call to deposit reverted");
         }
     }
 
