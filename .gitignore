@@ -18,7 +18,6 @@ package-lock.json
 .vscode
 
 # Foundry 
-lib/
 
 # Fuzzers
 echidna/
