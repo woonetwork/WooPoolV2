@@ -294,10 +294,10 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV4, Ownable, Pausable, Ree
             return;
         }
 
-        // Swap required!
         IWETH(weth).deposit{value: bridgedAmount}();
 
         if (toToken == weth) {
+            // Directly transfer WETH
             TransferHelper.safeTransfer(weth, to, bridgedAmount);
             emit WooCrossSwapOnDstChain(
                 refId,
