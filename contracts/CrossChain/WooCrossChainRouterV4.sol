@@ -294,8 +294,26 @@ contract WooCrossChainRouterV4 is IWooCrossChainRouterV4, Ownable, Pausable, Ree
             return;
         }
 
-        // Swap required!
         IWETH(weth).deposit{value: bridgedAmount}();
+
+        if (toToken == weth) {
+            // Directly transfer WETH
+            TransferHelper.safeTransfer(weth, to, bridgedAmount);
+            emit WooCrossSwapOnDstChain(
+                refId,
+                msgSender,
+                to,
+                weth,
+                bridgedAmount,
+                toToken,
+                weth,
+                minToAmount,
+                bridgedAmount,
+                dst1inch.swapRouter == address(0) ? 0 : 1,
+                0
+            );
+            return;
+        }
 
         if (dst1inch.swapRouter != address(0)) {
             uint256 fee = (bridgedAmount * dstExternalFeeRate) / FEE_BASE;
