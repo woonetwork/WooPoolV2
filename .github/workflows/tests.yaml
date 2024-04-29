@@ -38,5 +38,9 @@ jobs:
         run: yarn compile:force
       - name: Run TypeScript/Waffle tests
         run: yarn test
-      - name: Run Solidity/Forge tests
-        run: forge test --fork-url https://rpc.ankr.com/eth
+      - name: Run Forge tests TestWooracleV2_2
+        run: forge test --fork-url https://rpc.ankr.com/eth --match-contract TestWooracleV2_2 -vv
+      - name: Run Forge tests SwapTests
+        run: forge test --fork-url https://arb1.arbitrum.io/rpc --match-contract SwapTests -vv
+      - name: Run Forge tests AMMTests
+        run: forge test --fork-url https://arb1.arbitrum.io/rpc --match-contract AMMTests -vv
