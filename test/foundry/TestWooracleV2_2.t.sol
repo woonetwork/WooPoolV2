@@ -57,7 +57,7 @@ contract TestWooracleV2_2 is TestHelpers {
         vm.stopPrank();
     }
 
-    // forge test --fork-url https://eth-mainnet.g.alchemy.com/v2/KyziwbHHJ7gO9OuNFklgxHB74nF8jUWI --match-contract TestWooracleV2_2 -vvvv
+    // forge test --fork-url https://rpc.ankr.com/eth --match-contract TestWooracleV2_2 -vvvv
     function test_Wooracle() public {
         vm.startPrank(ADMIN);
 

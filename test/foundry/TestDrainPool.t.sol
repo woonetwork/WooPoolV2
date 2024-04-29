@@ -65,7 +65,7 @@ contract TestDrainPool is TestHelpers {
     }
 
     // run this command to run the test:
-    // forge test --fork-url https://eth-mainnet.g.alchemy.com/v2/KyziwbHHJ7gO9OuNFklgxHB74nF8jUWI --match-contract TestDrainPool -vv
+    // forge test --fork-url https://rpc.ankr.com/eth --match-contract TestDrainPool -vv
     function test_Exploit() public {
         // Flashloan 99989999999999999990000 (99_990) WOO
         // Sell WOO partially (in 10 pieces) assuming maxGamma | maxNotionalSwap doesnt allow us to do it in one go
