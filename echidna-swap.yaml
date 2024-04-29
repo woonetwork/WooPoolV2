@@ -5,7 +5,7 @@ corpusDir: "echidna-swap"
 balanceAddr: 0x1043561a8829300000
 balanceContract: 0x1043561a8829300000
 filterFunctions: []
-cryticArgs: ["--foundry-compile-all", "--foundry-out-directory","artifacts"]
+cryticArgs: ["--foundry-compile-all", "--foundry-out-directory", "artifacts"]
 # increasing the max codesize to work around max codesize reached error
 codeSize: 0x7d60
 testLimit: 1000
