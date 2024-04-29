@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.14;
 
-import '../interfaces/AggregatorV3Interface.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
+import "../interfaces/AggregatorV3Interface.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract TestChainLink is AggregatorV3Interface, Ownable {
+contract TestChainLink3 is AggregatorV3Interface, Ownable {
     function decimals() external pure override returns (uint8) {
         return 8;
     }
 
     function description() external pure override returns (string memory) {
-        return 'BTC / USD';
+        return "BTC / USD";
     }
 
     function version() external pure override returns (uint256) {
@@ -26,40 +26,28 @@ contract TestChainLink is AggregatorV3Interface, Ownable {
         external
         pure
         override
-        returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        )
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (36893488147419375519, 80000000000, 1661310103, 1661310103, 36893488147419375519);
+        return (36893488147419375519, 60000000000, 1661310103, 1661310103, 36893488147419375519);
     }
 
     function latestRoundData()
         external
         pure
         override
-        returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        )
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (36893488147419375519, 80000000000, 1661310103, 1661310103, 36893488147419375519);
+        return (36893488147419375519, 60000000000, 1661310103, 1661310103, 36893488147419375519);
     }
 }
 
-contract TestQuoteChainLink is AggregatorV3Interface, Ownable {
+contract TestQuoteChainLink3 is AggregatorV3Interface, Ownable {
     function decimals() external pure override returns (uint8) {
         return 8;
     }
 
     function description() external pure override returns (string memory) {
-        return 'USDT / USD';
+        return "USDT / USD";
     }
 
     function version() external pure override returns (uint256) {
@@ -75,29 +63,17 @@ contract TestQuoteChainLink is AggregatorV3Interface, Ownable {
         external
         pure
         override
-        returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        )
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (36893488147419109665, 100000000, 1661309776, 1661309776, 36893488147419109665);
+        return (36893488147419109665, 99994997, 1661309776, 1661309776, 36893488147419109665);
     }
 
     function latestRoundData()
         external
         pure
         override
-        returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        )
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (36893488147419109665, 100000000, 1661309776, 1661309776, 36893488147419109665);
+        return (36893488147419109665, 99994997, 1661309776, 1661309776, 36893488147419109665);
     }
 }
