@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.14;
 
-import "../interfaces/AggregatorV3Interface.sol";
+import "../../contracts/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract TestChainLink3 is AggregatorV3Interface, Ownable {

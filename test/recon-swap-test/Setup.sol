@@ -7,9 +7,9 @@ import "../../contracts/WooPPV2.sol";
 // import "../../contracts/wooracle/WooracleV2_2.sol";
 
 import "../../contracts/WooRouterV2.sol";
-import "../../contracts/test/TestChainLink.sol";
-import {TestChainLink2} from "../../contracts/test/TestChainLink2.sol";
-import {TestChainLink3} from "../../contracts/test/TestChainLink3.sol";
+import "../mocks/TestChainLink.sol";
+import {TestChainLink2} from "../mocks/TestChainLink2.sol";
+import {TestChainLink3} from "../mocks/TestChainLink3.sol";
 import "test/mocks/UsdtMock.sol";
 import "test/mocks/ERC20Mock.sol";
 import "test/mocks/WETHMock.sol";
