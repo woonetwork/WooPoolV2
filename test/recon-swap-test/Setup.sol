@@ -145,7 +145,10 @@ abstract contract Setup is BaseSetup {
 
         // setting the initial price state of the tokens for the oracle
         vm.prank(owner);
-        oracle.postState(address(quoteToken), 1e6, .001 ether, .000000001 ether);
+        // set base price for quote token, use base price decimal 8
+        // usdt quote token decimal is 6
+        oracle.postState(address(quoteToken), 1e8, .001 ether, .00000001 ether);
+        oracle.setRange(address(quoteToken), 9e7, 11e7);
         vm.prank(owner);
         oracle.postState(address(baseToken1), baseToken1StartPrice, .001 ether, .000000001 ether);
         oracle.setRange(address(baseToken1), baseToken1StartPrice * 5 / 10, baseToken1StartPrice * 15 / 10);
