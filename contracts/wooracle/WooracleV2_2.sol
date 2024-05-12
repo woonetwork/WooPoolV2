@@ -91,7 +91,7 @@ contract WooracleV2_2 is Ownable, IWooracleV2_2 {
     }
 
     modifier onlyAdmin() {
-        require(owner() == msg.sender || isAdmin[msg.sender], "WooracleV2_2: !Admin");
+        require(owner() == msg.sender || isAdmin[msg.sender] || msg.sender == wooPP, "WooracleV2_2: !Admin");
         _;
     }
 
