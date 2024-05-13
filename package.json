@@ -76,6 +76,7 @@
   "dependencies": {
     "@layerzerolabs/solidity-examples": "^0.0.13",
     "@openzeppelin/contracts": "^4.9.3",
+    "@pythnetwork/pyth-sdk-solidity": "^3.1.0",
     "@uniswap/v3-periphery": "1.4.4"
   }
 }
