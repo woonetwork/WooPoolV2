@@ -129,10 +129,11 @@ contract WooRouterV3 is IWooRouterV3, Ownable, ReentrancyGuard {
 
         // Step 1: transfer the source tokens to WooRouterV3
         if (isFromETH) {
-            require(fromAmount <= msg.value, "WooRouterV3: fromAmount_INVALID");
+            require(fromAmount == msg.value, "WooRouterV3: !msg.value");
             IWETH(WETH).deposit{value: msg.value}();
             TransferHelper.safeTransfer(WETH, address(wooPP), fromAmount);
         } else {
+            require(0 == msg.value, "WooRouterV3: !msg.value");
             TransferHelper.safeTransferFrom(fromToken, msg.sender, address(wooPP), fromAmount);
         }
 
