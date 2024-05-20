@@ -129,10 +129,11 @@ contract WooRouterV2 is IWooRouterV2, Ownable, ReentrancyGuard {
 
         // Step 1: transfer the source tokens to WooRouter
         if (isFromETH) {
-            require(fromAmount <= msg.value, "WooRouter: fromAmount_INVALID");
+            require(fromAmount == msg.value, "WooRouter: !msg.value");
             IWETH(WETH).deposit{value: msg.value}();
             TransferHelper.safeTransfer(WETH, address(wooPool), fromAmount);
         } else {
+            require(0 == msg.value, "WooRouter: !msg.value");
             TransferHelper.safeTransferFrom(fromToken, msg.sender, address(wooPool), fromAmount);
         }
 
