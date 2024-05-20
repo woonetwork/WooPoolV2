@@ -68,7 +68,7 @@ contract WooRouterV3 is IWooRouterV3, Ownable, ReentrancyGuard {
 
     receive() external payable {
         // only accept ETH from WETH or whitelisted external swaps.
-        assert(msg.sender == WETH || isWhitelisted[msg.sender]);
+        require(msg.sender == WETH || isWhitelisted[msg.sender], "!sender");
     }
 
     /* ----- Query & swap APIs ----- */
