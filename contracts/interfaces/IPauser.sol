@@ -43,6 +43,8 @@ interface IPauser {
     /* ----- External Functions ----- */
 
     function isPauseRole(address account) external view returns (bool);
+
+    function isUnpauseRole(address account) external view returns (bool);
 }
 
 interface IPauseContract {
