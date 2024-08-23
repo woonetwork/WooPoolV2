@@ -38,16 +38,17 @@ interface IPauser {
     /* ----- Events ----- */
 
     event PauseRoleUpdated(address indexed addr, bool flag);
+    event UnpauseRoleUpdated(address indexed addr, bool flag);
 
     /* ----- External Functions ----- */
 
     function isPauseRole(address account) external view returns (bool);
-
 }
 
 interface IPauseContract {
-
     /* ----- External Functions ----- */
-    
+
     function pause() external;
+
+    function unpause() external;
 }

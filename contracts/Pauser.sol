@@ -39,11 +39,16 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IPauser, IPauseContract} from "./interfaces/IPauser.sol";
 
 contract Pauser is IPauser, Ownable {
-
     mapping(address => bool) public isPauseRole;
+    mapping(address => bool) public isUnpauseRole;
 
     modifier onlyPauseRole() {
         require(msg.sender == owner() || isPauseRole[msg.sender], "Pauser: not pause role");
+        _;
+    }
+
+    modifier onlyUnpauseRole() {
+        require(msg.sender == owner() || isUnpauseRole[msg.sender], "Pauser: not unpause role");
         _;
     }
 
@@ -51,8 +56,17 @@ contract Pauser is IPauser, Ownable {
         IPauseContract(pauseContract).pause();
     }
 
+    function unpause(address unpauseContract) external onlyUnpauseRole {
+        IPauseContract(unpauseContract).unpause();
+    }
+
     function setPauseRole(address addr, bool flag) external onlyOwner {
         isPauseRole[addr] = flag;
         emit PauseRoleUpdated(addr, flag);
+    }
+
+    function setUnpauseRole(address addr, bool flag) external onlyOwner {
+        isUnpauseRole[addr] = flag;
+        emit UnpauseRoleUpdated(addr, flag);
     }
 }
