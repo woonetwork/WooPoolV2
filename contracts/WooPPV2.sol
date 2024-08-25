@@ -164,7 +164,7 @@ contract WooPPV2 is Ownable, ReentrancyGuard, Pausable, IWooPPV2 {
             // case 2: fromToken --> quoteToken
             realToAmount = _sellBase(fromToken, fromAmount, minToAmount, to, rebateTo);
         } else {
-            // case 3: fromToken --> toToken (base to base)
+            // case 3: fromToken --> quoteToken --> toToken (base to base)
             realToAmount = _swapBaseToBase(fromToken, toToken, fromAmount, minToAmount, to, rebateTo);
         }
     }
