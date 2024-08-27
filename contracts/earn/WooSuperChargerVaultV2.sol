@@ -379,6 +379,11 @@ contract WooSuperChargerVaultV2 is ERC20, Ownable, Pausable, ReentrancyGuard {
 
     // --- Admin operations --- //
 
+    /* NOTE: this method is for fund rescue in emergency. */
+    function setIsSettling(bool _isSettling) external onlyOwner {
+        isSettling = _isSettling;
+    }
+
     function weeklyNeededAmountForWithdraw() public view returns (uint256) {
         uint256 reserveBal = reserveBalance();
         uint256 requestedAmount = requestedTotalAmount();
@@ -436,6 +441,53 @@ contract WooSuperChargerVaultV2 is ERC20, Ownable, Pausable, ReentrancyGuard {
         instantWithdrawCap = totalBalance / 10;
 
         emit WeeklySettleEnded(msg.sender, totalBalance, lendingBalance(), reserveBalance());
+    }
+
+    function batchEndWeeklySettle(uint256 _length) public onlyAdmin {
+        require(isSettling, "!SETTLING");
+        // require(weeklyNeededAmountForWithdraw() == 0, "WEEKLY_REPAY_NOT_CLEARED");
+
+        uint256 sharePrice = getPricePerFullShare();
+        uint256 _batchWithdrawAmount = 0;
+        uint256 _batchRequestedShares = 0;
+
+        require(_length <= requestUsers.length(), "!batch_length");
+        for (uint256 i = 0; i < _length; i++) {
+            address user = requestUsers.at(0);
+            uint256 _amount = (requestedWithdrawShares[user] * sharePrice) / 1e18;
+
+            _batchWithdrawAmount += _amount;
+            _batchRequestedShares += requestedWithdrawShares[user];
+            withdrawManager.addWithdrawAmount(user, _amount); // NOTE: accounting only, no fund transfering.
+
+            requestedWithdrawShares[user] = 0;
+            requestUsers.remove(user);
+        }
+
+        uint256 shares = _sharesUp(_batchWithdrawAmount, reserveVault.getPricePerFullShare());
+        reserveVault.withdraw(shares);
+
+        if (want == weth) {
+            IWETH(weth).deposit{value: _batchWithdrawAmount}(); // WETH for withdraw manager
+        }
+        require(available() >= _batchWithdrawAmount, "!available_amount_for_withdraw");
+
+        _burn(address(this), _batchRequestedShares);
+        requestedTotalShares -= _batchRequestedShares;
+
+        TransferHelper.safeTransfer(want, address(withdrawManager), _batchWithdrawAmount);
+
+        if (requestUsers.length() == 0) {
+            // NOTE: all settling finished
+            isSettling == false;
+
+            instantWithdrawnAmount = 0;
+            lendingManager.accureInterest();
+            uint256 totalBalance = balance();
+            instantWithdrawCap = totalBalance / 10;
+
+            emit WeeklySettleEnded(msg.sender, totalBalance, lendingBalance(), reserveBalance());
+        }
     }
 
     function migrateReserveVault(address _vault) external onlyOwner {
