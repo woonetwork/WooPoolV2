@@ -379,7 +379,7 @@ contract WooSuperChargerVaultV2 is ERC20, Ownable, Pausable, ReentrancyGuard {
 
     // --- Admin operations --- //
 
-    /* NOTE: this methdo is for fund rescue in emergency. */
+    /* NOTE: this method is for fund rescue in emergency. */
     function setIsSettling(bool _isSettling) external onlyOwner {
         isSettling = _isSettling;
     }
@@ -448,7 +448,7 @@ contract WooSuperChargerVaultV2 is ERC20, Ownable, Pausable, ReentrancyGuard {
         uint256 _batchWithdrawAmount = 0;
         uint256 _batchRequestedShares = 0;
 
-        require(_length <= requestUsers.length(), "!batch_lengt");
+        require(_length <= requestUsers.length(), "!batch_length");
         for (uint256 i = 0; i < _length; i++) {
             address user = requestUsers.at(0);
             uint256 _amount = (requestedWithdrawShares[user] * sharePrice) / 1e18;
