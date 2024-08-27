@@ -444,6 +444,9 @@ contract WooSuperChargerVaultV2 is ERC20, Ownable, Pausable, ReentrancyGuard {
     }
 
     function batchEndWeeklySettle(uint256 _length) public onlyAdmin {
+        require(isSettling, "!SETTLING");
+        // require(weeklyNeededAmountForWithdraw() == 0, "WEEKLY_REPAY_NOT_CLEARED");
+
         uint256 sharePrice = getPricePerFullShare();
         uint256 _batchWithdrawAmount = 0;
         uint256 _batchRequestedShares = 0;
@@ -455,7 +458,7 @@ contract WooSuperChargerVaultV2 is ERC20, Ownable, Pausable, ReentrancyGuard {
 
             _batchWithdrawAmount += _amount;
             _batchRequestedShares += requestedWithdrawShares[user];
-            withdrawManager.addWithdrawAmount(user, _amount);
+            withdrawManager.addWithdrawAmount(user, _amount); // NOTE: accounting only, no fund transfering.
 
             requestedWithdrawShares[user] = 0;
             requestUsers.remove(user);
@@ -465,7 +468,7 @@ contract WooSuperChargerVaultV2 is ERC20, Ownable, Pausable, ReentrancyGuard {
         reserveVault.withdraw(shares);
 
         if (want == weth) {
-            IWETH(weth).deposit{value: _batchWithdrawAmount}();
+            IWETH(weth).deposit{value: _batchWithdrawAmount}(); // WETH for withdraw manager
         }
         require(available() >= _batchWithdrawAmount, "!available_amount_for_withdraw");
 
@@ -475,6 +478,7 @@ contract WooSuperChargerVaultV2 is ERC20, Ownable, Pausable, ReentrancyGuard {
         TransferHelper.safeTransfer(want, address(withdrawManager), _batchWithdrawAmount);
 
         if (requestUsers.length() == 0) {
+            // NOTE: all settling finished
             isSettling == false;
 
             instantWithdrawnAmount = 0;
