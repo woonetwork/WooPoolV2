@@ -95,7 +95,7 @@ contract DataProvider is IDataProvider {
         assembly {
             chainId := chainid()
         }
-        if (chainId == 10) {
+        if (chainId == 10 || chainId == 5000) {
             for (uint256 i = 0; i < length; i++) {
                 (pendingWooAmounts[i], ) = IMasterChefWooInfo(masterChefWoo).pendingReward(pids[i], user);
                 pendingXWooAmounts[i] = pendingWooAmounts[i];
