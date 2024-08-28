@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.14;
 
-import "../interfaces/AggregatorV3Interface.sol";
+import "../../contracts/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract TestChainLink is AggregatorV3Interface, Ownable {
@@ -34,7 +34,7 @@ contract TestChainLink is AggregatorV3Interface, Ownable {
             uint80 answeredInRound
         )
     {
-        return (36893488147419375519, 2119577093131, 1661310103, 1661310103, 36893488147419375519);
+        return (36893488147419375519, 80000000000, 1661310103, 1661310103, 36893488147419375519);
     }
 
     function latestRoundData()
@@ -49,7 +49,7 @@ contract TestChainLink is AggregatorV3Interface, Ownable {
             uint80 answeredInRound
         )
     {
-        return (36893488147419375519, 2119577093131, 1661310103, 1661310103, 36893488147419375519);
+        return (36893488147419375519, 80000000000, 1661310103, 1661310103, 36893488147419375519);
     }
 }
 
@@ -83,7 +83,7 @@ contract TestQuoteChainLink is AggregatorV3Interface, Ownable {
             uint80 answeredInRound
         )
     {
-        return (36893488147419109665, 99994997, 1661309776, 1661309776, 36893488147419109665);
+        return (36893488147419109665, 100000000, 1661309776, 1661309776, 36893488147419109665);
     }
 
     function latestRoundData()
@@ -98,6 +98,6 @@ contract TestQuoteChainLink is AggregatorV3Interface, Ownable {
             uint80 answeredInRound
         )
     {
-        return (36893488147419109665, 99994997, 1661309776, 1661309776, 36893488147419109665);
+        return (36893488147419109665, 100000000, 1661309776, 1661309776, 36893488147419109665);
     }
 }

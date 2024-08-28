@@ -1,0 +1,11 @@
+testMode: "assertion"
+prefix: "invariant_"
+coverage: true
+corpusDir: "echidna"
+balanceAddr: 0x1043561a8829300000
+balanceContract: 0x1043561a8829300000
+filterFunctions: []
+cryticArgs: ["--foundry-compile-all", "--foundry-out-directory", "artifacts"]
+# increasing the max codesize to work around max codesize reached error
+codeSize: 0x6d60
+testLimit: 100000

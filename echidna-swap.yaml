@@ -1,0 +1,19 @@
+testMode: "assertion"
+prefix: "invariant_"
+coverage: true
+corpusDir: "echidna-swap"
+balanceAddr: 0x1043561a8829300000
+balanceContract: 0x1043561a8829300000
+filterFunctions: []
+cryticArgs: ["--foundry-compile-all", "--foundry-out-directory", "artifacts"]
+# increasing the max codesize to work around max codesize reached error
+codeSize: 0x7d60
+testLimit: 1000
+# seqLen: 10000
+sender: ["0x10000"]
+allowFFI: true
+#format: "text"
+# URL to fetch contracts over RPC
+#rpcUrl: "https://arb1.arbitrum.io/rpc"
+# block number to use when fetching over RPC
+#rpcBlock: 204293940
