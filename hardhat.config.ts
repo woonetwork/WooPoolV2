@@ -120,6 +120,10 @@ const config: HardhatUserConfig = {
       url: "https://goerli.base.org",
       accounts: accounts,
     },
+    mantle: {
+      url: "https://rpc.ankr.com/mantle",
+      accounts: accounts,
+    },
   },
   etherscan: {
     apiKey: {
@@ -148,6 +152,7 @@ const config: HardhatUserConfig = {
       base: process.env.BASESCAN_KEY !== undefined ? process.env.BASESCAN_KEY : "",
       baseGoerli: process.env.BASESCAN_KEY !== undefined ? process.env.BASESCAN_KEY : "",
       goerli: process.env.ETHERSCAN_KEY !== undefined ? process.env.ETHERSCAN_KEY : "",
+      mantle: process.env.MANTLESCAN_KEY !== undefined ? process.env.MANTLESCAN_KEY : "",
     },
     customChains: [
       {
@@ -196,6 +201,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: "https://api-goerli.basescan.org/api",
           browserURL: "https://goerli.basescan.org",
+        },
+      },
+      {
+        network: "mantle",
+        chainId: 5000,
+        urls: {
+          apiURL: "https://api.mantlescan.xyz/api",
+          browserURL: "https://mantlescan.xyz",
         },
       },
     ]
