@@ -133,7 +133,11 @@ contract WOOFiVaultV2 is IVaultV2, ERC20, Ownable, ReentrancyGuard {
 
         _mint(msg.sender, shares);
 
-        earn();
+        if (_isStratActive()) {
+            uint256 balanceAvail = available();
+            TransferHelper.safeTransfer(want, address(strategy), balanceAvail);
+            strategy.deposit();
+        }
     }
 
     function withdraw(uint256 shares) public override nonReentrant {
@@ -170,7 +174,7 @@ contract WOOFiVaultV2 is IVaultV2, ERC20, Ownable, ReentrancyGuard {
         }
     }
 
-    function earn() public override {
+    function earn() public override onlyAdmin {
         if (_isStratActive()) {
             uint256 balanceAvail = available();
             TransferHelper.safeTransfer(want, address(strategy), balanceAvail);
@@ -225,7 +229,11 @@ contract WOOFiVaultV2 is IVaultV2, ERC20, Ownable, ReentrancyGuard {
         stratCandidate.implementation = address(0);
         stratCandidate.proposedTime = 5000000000; // 100+ years to ensure proposedTime check
 
-        earn();
+        if (_isStratActive()) {
+            uint256 balanceAvail = available();
+            TransferHelper.safeTransfer(want, address(strategy), balanceAvail);
+            strategy.deposit();
+        }
     }
 
     function setApprovalDelay(uint256 _approvalDelay) external onlyAdmin {
