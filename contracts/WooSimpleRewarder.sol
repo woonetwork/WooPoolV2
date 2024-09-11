@@ -155,6 +155,19 @@ contract WooSimpleRewarder is IRewarder, Ownable, ReentrancyGuard {
         }
     }
 
+    /// @notice For migrate to new WooSimpleRewarder only
+    /// @param _users array of user address
+    /// @param _weAmounts array of user weToken amount they deposited to MasterChef
+    function migrateUserAmounts(address[] memory _users, uint256[] memory _weAmounts) external onlyOwner {
+        uint256 length = _users.length;
+        unchecked {
+            for (uint256 i = 0; i < length; i++) {
+                UserInfo storage user = userInfo[_users[i]];
+                user.amount = _weAmounts[i];
+            }
+        }
+    }
+
     /// @notice In case rewarder is stopped before emissions finished,
     /// @notice this function allows withdrawal of remaining tokens.
     function emergencyWithdraw() public onlyOwner {
