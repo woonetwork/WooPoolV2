@@ -44,13 +44,7 @@ contract WooUsdOFTCrossRouter is IWooUsdOFTCrossRouter, Ownable, Pausable, Reent
 
     receive() external payable {}
 
-    constructor(
-        address _weth,
-        address _wooRouter,
-        address _crossFee,
-        address _feeAddr,
-        uint16 _lzChainIdLocal
-    ) {
+    constructor(address _weth, address _wooRouter, address _crossFee, address _feeAddr, uint16 _lzChainIdLocal) {
         weth = _weth;
         wooRouter = IWooRouterV3(_wooRouter);
         crossFee = IWooCrossFee(_crossFee);

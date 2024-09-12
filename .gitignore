@@ -16,3 +16,10 @@ cache-zk/
 package-lock.json
 
 .vscode
+
+# Foundry 
+
+# Fuzzers
+echidna/
+medusa/
+crytic-export/
