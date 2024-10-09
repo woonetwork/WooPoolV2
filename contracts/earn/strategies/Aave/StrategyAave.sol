@@ -21,11 +21,9 @@ contract StrategyAave is BaseStrategy {
     address public rewardTreasury;
     uint256 public lastHarvest;
 
-    /* ----- Constant Variables ----- */
-
-    address public constant aavePool = address(0x794a61358D6845594F94dc1DB02A252b5b4814aD); // Aave: Pool V3
-    address public constant incentivesController = address(0x929EC64c34a17401F460460D4B9390518E5B473e); // Aave: Incentives V3
-    address public constant dataProvider = address(0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654); // Aave: Pool Data Provider V3
+    address public aavePool;
+    address public incentivesController;
+    address public dataProvider;
 
     /* ----- Events ----- */
 
@@ -37,6 +35,10 @@ contract StrategyAave is BaseStrategy {
         address _accessManager,
         address _rewardTreasury
     ) BaseStrategy(_vault, _accessManager) {
+        aavePool = address(0x794a61358D6845594F94dc1DB02A252b5b4814aD); // Aave: Pool V3
+        incentivesController = address(0x929EC64c34a17401F460460D4B9390518E5B473e); // Aave: Incentives V3
+        dataProvider = address(0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654); // Aave: Pool Data Provider V3
+
         rewardAssets = IAaveV3Incentives(incentivesController).getRewardsList();
         (address aToken, , ) = IAaveDataProvider(dataProvider).getReserveTokensAddresses(want);
         aAssets[0] = aToken;
@@ -111,9 +113,7 @@ contract StrategyAave is BaseStrategy {
     }
 
     function _withdrawAll() internal {
-        if (balanceOfPool() > 0) {
-            IAavePool(aavePool).withdraw(want, type(uint256).max, address(this));
-        }
+        IAavePool(aavePool).withdraw(want, type(uint256).max, address(this));
     }
 
     /* ----- Admin Functions ----- */
@@ -138,5 +138,24 @@ contract StrategyAave is BaseStrategy {
     function updateRewardTreasury(address addr) external onlyAdmin {
         require(addr != address(0), "StrategyAave: !rewardTreasury");
         rewardTreasury = addr;
+    }
+
+    function setAavePool(address _aavePool) external onlyAdmin {
+        _removeAllowances(); // revoke access of the legacy aavePool
+
+        aavePool = _aavePool;
+
+        _giveAllowances();  // approve the new aavePool
+    }
+
+    function setIncentivesController(address _incentivesController) external onlyAdmin {
+        incentivesController = _incentivesController;
+        rewardAssets = IAaveV3Incentives(_incentivesController).getRewardsList();
+    }
+
+    function setDataProvider(address _dataProvider) external onlyAdmin {
+        dataProvider = _dataProvider;
+        (address aToken, , ) = IAaveDataProvider(dataProvider).getReserveTokensAddresses(want);
+        aAssets[0] = aToken;
     }
 }
