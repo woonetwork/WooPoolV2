@@ -14,8 +14,8 @@ import "forge-std/console.sol";
 
 contract AMMTests is TestHelpers {
 
-    WooPPV2 public pool = WooPPV2(0xEd9e3f98bBed560e66B89AaC922E29D4596A9642);
-    WooracleV2_2 public oracle = WooracleV2_2(0x2A375567f5E13F6bd74fDa7627Df3b1Af6BfA5a6);
+    WooPPV2 public pool = WooPPV2(0x5520385bFcf07Ec87C4c53A7d8d65595Dff69FA4);
+    WooracleV2_2 public oracle = WooracleV2_2(0xCf4EA1688bc23DD93D933edA535F8B72FC8934Ec);
 
     address private constant USDC_TOKEN = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // quote
     address private constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
